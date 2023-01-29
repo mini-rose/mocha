@@ -1,0 +1,58 @@
+---
+Language: Cpp
+Standard: c++20
+IncludeBlocks: Regroup
+UseTab: ForContinuationAndIndentation
+AllowShortIfStatementsOnASingleLine: false
+IndentWidth: 4
+TabWidth: 4
+IndentCaseLabels: false
+AccessModifierOffset: -2
+IndentAccessModifiers: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: None
+# BreakBeforeConceptDeclarations: yes
+BreakConstructorInitializers: BeforeComma
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterEnum: true
+  AfterStruct: true
+  AfterFunction: true
+  AfterClass: true
+  AfterUnion: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  BeforeCatch: false
+  BeforeElse: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
+AlwaysBreakTemplateDeclarations: Yes
+SpaceAfterTemplateKeyword: true
+SpaceAfterCStyleCast: true
+PointerAlignment: Right
+ReferenceAlignment: Left
+AlignOperands: AlignAfterOperator
+AlignConsecutiveMacros: true
+ColumnLimit: 80
+SpaceBeforeSquareBrackets: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: Custom
+SpaceBeforeParensOptions:
+  AfterControlStatements: true
+  AfterFunctionDefinitionName: false
+  AfterOverloadedOperator: false
+SpacesInCStyleCastParentheses: false
+BitFieldColonSpacing: Both
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+IndentGotoLabels: false
+IndentPPDirectives: AfterHash
+PPIndentWidth: 1
+
+# Experimental
+SpaceInEmptyBlock: true
+
+# Maybe this should be `Leave` if something goes wrong
+SeparateDefinitionBlocks: Leave
+...
