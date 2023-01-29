@@ -222,6 +222,12 @@ token_list *tokens(const char *path)
 			}
 
 			char str[] = {*p, 0};
+
+			if (*p == ' ') {
+				p++;
+				continue;
+			}
+
 			tok = token_new(PUNCT, str);
 			token_list_append(list, tok);
 

@@ -1,0 +1,6 @@
+fn main() {
+	a: int = 1
+	b: int = 2
+
+	ret a + b
+}
