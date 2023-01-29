@@ -15,7 +15,7 @@ file *file_new(const char *path)
 		error("Cannot allocate memory.");
 
 	if ((input = fopen(path, "r")) == NULL)
-		error("Cannot open file - '%s'", path);
+		error("Cannot open file - \'%s\'", path);
 
 	fseek(input, 0L, SEEK_END);
 	size = ftell(input);
