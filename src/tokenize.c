@@ -53,8 +53,9 @@ token *token_new(token_t type, const char *value)
 
 void token_print(token *tok)
 {
-	static const char *tok_str[] = {"OPERATOR", "DATATYPE", "KEYWORD", "NUMBER",
-									"STRING",   "IDENT",    "PUNCT",   "END"};
+	static const char *tok_str[] = {"OPERATOR", "DATATYPE", "KEYWORD",
+					"NUMBER",   "STRING",   "IDENT",
+					"PUNCT",    "END"};
 
 	printf("%s: '%s'", tok_str[tok->type], tok->value);
 }
