@@ -99,8 +99,8 @@ static char *strend(char *p)
 
 static bool is_keyword(const char *str)
 {
-	static const char *keywords[] = {"fn",   "ret", "if",   "elif",
-									 "else", "for", "while"};
+	static const char *keywords[] = {"fn",  "ret",   "if",  "elif", "else",
+					 "for", "while", "and", "or",   "not"};
 
 	for (int i = 0; i < sizeof(keywords) / sizeof(*keywords); i++)
 		if (!strcmp(str, keywords[i]))
@@ -206,10 +206,9 @@ token_list *tokens(const char *path)
 		if (ispunct(*p)) {
 			token *tok;
 
-			static char *operators[] = {
-				"<<=", ">>=", "...", "==", "!=", "<=", ">=", "->",
-				"+=",  "-=",  "*=",  "/=", "++", "--", "%=", "&=",
-				"|=",  "^=",  "&&",  "||", "<<", ">>", "##", "->"};
+			static char *operators[] = {"=",  "==", "!=", "+",  "-",
+						    "--", "++", "-=", "+=", "/",
+						    "%",  "/=", "%="};
 
 			for (int i = 0; i < sizeof(operators) / sizeof(*operators);
 				 i++) {
