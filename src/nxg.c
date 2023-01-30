@@ -1,4 +1,5 @@
-#include <parser.h>
+#include <nxg/nxg.h>
+#include <nxg/parser.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,7 +7,16 @@
 
 static inline void help()
 {
-	puts("Usage: nxg [input...] -o [output]");
+	puts("usage: nxg [-o output] [other options] <input>...\n"
+	     "Compile a single or multiple coffee source code files into an "
+	     "executable.");
+	exit(0);
+}
+
+static inline void version()
+{
+	printf("nxg %d.%d\n", NXG_MAJOR, NXG_MINOR);
+	exit(0);
 }
 
 static void compile(const char *path, const char *output)
@@ -22,13 +32,29 @@ int main(int argc, char **argv)
 	char *output = "a.out";
 	int opt;
 
-	while ((opt = getopt(argc, argv, "o:h")) != -1) {
+	if (argc == 1)
+		help();
+
+	for (int i = 0; i < argc; i++) {
+		if (!strncmp(argv[i], "--help", 6))
+			help();
+		if (!strncmp(argv[i], "--version", 10))
+			version();
+	}
+
+	/* NOTE: for our uses, we might want to use a custom argument parser to
+	   allow for more complex combinations (along with long options). */
+
+	while ((opt = getopt(argc, argv, "o:hv")) != -1) {
 		switch (opt) {
-			case 'o':
-				output = optarg;
-				break;
-			case 'h':
-				help();
+		case 'o':
+			output = optarg;
+			break;
+		case 'h':
+			help();
+			break;
+		case 'v':
+			version();
 		}
 	}
 

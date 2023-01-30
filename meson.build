@@ -14,5 +14,5 @@ executable(
   'nxg', sources,
   include_directories: includes,
   cpp_args: ['-O0', '-g'],
-  link_args: ['-fsanitize=address', '-Weverything']
+  link_args: ['-fsanitize=address', '-Wall', '-Wextra', '-pedantic']
 )

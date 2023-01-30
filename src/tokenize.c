@@ -1,19 +1,19 @@
 #include <ctype.h>
-#include <error.h>
-#include <file.h>
 #include <memory.h>
+#include <nxg/error.h>
+#include <nxg/file.h>
+#include <nxg/tokenize.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tokenize.h>
 
 static void token_destroy(token *tok);
 
 void token_list_append(token_list *list, token *tok)
 {
 	list->tokens =
-		(token **) realloc(list->tokens, ++list->lenght * sizeof(token));
+	    (token **) realloc(list->tokens, ++list->lenght * sizeof(token));
 	list->tokens[list->lenght - 1] = tok;
 }
 
@@ -132,7 +132,8 @@ token_list *tokens(const char *path)
 			char *q = strstr(p + 2, "*/");
 
 			if (!q)
-				error_at(f->content, p, "Unterminated comment.");
+				error_at(f->content, p,
+					 "Unterminated comment.");
 
 			p += 2;
 			continue;
@@ -149,7 +150,8 @@ token_list *tokens(const char *path)
 			char *q = strend(p++);
 
 			if (!q)
-				error_at(f->content, p - 1, "Unterminated quoted string.");
+				error_at(f->content, p - 1,
+					 "Unterminated quoted string.");
 
 			str = push_str(p, q);
 			tok = token_new(STRING, str);
@@ -210,9 +212,10 @@ token_list *tokens(const char *path)
 						    "--", "++", "-=", "+=", "/",
 						    "%",  "/=", "%="};
 
-			for (int i = 0; i < sizeof(operators) / sizeof(*operators);
-				 i++) {
-				if (!strncmp(p, operators[i], strlen(operators[i]))) {
+			for (int i = 0;
+			     i < sizeof(operators) / sizeof(*operators); i++) {
+				if (!strncmp(p, operators[i],
+					     strlen(operators[i]))) {
 					tok = token_new(OPERATOR, operators[i]);
 					token_list_append(list, tok);
 

@@ -1,4 +1,5 @@
-#include <error.h>
+#include <nxg/error.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -42,8 +43,8 @@ void error_at(const char *content, const char *pos, const char *format, ...)
 	while (*end && *end != '\n')
 		end++;
 
-	fprintf(stderr, "%i\t%.*s\n \t%*s↑ \e[31m", line, (int) (end - start), start,
-			(int) (pos - start), "");
+	fprintf(stderr, "%i\t%.*s\n \t%*s↑ \e[31m", line, (int) (end - start),
+		start, (int) (pos - start), "");
 
 	fprintf(stderr, format, ap);
 	fputs("\e[0m\n", stderr);
