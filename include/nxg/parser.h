@@ -31,8 +31,9 @@ typedef struct
 typedef struct
 {
 	plain_type **args;
-	plain_type returns;
+	plain_type return_type;
 	char *name;
+	int n_args;
 } fn_expr_t;
 
 typedef void (*expr_free_handle)(void *expr);
@@ -50,5 +51,5 @@ struct expr
 #define E_AS_MOD(DATAPTR) ((mod_expr_t *) (DATAPTR))
 #define E_AS_FN(DATAPTR)  ((fn_expr_t *) (DATAPTR))
 
-expr_t *parse(file *source, token_list *list);
+expr_t *parse(token_list *list);
 void expr_destroy(expr_t *expr);

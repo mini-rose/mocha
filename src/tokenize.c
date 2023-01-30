@@ -40,13 +40,13 @@ void token_destroy(token *tok)
 	free(tok);
 }
 
-token *token_new(token_t type, const char *value)
+token *token_new(token_t type, const char *value, int len)
 {
 	token *tok = (token *) malloc(sizeof(token));
 
-	tok->value = (const char *) calloc(1, strlen(value) * sizeof(char) + 1);
 	tok->type = type;
-	strcpy((char *) tok->value, value);
+	tok->value = value;
+	tok->len = len;
 
 	return tok;
 }
@@ -57,7 +57,7 @@ void token_print(token *tok)
 					"KEYWORD",  "NUMBER",   "STRING",
 					"IDENT",    "PUNCT",    "END"};
 
-	printf("%s: '%s'", tok_str[tok->type], tok->value);
+	printf("%s: '%.*s'", tok_str[tok->type], tok->len, tok->value);
 }
 
 void token_list_print(token_list *list)
@@ -126,6 +126,8 @@ token_list *tokens(file *source)
 	token_list *list = token_list_new();
 	file *f = source;
 
+	list->source = source;
+
 	char *p = f->content;
 
 	while (*p) {
@@ -153,7 +155,6 @@ token_list *tokens(file *source)
 		}
 
 		if (*p == '\'' || *p == '"') {
-			char *str;
 			token *tok;
 			char *q = strend(p++);
 
@@ -161,10 +162,8 @@ token_list *tokens(file *source)
 				error_at(f->content, p - 1,
 					 "Unterminated quoted string.");
 
-			str = push_str(p, q);
-			tok = token_new(T_STRING, str);
+			tok = token_new(T_STRING, p, q - p);
 			token_list_append(list, tok);
-			free(str);
 
 			p += q - p + 1;
 			continue;
@@ -181,11 +180,11 @@ token_list *tokens(file *source)
 			str = push_str(p, q);
 
 			if (is_keyword(str))
-				tok = token_new(T_KEYWORD, str);
+				tok = token_new(T_KEYWORD, p, q - p);
 			else if (is_type(str))
-				tok = token_new(T_DATATYPE, str);
+				tok = token_new(T_DATATYPE, p, q - p);
 			else
-				tok = token_new(T_IDENT, str);
+				tok = token_new(T_IDENT, p, q - p);
 
 			token_list_append(list, tok);
 			free(str);
@@ -195,7 +194,6 @@ token_list *tokens(file *source)
 
 		if (isdigit(*p) || (*p == '.' && isdigit(*(p + 1)))) {
 			token *tok;
-			char *str;
 			char *q = p;
 
 			if (*q == '.')
@@ -204,10 +202,8 @@ token_list *tokens(file *source)
 			while (isdigit(*q) || *q == '.')
 				q++;
 
-			str = push_str(p, q);
-			tok = token_new(T_NUMBER, str);
+			tok = token_new(T_NUMBER, p, q - p);
 			token_list_append(list, tok);
-			free(str);
 
 			p += q - p;
 			continue;
@@ -224,8 +220,8 @@ token_list *tokens(file *source)
 			     i < sizeof(operators) / sizeof(*operators); i++) {
 				if (!strncmp(p, operators[i],
 					     strlen(operators[i]))) {
-					tok =
-					    token_new(T_OPERATOR, operators[i]);
+					tok = token_new(T_OPERATOR, p,
+							strlen(operators[i]));
 					token_list_append(list, tok);
 
 					p += strlen(operators[i]);
@@ -233,14 +229,12 @@ token_list *tokens(file *source)
 				}
 			}
 
-			char str[] = {*p, 0};
-
 			if (*p == ' ') {
 				p++;
 				continue;
 			}
 
-			tok = token_new(T_PUNCT, str);
+			tok = token_new(T_PUNCT, p, 1);
 			token_list_append(list, tok);
 
 			p++;
@@ -250,8 +244,20 @@ token_list *tokens(file *source)
 		p++;
 	}
 
-	token *tok = token_new(T_END, "");
+	token *tok = token_new(T_END, p, 0);
 	token_list_append(list, tok);
 
 	return list;
+}
+
+const char *tokname(token_t toktype)
+{
+	static const char *toknames[] = {
+	    "operator", "datatype",   "keyword",     "number",
+	    "string",   "identifier", "punctuation", "end"};
+	static const int siz = sizeof(toknames) / sizeof(*toknames);
+
+	if (toktype < 0 || toktype >= siz)
+		return "<tokname() failed>";
+	return toknames[toktype];
 }

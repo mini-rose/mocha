@@ -2,6 +2,7 @@
 
 #include <nxg/file.h>
 
+/* Changing the order of the fields will break tokname() */
 typedef enum
 {
 	T_OPERATOR,
@@ -15,14 +16,18 @@ typedef enum
 	T_END
 } token_t;
 
+const char *tokname(token_t toktype);
+
 typedef struct
 {
 	token_t type;
 	const char *value;
+	int len;
 } token;
 
 typedef struct
 {
+	file *source;
 	token **tokens;
 	int length;
 } token_list;

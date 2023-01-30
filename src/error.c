@@ -46,7 +46,7 @@ void error_at(const char *content, const char *pos, const char *format, ...)
 	fprintf(stderr, "%i\t%.*s\n \t%*s↑ \e[31m", line, (int) (end - start),
 		start, (int) (pos - start), "");
 
-	fprintf(stderr, format, ap);
+	vfprintf(stderr, format, ap);
 	fputs("\e[0m\n", stderr);
 
 	va_end(ap);

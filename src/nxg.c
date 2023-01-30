@@ -25,7 +25,7 @@ static void compile(const char *input, const char *output)
 {
 	file *source = file_new(input);
 	token_list *list = tokens(source);
-	expr_t *ast = parse(source, list);
+	expr_t *ast = parse(list);
 
 	(void) ast;
 
