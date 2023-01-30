@@ -3,6 +3,7 @@
 #include <nxg/error.h>
 #include <nxg/file.h>
 #include <nxg/tokenize.h>
+#include <nxg/type.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,30 +94,6 @@ static char *strend(char *p)
 	return p;
 }
 
-static bool is_keyword(const char *str)
-{
-	static const char *keywords[] = {"fn",  "ret",   "if",  "elif", "else",
-					 "for", "while", "and", "or",   "not"};
-
-	for (int i = 0; i < sizeof(keywords) / sizeof(*keywords); i++)
-		if (!strcmp(str, keywords[i]))
-			return true;
-
-	return false;
-}
-
-static bool is_type(const char *str)
-{
-	static const char *keywords[] = {"str", "bool", "i8",  "i16",
-					 "i32", "i64",  "f32", "f64"};
-
-	for (int i = 0; i < sizeof(keywords) / sizeof(*keywords); i++)
-		if (!strcmp(str, keywords[i]))
-			return true;
-
-	return false;
-}
-
 token_list *tokens(file *source)
 {
 	token_t last;
@@ -179,7 +156,7 @@ token_list *tokens(file *source)
 
 			str = push_str(p, q);
 
-			if (is_keyword(str))
+			if (is_kw(str))
 				tok = token_new(last = T_KEYWORD, p, q - p);
 			else if (is_type(str))
 				tok = token_new(last = T_DATATYPE, p, q - p);

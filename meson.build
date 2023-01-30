@@ -7,7 +7,8 @@ sources = [
   'src/tokenize.c',
   'src/file.c',
   'src/error.c',
-  'src/parser.c'
+  'src/parser.c',
+  'src/type.c'
 ]
 
 executable(

@@ -32,13 +32,18 @@ typedef struct
 	char *name;
 } mod_expr_t;
 
-/* function declaration */
+typedef struct {
+	char *name;
+	plain_type type;
+} arg_t;
+
+/* function definition */
 typedef struct
 {
-	plain_type **args;
-	plain_type return_type;
-	char *name;
 	int n_args;
+	arg_t **args;
+	char *name;
+	plain_type return_type;
 } fn_expr_t;
 
 /* variable declaration */

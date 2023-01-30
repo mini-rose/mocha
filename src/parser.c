@@ -13,6 +13,13 @@ static void mod_expr_free(mod_expr_t *module)
 static void fn_expr_free(fn_expr_t *function)
 {
 	free(function->name);
+
+	for (int i = 0; i < function->n_args; i++) {
+		free(function->args[i]->name);
+		free(function->args[i]);
+	}
+
+	free(function->args);
 }
 
 static void var_expr_free(var_expr_t *variable)
@@ -52,6 +59,26 @@ static expr_t *expr_add_child(expr_t *parent)
 	return node;
 }
 
+static plain_type type_index(const char *str, int length)
+{
+	static const char *types[] = {"",    "str", "i8",  "i16",  "i32",
+				      "i64", "f32", "f64", "bool", ""};
+
+	for (int i = 0; i < sizeof(types) / sizeof(types[0]); i++)
+		if (!strncmp(str, types[i], length))
+			return i;
+
+	return 0;
+}
+
+static void fn_args_append(fn_expr_t *fn, token *name, token *type)
+{
+	fn->args = realloc(fn->args, sizeof(arg_t) * ++fn->n_args);
+	fn->args[fn->n_args - 1] = malloc(sizeof(arg_t));
+	fn->args[fn->n_args - 1]->name = strndup(name->value, name->len);
+	fn->args[fn->n_args - 1]->type = type_index(type->value, type->len);
+}
+
 #define TOK_IS(TOK, TYPE, VALUE)                                               \
  (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
 
@@ -67,6 +94,7 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 	node->type = E_FUNCTION;
 	node->data = data;
 	node->data_free = (expr_free_handle) fn_expr_free;
+	data->n_args = 0;
 
 	tok = next_tok(NULL);
 
@@ -88,15 +116,45 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 	}
 
 	tok = next_tok(NULL);
+	int is_first = 1;
 	while (!TOK_IS(tok, T_PUNCT, ")")) {
-		if (tok->type == T_END) {
-			error_at(tokens->source->content, tok->value,
-				 "end of function parameter list for `%s()` "
-				 "function not found",
-				 data->name);
-			return ERR_SYNTAX;
+		token *name;
+		token *type;
+
+		if (TOK_IS(tok, T_PUNCT, ",") && !is_first) {
+			tok = next_tok(NULL);
+			continue;
 		}
 
+		if (tok->type != T_IDENT) {
+			error_at(tokens->source->content, tok->value,
+				 "expected argument name");
+			return ERR_SYNTAX;
+		} else {
+			name = tok;
+
+			tok = next_tok(NULL);
+			if (!TOK_IS(tok, T_PUNCT, ":")) {
+				error_at(tokens->source->content, tok->value,
+					 "missing type for '%.*s' argument.",
+					 name->len, name->value);
+				return ERR_SYNTAX;
+			}
+
+			tok = next_tok(NULL);
+			if (tok->type != T_DATATYPE) {
+				error_at(tokens->source->content, tok->value,
+					 "expected type got: '%.*s'.", tok->len,
+					 tok->value);
+				return ERR_SYNTAX;
+			}
+
+			type = tok;
+		}
+
+		fn_args_append(data, name, type);
+
+		is_first = 0;
 		tok = next_tok(NULL);
 	}
 
@@ -131,18 +189,6 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 	return 0;
 }
 
-static plain_type type_index(const char *str)
-{
-	static const char *types[] = {"",    "str", "i8",  "i16",  "i32",
-				      "i64", "f32", "f64", "bool", ""};
-
-	for (int i = 0; i < sizeof(types) / sizeof(types[0]); i++)
-		if (!strcmp(str, types[i]))
-			return i;
-
-	return 0;
-}
-
 static err_t parse_var(token_list *tokens, token *id, expr_t *parent)
 {
 	var_expr_t *data;
@@ -170,13 +216,7 @@ static err_t parse_var(token_list *tokens, token *id, expr_t *parent)
 				 "missing type name.");
 			return ERR_SYNTAX;
 		} else {
-
-			char str[32];
-
-			snprintf(str, sizeof(str), "%.*s", tok->len,
-				 tok->value);
-
-			plain_type type = type_index(str);
+			plain_type type = type_index(tok->value, tok->len);
 
 			if (type == 0) {
 				error_at(tokens->source->content, tok->value,
