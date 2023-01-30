@@ -158,6 +158,8 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 		tok = next_tok(NULL);
 	}
 
+	data->return_type = T_VOID;
+
 	/* return type (optional) */
 	tok = next_tok(NULL);
 	if (TOK_IS(tok, T_PUNCT, ":")) {
@@ -168,7 +170,7 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 			return ERR_SYNTAX;
 		}
 
-		/* TODO: set data->return_type */
+		data->return_type = type_index(tok->value, tok->len);
 	}
 
 	/* opening & closing braces */
