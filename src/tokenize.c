@@ -13,21 +13,21 @@ static void token_destroy(token *tok);
 void token_list_append(token_list *list, token *tok)
 {
 	list->tokens =
-	    (token **) realloc(list->tokens, ++list->lenght * sizeof(token));
-	list->tokens[list->lenght - 1] = tok;
+	    (token **) realloc(list->tokens, ++list->length * sizeof(token));
+	list->tokens[list->length - 1] = tok;
 }
 
 token_list *token_list_new()
 {
 	token_list *list = (token_list *) malloc(sizeof(token_list));
 	list->tokens = NULL;
-	list->lenght = 0;
+	list->length = 0;
 	return list;
 }
 
 void token_list_destroy(token_list *list)
 {
-	for (int i = 0; i < list->lenght; i++)
+	for (int i = 0; i < list->length; i++)
 		token_destroy(list->tokens[i]);
 
 	free(list->tokens);
@@ -63,12 +63,12 @@ void token_print(token *tok)
 void token_list_print(token_list *list)
 {
 	puts("[");
-	for (int i = 0; i < list->lenght; i++) {
+	for (int i = 0; i < list->length; i++) {
 		fputs("\t{", stdout);
 		token_print(list->tokens[i]);
 		fputs("}", stdout);
 
-		if (i + 1 != list->lenght)
+		if (i + 1 != list->length)
 			fputs(",\n", stdout);
 	}
 	puts("\n]");
@@ -154,7 +154,7 @@ token_list *tokens(const char *path)
 					 "Unterminated quoted string.");
 
 			str = push_str(p, q);
-			tok = token_new(STRING, str);
+			tok = token_new(T_STRING, str);
 			token_list_append(list, tok);
 			free(str);
 
@@ -173,11 +173,11 @@ token_list *tokens(const char *path)
 			str = push_str(p, q);
 
 			if (is_keyword(str))
-				tok = token_new(KEYWORD, str);
+				tok = token_new(T_KEYWORD, str);
 			else if (is_type(str))
-				tok = token_new(DATATYPE, str);
+				tok = token_new(T_DATATYPE, str);
 			else
-				tok = token_new(IDENT, str);
+				tok = token_new(T_IDENT, str);
 
 			token_list_append(list, tok);
 			free(str);
@@ -197,7 +197,7 @@ token_list *tokens(const char *path)
 				q++;
 
 			str = push_str(p, q);
-			tok = token_new(NUMBER, str);
+			tok = token_new(T_NUMBER, str);
 			token_list_append(list, tok);
 			free(str);
 
@@ -216,7 +216,8 @@ token_list *tokens(const char *path)
 			     i < sizeof(operators) / sizeof(*operators); i++) {
 				if (!strncmp(p, operators[i],
 					     strlen(operators[i]))) {
-					tok = token_new(OPERATOR, operators[i]);
+					tok =
+					    token_new(T_OPERATOR, operators[i]);
 					token_list_append(list, tok);
 
 					p += strlen(operators[i]);
@@ -231,7 +232,7 @@ token_list *tokens(const char *path)
 				continue;
 			}
 
-			tok = token_new(PUNCT, str);
+			tok = token_new(T_PUNCT, str);
 			token_list_append(list, tok);
 
 			p++;
@@ -241,7 +242,7 @@ token_list *tokens(const char *path)
 		p++;
 	}
 
-	token *tok = token_new(END, "");
+	token *tok = token_new(T_END, "");
 	token_list_append(list, tok);
 
 	file_destroy(f);
