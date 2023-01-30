@@ -110,7 +110,7 @@ token_list *tokens(file *source)
 				error_at(f->content, p,
 					 "Unterminated comment.");
 
-			p += 2;
+			p += q - p + 2;
 			continue;
 		}
 
@@ -223,6 +223,8 @@ token_list *tokens(file *source)
 
 	token *tok = token_new(T_END, p, 0);
 	token_list_append(list, tok);
+
+	token_list_print(list);
 
 	return list;
 }
