@@ -2,21 +2,18 @@
 
 #include <nxg/file.h>
 
-/* Changing the order of the fields will break tokname() */
 typedef enum
 {
-	T_OPERATOR,
-	T_DATATYPE,
-	T_NEWLINE,
-	T_KEYWORD,
-	T_NUMBER,
-	T_STRING,
-	T_IDENT,
-	T_PUNCT,
-	T_END
+	T_OPERATOR = 0,
+	T_DATATYPE = 1,
+	T_NEWLINE = 2,
+	T_KEYWORD = 3,
+	T_NUMBER = 4,
+	T_STRING = 5,
+	T_IDENT = 6,
+	T_PUNCT = 7,
+	T_END = 8
 } token_t;
-
-const char *tokname(token_t toktype);
 
 typedef struct
 {
@@ -32,6 +29,7 @@ typedef struct
 	int length;
 } token_list;
 
+const char *tokname(token_t toktype);
 token_list *tokens(file *source);
 void token_list_destroy(token_list *tok);
 void token_list_print(token_list *list);

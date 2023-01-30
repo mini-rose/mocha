@@ -12,8 +12,7 @@ static void token_destroy(token *tok);
 
 void token_list_append(token_list *list, token *tok)
 {
-	list->tokens =
-	    (token **) realloc(list->tokens, ++list->length * sizeof(token));
+	list->tokens = realloc(list->tokens, ++list->length * sizeof(token));
 	list->tokens[list->length - 1] = tok;
 }
 
@@ -29,7 +28,6 @@ void token_list_destroy(token_list *list)
 {
 	for (int i = 0; i < list->length; i++)
 		token_destroy(list->tokens[i]);
-
 	free(list->tokens);
 	free(list);
 }
@@ -42,12 +40,10 @@ void token_destroy(token *tok)
 
 token *token_new(token_t type, const char *value, int len)
 {
-	token *tok = (token *) malloc(sizeof(token));
-
+	token *tok = malloc(sizeof(token));
 	tok->type = type;
 	tok->value = value;
 	tok->len = len;
-
 	return tok;
 }
 
@@ -123,12 +119,10 @@ static bool is_type(const char *str)
 
 token_list *tokens(file *source)
 {
+	token_t last;
 	token_list *list = token_list_new();
 	file *f = source;
-	token_t last;
-
 	list->source = source;
-
 	char *p = f->content;
 
 	while (*p) {

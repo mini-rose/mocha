@@ -1,7 +1,5 @@
 #include <nxg/error.h>
 #include <nxg/parser.h>
-#include <nxg/tokenize.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -20,12 +18,9 @@ static token *next_tok(const token_list *list)
 	static const token_list *self = NULL;
 	static int current = -1;
 
-	if (self == NULL) {
-		self = list;
-		return self->tokens[0];
-	}
-
-	return self->tokens[++current];
+	return (self == NULL)
+		? (self = list)->tokens[0]
+		: self->tokens[++current];
 }
 
 static expr_t *expr_add_child(expr_t *parent)
@@ -33,10 +28,8 @@ static expr_t *expr_add_child(expr_t *parent)
 	expr_t *node = calloc(sizeof(*node), 1);
 	expr_t *walker = parent->child;
 
-	if (!parent->child) {
-		parent->child = node;
-		return node;
-	}
+	if (!parent->child)
+		return parent->child = node;
 
 	/* find the first empty slot in the linked list */
 	while (walker->next)
