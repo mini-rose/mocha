@@ -125,6 +125,7 @@ token_list *tokens(file *source)
 {
 	token_list *list = token_list_new();
 	file *f = source;
+	token_t last;
 
 	list->source = source;
 
@@ -143,10 +144,15 @@ token_list *tokens(file *source)
 		}
 
 		if (*p == '\n') {
-			token *tok = token_new(T_NEWLINE, p, 0);
-			token_list_append(list, tok);
-			p++;
-			continue;
+			if (last == T_NEWLINE) {
+				p++;
+				continue;
+			} else {
+				token *tok = token_new(last = T_NEWLINE, p, 0);
+				token_list_append(list, tok);
+				p++;
+				continue;
+			}
 		}
 
 		if (isspace(*p)) {
@@ -162,7 +168,7 @@ token_list *tokens(file *source)
 				error_at(f->content, p - 1,
 					 "Unterminated quoted string.");
 
-			tok = token_new(T_STRING, p, q - p);
+			tok = token_new(last = T_STRING, p, q - p);
 			token_list_append(list, tok);
 
 			p += q - p + 1;
@@ -180,11 +186,11 @@ token_list *tokens(file *source)
 			str = push_str(p, q);
 
 			if (is_keyword(str))
-				tok = token_new(T_KEYWORD, p, q - p);
+				tok = token_new(last = T_KEYWORD, p, q - p);
 			else if (is_type(str))
-				tok = token_new(T_DATATYPE, p, q - p);
+				tok = token_new(last = T_DATATYPE, p, q - p);
 			else
-				tok = token_new(T_IDENT, p, q - p);
+				tok = token_new(last = T_IDENT, p, q - p);
 
 			token_list_append(list, tok);
 			free(str);
@@ -202,7 +208,7 @@ token_list *tokens(file *source)
 			while (isdigit(*q) || *q == '.')
 				q++;
 
-			tok = token_new(T_NUMBER, p, q - p);
+			tok = token_new(last = T_NUMBER, p, q - p);
 			token_list_append(list, tok);
 
 			p += q - p;
@@ -220,7 +226,7 @@ token_list *tokens(file *source)
 			     i < sizeof(operators) / sizeof(*operators); i++) {
 				if (!strncmp(p, operators[i],
 					     strlen(operators[i]))) {
-					tok = token_new(T_OPERATOR, p,
+					tok = token_new(last = T_OPERATOR, p,
 							strlen(operators[i]));
 					token_list_append(list, tok);
 
@@ -234,7 +240,7 @@ token_list *tokens(file *source)
 				continue;
 			}
 
-			tok = token_new(T_PUNCT, p, 1);
+			tok = token_new(last = T_PUNCT, p, 1);
 			token_list_append(list, tok);
 
 			p++;
