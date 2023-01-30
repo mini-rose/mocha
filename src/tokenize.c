@@ -143,7 +143,7 @@ token_list *tokens(file *source)
 		}
 
 		if (*p == '\n') {
-			token *tok = token_new(T_NEWLINE, "");
+			token *tok = token_new(T_NEWLINE, p, 0);
 			token_list_append(list, tok);
 			p++;
 			continue;
