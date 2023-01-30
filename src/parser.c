@@ -121,7 +121,15 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 		token *name;
 		token *type;
 
-		if (TOK_IS(tok, T_PUNCT, ",") && !is_first) {
+		if (TOK_IS(tok, T_END, "")) {
+			error_at(tokens->source->content, tok->value,
+				 "expected ')'.");
+
+			return ERR_SYNTAX;
+		}
+
+		if ((TOK_IS(tok, T_PUNCT, ",") && !is_first)
+		    || tok->type == T_NEWLINE) {
 			tok = next_tok(NULL);
 			continue;
 		}
@@ -174,8 +182,6 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 	}
 
 	/* opening & closing braces */
-	tok = next_tok(NULL);
-
 	if (TOK_IS(tok, T_NEWLINE, ""))
 		tok = next_tok(NULL);
 
