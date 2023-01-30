@@ -84,19 +84,23 @@ static void fn_args_append(fn_expr_t *fn, token *name, token *type)
 #define TOK_IS(TOK, TYPE, VALUE)                                               \
  (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
 
+static int index_of_tok(token_list *tokens, token *tok)
+{
+	for (int i = 0; i < tokens->length; i++) {
+		if (tokens->tokens[i] == tok) {
+			return i;
+		}
+	}
+
+	return 0;
+}
+
 // Check pattern of variable declaration
 static bool is_var_decl(token_list *list, token *cur)
 {
-	int index = 0;
+	int index = index_of_tok(list, cur);
 	token *punct;
 	token *type;
-
-	for (int i = 0; i < list->length; i++) {
-		if (list->tokens[i] == cur) {
-			index = i;
-			break;
-		}
-	}
 
 	if (list->tokens[index + 1]->type == T_END
 	 && list->tokens[index + 2]->type == T_END)
@@ -112,17 +116,10 @@ static bool is_var_decl(token_list *list, token *cur)
 // Check pattern of variable definition
 static bool is_var_def(token_list *list, token *cur)
 {
-	int index = 0;
+	int index = index_of_tok(list, cur);
 	token *punct;
 	token *type;
 	token *operator;
-
-	for (int i = 0; i < list->length; i++) {
-		if (list->tokens[i] == cur) {
-			index = i;
-			break;
-		}
-	}
 
 	punct = list->tokens[index + 1];
 	type = list->tokens[index + 2];
