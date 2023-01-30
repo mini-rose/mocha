@@ -5,8 +5,13 @@ typedef enum
 {
 	T_NULL,
 	T_STR,
-	T_INT,
-	T_FLOAT,
+	T_I8,
+	T_I16,
+	T_I32,
+	T_I64,
+	T_I128,
+	T_F32,
+	T_F64,
 	T_BOOL,
 	T_VOID
 } plain_type;
@@ -16,6 +21,7 @@ typedef enum
 	E_MODULE,
 	E_FUNCTION,
 	E_CALL,
+	E_VARDEF,
 	E_VARDECL,
 	E_ASSIGN,
 } expr_type;
@@ -34,6 +40,21 @@ typedef struct
 	char *name;
 	int n_args;
 } fn_expr_t;
+
+/* variable declaration */
+typedef struct
+{
+	plain_type type;
+	char *name;
+} var_decl_expr_t;
+
+/* variable definition */
+typedef struct
+{
+	plain_type type;
+	char *name;
+	char *value;
+} var_expr_t;
 
 typedef void (*expr_free_handle)(void *expr);
 typedef struct expr expr_t;
