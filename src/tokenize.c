@@ -111,8 +111,8 @@ static bool is_keyword(const char *str)
 
 static bool is_type(const char *str)
 {
-	static const char *keywords[] = {"i1",  "i8",  "i16", "i32",
-					 "i64", "f32", "f64"};
+	static const char *keywords[] = {"str", "bool", "i8",  "i16",
+					 "i32", "i64",  "f32", "f64"};
 
 	for (int i = 0; i < sizeof(keywords) / sizeof(*keywords); i++)
 		if (!strcmp(str, keywords[i]))

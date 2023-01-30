@@ -1,0 +1,29 @@
+KEYWORDS
+--------
+
+fn - used in function declaration/definition
+ret - used to return value in functions
+
+conditions example:
+	if (something) {
+
+	} elif (something else) {
+
+	} else {
+
+	}
+
+	bit operators: and, or, not
+	null equals to false in conditions
+
+loops examples:
+
+	n: i32 = 5
+	for (i: i32 = 0; i < 5; i++)
+		print(i)
+
+	output: 12345
+
+	while (statement) {
+		...
+	}
