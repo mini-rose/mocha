@@ -1,6 +1,8 @@
 #include "nxg/tokenize.h"
+
 #include <nxg/error.h>
 #include <nxg/parser.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,6 +83,54 @@ static void fn_args_append(fn_expr_t *fn, token *name, token *type)
 
 #define TOK_IS(TOK, TYPE, VALUE)                                               \
  (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
+
+// Check pattern of variable declaration
+static bool is_var_decl(token_list *list, token *cur)
+{
+	int index = 0;
+	token *punct;
+	token *type;
+
+	for (int i = 0; i < list->length; i++) {
+		if (list->tokens[i] == cur) {
+			index = i;
+			break;
+		}
+	}
+
+	if (list->tokens[index + 1]->type == T_END
+	 && list->tokens[index + 2]->type == T_END)
+		return false;
+
+	punct = list->tokens[index + 1];
+	type = list->tokens[index + 2];
+
+	return punct->type == T_PUNCT && !strncmp(punct->value, ":", punct->len)
+	    && type->type == T_DATATYPE;
+}
+
+// Check pattern of variable definition
+static bool is_var_def(token_list *list, token *cur)
+{
+	int index = 0;
+	token *punct;
+	token *type;
+	token *operator;
+
+	for (int i = 0; i < list->length; i++) {
+		if (list->tokens[i] == cur) {
+			index = i;
+			break;
+		}
+	}
+
+	punct = list->tokens[index + 1];
+	type = list->tokens[index + 2];
+	operator= list->tokens[index + 3];
+
+	return punct->type == T_PUNCT && !strncmp(punct->value, ":", punct->len)
+	    && type->type == T_DATATYPE && operator->type == T_OPERATOR;
+}
 
 static err_t parse_fn(token_list *tokens, expr_t *parent)
 {
@@ -192,69 +242,14 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 		return ERR_SYNTAX;
 	}
 
-	/* TODO: closing brace, all expr inside. */
-
-	return 0;
-}
-
-static err_t parse_var(token_list *tokens, token *id, expr_t *parent)
-{
-	var_expr_t *data;
-	expr_t *node;
-	token *tok;
-
-	node = expr_add_child(parent);
-	data = calloc(sizeof(*data), 1);
-
-	node->data = data;
-
-	data->name = strndup(id->value, id->len);
-
 	tok = next_tok(NULL);
-
-	if (!TOK_IS(tok, T_PUNCT, ":")) {
-		error_at(tokens->source->content, tok->value,
-			 "missing type for '%s' variable.", data->name);
-		return ERR_SYNTAX;
-	} else {
-		tok = next_tok(NULL);
-
-		if (tok->type != T_DATATYPE) {
-			error_at(tokens->source->content, tok->value,
-				 "missing type name.");
-			return ERR_SYNTAX;
-		} else {
-			plain_type type = type_index(tok->value, tok->len);
-
-			if (type == 0) {
-				error_at(tokens->source->content, tok->value,
-					 "unknown type '%.*s' for variable",
-					 tok->len, tok->value);
-				return ERR_SYNTAX;
-			}
-
-			data->type = type;
-		}
-	}
-
-	tok = next_tok(NULL);
-
-	if (!TOK_IS(tok, T_OPERATOR, "=")) {
-		node->type = E_VARDECL;
-		node->data_free = (expr_free_handle) var_decl_expr_free;
-	} else {
-		node->type = E_VARDEF;
-		node->data_free = (expr_free_handle) var_expr_free;
-
-		tok = next_tok(NULL);
-
-		if (!((tok->type == T_STRING || tok->type == T_NUMBER))) {
-			error_at(tokens->source->content, tok->value,
-				 "expected value.");
-			return ERR_SYNTAX;
+	while (!TOK_IS(tok, T_PUNCT, "}")) {
+		if (tok->type == T_NEWLINE) {
+			tok = next_tok(NULL);
+			continue;
 		}
 
-		data->value = strndup(tok->value, tok->len);
+		tok = next_tok(NULL);
 	}
 
 	return 0;

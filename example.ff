@@ -1,3 +1,5 @@
 /* Example coffee program */
 
 fn main() {
+	a: i32 =
+}

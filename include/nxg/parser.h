@@ -26,6 +26,17 @@ typedef enum
 	E_ASSIGN,
 } expr_type;
 
+typedef void (*expr_free_handle)(void *expr);
+typedef struct expr expr_t;
+struct expr
+{
+	expr_type type;
+	expr_t *next;
+	expr_t *child;
+	expr_free_handle data_free;
+	void *data;
+};
+
 /* top-level module */
 typedef struct
 {
@@ -43,6 +54,7 @@ typedef struct
 	int n_args;
 	arg_t **args;
 	char *name;
+	expr_t *next;
 	plain_type return_type;
 } fn_expr_t;
 
@@ -61,17 +73,6 @@ typedef struct
 	char *value;
 } var_expr_t;
 
-typedef void (*expr_free_handle)(void *expr);
-typedef struct expr expr_t;
-
-struct expr
-{
-	expr_type type;
-	expr_t *next;
-	expr_t *child;
-	expr_free_handle data_free;
-	void *data;
-};
 
 #define E_AS_MOD(DATAPTR) ((mod_expr_t *) (DATAPTR))
 #define E_AS_FN(DATAPTR)  ((fn_expr_t *) (DATAPTR))
