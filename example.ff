@@ -1,6 +1,6 @@
 fn main() {
-	a: int = 1;
-	b: int = 2;
+	a: i32 = 1
+	b: i32 = 2
 
-	ret a + b;
+	ret a + b
 }

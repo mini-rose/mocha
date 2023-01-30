@@ -6,6 +6,7 @@ typedef enum
 {
 	T_OPERATOR,
 	T_DATATYPE,
+	T_NEWLINE,
 	T_KEYWORD,
 	T_NUMBER,
 	T_STRING,

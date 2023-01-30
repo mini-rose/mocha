@@ -53,9 +53,9 @@ token *token_new(token_t type, const char *value)
 
 void token_print(token *tok)
 {
-	static const char *tok_str[] = {"OPERATOR", "DATATYPE", "KEYWORD",
-					"NUMBER",   "STRING",   "IDENT",
-					"PUNCT",    "END"};
+	static const char *tok_str[] = {"OPERATOR", "DATATYPE", "NEWLINE",
+					"KEYWORD",  "NUMBER",   "STRING",
+					"IDENT",    "PUNCT",    "END"};
 
 	printf("%s: '%s'", tok_str[tok->type], tok->value);
 }
@@ -111,7 +111,8 @@ static bool is_keyword(const char *str)
 
 static bool is_type(const char *str)
 {
-	static const char *keywords[] = {"int", "str", "float", "array"};
+	static const char *keywords[] = {"i1",  "i8",  "i16", "i32",
+					 "i64", "f32", "f64"};
 
 	for (int i = 0; i < sizeof(keywords) / sizeof(*keywords); i++)
 		if (!strcmp(str, keywords[i]))
@@ -139,7 +140,14 @@ token_list *tokens(file *source)
 			continue;
 		}
 
-		if (isspace(*p) || *p == '\n') {
+		if (*p == '\n') {
+			token *tok = token_new(T_NEWLINE, "");
+			token_list_append(list, tok);
+			p++;
+			continue;
+		}
+
+		if (isspace(*p)) {
 			p++;
 			continue;
 		}
@@ -167,7 +175,7 @@ token_list *tokens(file *source)
 			char *str;
 			char *q = p;
 
-			while (*q > 96 && *q < 123)
+			while ((*q > 96 && *q < 123) || isdigit(*q))
 				q++;
 
 			str = push_str(p, q);
