@@ -3,11 +3,10 @@
 
 typedef enum
 {
-	T_FLOAT,
-	T_STR,
-	T_TABLE,
-	T_INT,
 	T_NULL,
+	T_STR,
+	T_INT,
+	T_FLOAT,
 	T_BOOL,
 	T_VOID
 } plain_type;

@@ -252,9 +252,9 @@ token_list *tokens(file *source)
 
 const char *tokname(token_t toktype)
 {
-	static const char *toknames[] = {
-	    "operator", "datatype",   "keyword",     "number",
-	    "string",   "identifier", "punctuation", "end"};
+	static const char *toknames[] = {"operator",   "datatype",    "newline",
+					 "keyword",    "number",      "string",
+					 "identifier", "punctuation", "end"};
 	static const int siz = sizeof(toknames) / sizeof(*toknames);
 
 	if (toktype < 0 || toktype >= siz)

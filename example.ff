@@ -3,4 +3,3 @@ fn main(): i32 {
 	b: i32 = 2
 
 	ret a + b
-}

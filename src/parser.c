@@ -1,5 +1,4 @@
-#include "nxg/error.h"
-
+#include <nxg/error.h>
 #include <nxg/parser.h>
 #include <nxg/tokenize.h>
 #include <stdio.h>
@@ -21,10 +20,12 @@ static token *next_tok(const token_list *list)
 	static const token_list *self = NULL;
 	static int current = -1;
 
-	if (self == NULL)
+	if (self == NULL) {
 		self = list;
+		return self->tokens[0];
+	}
 
-	return self->tokens[current++];
+	return self->tokens[++current];
 }
 
 static expr_t *expr_add_child(expr_t *parent)
@@ -45,6 +46,9 @@ static expr_t *expr_add_child(expr_t *parent)
 	return node;
 }
 
+#define TOK_IS(TOK, TYPE, VALUE)                                               \
+ (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
+
 static err_t parse_fn(token_list *tokens, expr_t *parent)
 {
 	fn_expr_t *data;
@@ -58,24 +62,60 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 	node->data = data;
 	node->data_free = (expr_free_handle) fn_expr_free;
 
-	tok = next_tok(tokens);
+	tok = next_tok(NULL);
 
 	/* name */
 	if (tok->type != T_IDENT) {
 		error_at(tokens->source->content, tok->value,
 			 "expected function name, got %s", tokname(tok->type));
-		return ERR_FAIL;
+		return ERR_SYNTAX;
 	}
 
 	data->name = strndup(tok->value, tok->len);
 
 	/* parameters (currently skip) */
-	tok = next_tok(tokens);
-	if (tok->type != T_PUNCT || *tok->value != '(') {
+	tok = next_tok(NULL);
+	if (!TOK_IS(tok, T_PUNCT, "(")) {
 		error_at(tokens->source->content, tok->value,
 			 "expected `(` after function name");
-		return ERR_FAIL;
+		return ERR_SYNTAX;
 	}
+
+	tok = next_tok(NULL);
+	while (!TOK_IS(tok, T_PUNCT, ")")) {
+		if (tok->type == T_END) {
+			error_at(tokens->source->content, tok->value,
+				 "end of function parameter list for `%s()` "
+				 "function not found",
+				 data->name);
+			return ERR_SYNTAX;
+		}
+
+		tok = next_tok(NULL);
+	}
+
+	/* return type (optional) */
+	tok = next_tok(NULL);
+	if (TOK_IS(tok, T_PUNCT, ":")) {
+		tok = next_tok(NULL);
+		if (tok->type != T_DATATYPE) {
+			error_at(tokens->source->content, tok->value,
+				 "missing function return type");
+			return ERR_SYNTAX;
+		}
+
+		/* TODO: set data->return_type */
+	}
+
+	/* opening & closing braces */
+	tok = next_tok(NULL);
+	if (!TOK_IS(tok, T_PUNCT, "{")) {
+		error_at(tokens->source->content, tok->value,
+			 "missing opening brace for `%s` function", data->name);
+		return ERR_SYNTAX;
+	}
+
+	/* TODO: closing brace, all expr inside. */
 
 	return 0;
 }

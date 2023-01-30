@@ -3,7 +3,7 @@
 typedef enum
 {
 	ERR_OK,
-	ERR_FAIL
+	ERR_SYNTAX,
 } err_t;
 
 void warning(const char *format, ...);
