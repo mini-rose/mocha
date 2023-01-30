@@ -120,10 +120,10 @@ static bool is_type(const char *str)
 	return false;
 }
 
-token_list *tokens(const char *path)
+token_list *tokens(file *source)
 {
 	token_list *list = token_list_new();
-	file *f = file_new(path);
+	file *f = source;
 
 	char *p = f->content;
 
@@ -245,6 +245,5 @@ token_list *tokens(const char *path)
 	token *tok = token_new(T_END, "");
 	token_list_append(list, tok);
 
-	file_destroy(f);
 	return list;
 }

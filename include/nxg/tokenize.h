@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nxg/file.h>
+
 typedef enum
 {
 	T_OPERATOR,
@@ -24,6 +26,6 @@ typedef struct
 	int length;
 } token_list;
 
-token_list *tokens(const char *path);
+token_list *tokens(file *source);
 void token_list_destroy(token_list *tok);
 void token_list_print(token_list *list);

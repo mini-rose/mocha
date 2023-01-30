@@ -1,3 +1,5 @@
+#include "nxg/file.h"
+
 #include <nxg/nxg.h>
 #include <nxg/parser.h>
 #include <stdio.h>
@@ -19,12 +21,16 @@ static inline void version()
 	exit(0);
 }
 
-static void compile(const char *path, const char *output)
+static void compile(const char *input, const char *output)
 {
-	token_list *list = tokens(path);
-	expr *ast = parse(list);
+	file *source = file_new(input);
+	token_list *list = tokens(source);
+	expr_t *ast = parse(source, list);
 
 	(void) ast;
+
+	file_destroy(source);
+	expr_destroy(ast);
 }
 
 int main(int argc, char **argv)

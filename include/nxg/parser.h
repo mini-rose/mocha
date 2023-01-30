@@ -10,25 +10,45 @@ typedef enum
 	T_NULL,
 	T_BOOL,
 	T_VOID
-} types;
+} plain_type;
 
 typedef enum
 {
-	FUNCTION,
-	FUNCTION_CALL,
-} expr_t;
+	E_MODULE,
+	E_FUNCTION,
+	E_CALL,
+	E_VARDECL,
+	E_ASSIGN,
+} expr_type;
 
+/* top-level module */
 typedef struct
 {
-	types **args;
-	types returns;
-} fn_t;
+	char *name;
+} mod_expr_t;
 
-typedef struct expr expr;
+/* function declaration */
+typedef struct
+{
+	plain_type **args;
+	plain_type returns;
+	char *name;
+} fn_expr_t;
+
+typedef void (*expr_free_handle)(void *expr);
+typedef struct expr expr_t;
+
 struct expr
 {
-	expr *next;
-	expr_t type;
+	expr_type type;
+	expr_t *next;
+	expr_t *child;
+	expr_free_handle data_free;
+	void *data;
 };
 
-expr *parse(token_list *list);
+#define E_AS_MOD(DATAPTR) ((mod_expr_t *) (DATAPTR))
+#define E_AS_FN(DATAPTR)  ((fn_expr_t *) (DATAPTR))
+
+expr_t *parse(file *source, token_list *list);
+void expr_destroy(expr_t *expr);
