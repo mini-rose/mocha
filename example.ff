@@ -1,5 +1,5 @@
 /* Example coffee program */
 
-fn main() {
+fn main(a: i32, b: i8) {
 	a: i32
 }

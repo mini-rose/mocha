@@ -1,5 +1,6 @@
 #pragma once
 #include <nxg/tokenize.h>
+#include <stdbool.h>
 
 typedef enum
 {
@@ -69,6 +70,7 @@ typedef struct
 typedef struct
 {
 	plain_type type;
+	bool with_vars;
 	char *name;
 	char *value;
 } var_expr_t;
@@ -81,6 +83,8 @@ typedef struct
 
 #define E_AS_MOD(DATAPTR) ((mod_expr_t *) (DATAPTR))
 #define E_AS_FN(DATAPTR)  ((fn_expr_t *) (DATAPTR))
+#define E_AS_VDECL(DATAPTR) ((var_decl_expr_t *) (DATAPTR))
+#define E_AS_VDEF(DATAPTR)  ((var_expr_t *) (DATAPTR))
 
 expr_t *parse(token_list *list);
 void expr_destroy(expr_t *expr);

@@ -69,7 +69,8 @@ expr_t *next_expr(expr_t *ast)
 	return expr = expr->next;
 }
 
-void generate(expr_t *ast) {
+void generate(expr_t *ast)
+{
 	expr_t *expr = next_expr(ast);
 	LLVMModuleRef mod = LLVMModuleCreateWithName(E_AS_MOD(ast->data)->name);
 
@@ -79,11 +80,50 @@ void generate(expr_t *ast) {
 		fn_expr_t *fn = E_AS_FN(expr->data);
 		LLVMTypeRef fn_type =
 		    gen_function(fn->return_type, 0, fn->n_args, fn->args);
-		//LLVMValueRef fn_val =
-		LLVMAddFunction(mod, fn->name, fn_type);
+		LLVMValueRef fn_val = LLVMAddFunction(mod, fn->name, fn_type);
+		LLVMBasicBlockRef entry = LLVMAppendBasicBlock(fn_val, "start");
+		LLVMBuilderRef builder = LLVMCreateBuilder();
+		LLVMPositionBuilderAtEnd(builder, entry);
+
+		expr_t *next = expr->next;
+
+		while (next) {
+			switch (next->type) {
+			case E_MODULE:
+			case E_FUNCTION:
+				break;
+			case E_CALL:
+				break;
+			case E_VARDEF:
+				if (!LLVMGetNamedGlobal(
+					mod, E_AS_VDEF(next->data)->name))
+					LLVMBuildAlloca(
+					    builder,
+					    gen_type(
+						E_AS_VDECL(next->data)->type,
+						0),
+					    E_AS_VDECL(next->data)->name);
+
+				break;
+			case E_VARDECL:
+				LLVMBuildAlloca(
+				    builder,
+				    gen_type(E_AS_VDECL(next->data)->type, 0),
+				    E_AS_VDECL(next->data)->name);
+				break;
+			case E_ASSIGN:
+				break;
+			}
+
+			next = next->child;
+		}
+
+		LLVMDisposeBuilder(builder);
 		expr = next_expr(expr->next);
 	};
 
-	LLVMPrintModuleToFile(mod, "example.ll", 0);
+	char *error = NULL;
+	LLVMPrintModuleToFile(mod, "example.ll", &error);
+	LLVMDisposeMessage(error);
 	LLVMDisposeModule(mod);
 }

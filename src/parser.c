@@ -48,16 +48,18 @@ static token *next_tok(const token_list *list)
 static expr_t *expr_add_child(expr_t *parent)
 {
 	expr_t *node = calloc(sizeof(*node), 1);
-	expr_t *walker = parent->child;
+	parent->child = node;
+	return node;
+}
 
-	if (!parent->child)
-		return parent->child = node;
+static expr_t *expr_add_next(expr_t *prev)
+{
+	expr_t *node = calloc(sizeof(*node), 1);
 
-	/* find the first empty slot in the linked list */
-	while (walker->next)
-		walker = walker->next;
+	while (prev->next)
+		prev = prev->next;
 
-	walker->next = node;
+	prev->next = node;
 	return node;
 }
 
@@ -101,6 +103,7 @@ static bool is_var_decl(token_list *list, token *cur)
 	int index = index_of_tok(list, cur);
 	token *punct;
 	token *type;
+	token *newline;
 
 	if (list->tokens[index + 1]->type == T_END
 	 && list->tokens[index + 2]->type == T_END)
@@ -108,9 +111,10 @@ static bool is_var_decl(token_list *list, token *cur)
 
 	punct = list->tokens[index + 1];
 	type = list->tokens[index + 2];
+	newline = list->tokens[index + 3];
 
 	return punct->type == T_PUNCT && !strncmp(punct->value, ":", punct->len)
-	    && type->type == T_DATATYPE;
+	    && type->type == T_DATATYPE && newline->type == T_NEWLINE;
 }
 
 // Check pattern of variable definition
@@ -129,13 +133,69 @@ static bool is_var_def(token_list *list, token *cur)
 	    && type->type == T_DATATYPE && operator->type == T_OPERATOR;
 }
 
+static token *var_decl(expr_t *parent, token_list *tokens, token *current)
+{
+	var_decl_expr_t *data;
+	expr_t *node;
+	int index;
+
+	node = expr_add_next(parent);
+	data = calloc(sizeof(*data), 1);
+	node->type = E_VARDECL;
+	node->data = data;
+	node->data_free = (expr_free_handle) var_decl_expr_free;
+
+	index = index_of_tok(tokens, current);
+
+	data->name = strndup(current->value, current->len);
+	data->type = type_index(tokens->tokens[index + 2]->value,
+				tokens->tokens[index + 2]->len);
+
+	return tokens->tokens[index + 3];
+}
+
+static token *var_def(expr_t *parent, token_list *tokens, token *current)
+{
+	var_expr_t *data;
+	expr_t *node;
+	token *tok;
+	int index;
+	size_t len = 0;
+	char *value = NULL;
+
+	node = expr_add_next(parent);
+	data = calloc(sizeof(*data), 1);
+	node->type = E_VARDEF;
+	node->data = data;
+	node->data_free = (expr_free_handle) var_expr_free;
+
+	index = index_of_tok(tokens, current);
+
+	data->name = strndup(current->value, current->len);
+	data->with_vars = false;
+	data->type = type_index(tokens->tokens[index + 1]->value,
+				tokens->tokens[index + 1]->len);
+
+	next_tok(NULL);
+	next_tok(NULL);
+	next_tok(NULL);
+
+	while ((tok = next_tok(NULL))->type != T_NEWLINE) {
+		// TODO: parsing math expressions
+	}
+
+	data->value = value;
+
+	return tok;
+}
+
 static err_t parse_fn(token_list *tokens, expr_t *parent)
 {
 	fn_expr_t *data;
 	expr_t *node;
 	token *tok;
 
-	node = expr_add_child(parent);
+	node = expr_add_next(parent);
 	data = calloc(sizeof(*data), 1);
 
 	node->type = E_FUNCTION;
@@ -245,6 +305,12 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 			tok = next_tok(NULL);
 			continue;
 		}
+
+		if (is_var_decl(tokens, tok))
+			tok = var_decl(node, tokens, tok);
+
+		if (is_var_def(tokens, tok))
+			tok = var_def(node, tokens, tok);
 
 		tok = next_tok(NULL);
 	}
