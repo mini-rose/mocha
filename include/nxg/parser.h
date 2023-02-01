@@ -73,6 +73,11 @@ typedef struct
 	char *value;
 } var_expr_t;
 
+typedef struct
+{
+	plain_type type;
+	char *value;
+} num_expr_t;
 
 #define E_AS_MOD(DATAPTR) ((mod_expr_t *) (DATAPTR))
 #define E_AS_FN(DATAPTR)  ((fn_expr_t *) (DATAPTR))
