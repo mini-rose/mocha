@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define TOK_IS(TOK, TYPE, VALUE)                                               \
+ (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
+
 static void mod_expr_free(mod_expr_t *module)
 {
 	free(module->name);
@@ -25,6 +28,12 @@ static void fn_expr_free(fn_expr_t *function)
 }
 
 static void var_expr_free(var_expr_t *variable)
+{
+	free(variable->name);
+	free(variable->value);
+}
+
+static void ret_expr_free(var_expr_t *variable)
 {
 	free(variable->name);
 	free(variable->value);
@@ -83,16 +92,25 @@ static void fn_args_append(fn_expr_t *fn, token *name, token *type)
 	fn->args[fn->n_args - 1]->type = type_index(type->value, type->len);
 }
 
-#define TOK_IS(TOK, TYPE, VALUE)                                               \
- (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
+
+static bool is_func(token_list *list, const char *str)
+{
+	for (int i = 0; i < list->length; i++) {
+		if (TOK_IS(list->tokens[i], T_KEYWORD, "fn")
+		    && !strncmp(str, list->tokens[i + 1]->value,
+				list->tokens[i + 1]->len)) {
+			return true;
+		}
+	}
+
+	return false;
+}
 
 static int index_of_tok(token_list *tokens, token *tok)
 {
-	for (int i = 0; i < tokens->length; i++) {
-		if (tokens->tokens[i] == tok) {
+	for (int i = 0; i < tokens->length; i++)
+		if (tokens->tokens[i] == tok)
 			return i;
-		}
-	}
 
 	return 0;
 }
@@ -131,6 +149,39 @@ static bool is_var_def(token_list *list, token *cur)
 
 	return punct->type == T_PUNCT && !strncmp(punct->value, ":", punct->len)
 	    && type->type == T_DATATYPE && operator->type == T_OPERATOR;
+}
+
+static bool is_var_declared(token_list *list, token *func, token *var)
+{
+	int index = index_of_tok(list, func);
+	int decl = 0;
+
+	for (int i = index; i < list->length; i++) {
+		if (TOK_IS(list->tokens[i], T_PUNCT, "}"))
+			return false;
+
+		if (!strncmp(list->tokens[i]->value, var->value, var->len)) {
+			decl = i;
+			break;
+		}
+	}
+
+	return decl < index_of_tok(list, var);
+}
+
+static bool is_math_expr(token_list *list, token *start)
+{
+	int index = index_of_tok(list, start);
+
+	for (int i = index; i < list->length; i++) {
+		if (list->tokens[i]->type == T_NEWLINE)
+			break;
+
+		if (list->tokens[i]->type == T_OPERATOR)
+			return true;
+	}
+
+	return false;
 }
 
 static token *var_decl(expr_t *parent, token_list *tokens, token *current)
@@ -187,6 +238,22 @@ static token *var_def(expr_t *parent, token_list *tokens, token *current)
 	data->value = value;
 
 	return tok;
+}
+
+// TODO:
+static token *ret_expr(expr_t *parent, token_list *tokens, token *current)
+{
+	ret_t *data;
+	expr_t *node;
+	int index;
+
+	node = expr_add_next(parent);
+	data = calloc(sizeof(*data), 1);
+	node->type = E_RETURN;
+	node->data = data;
+	node->data_free = (expr_free_handle) ret_expr_free;
+
+	index = index_of_tok(tokens, current);
 }
 
 static err_t parse_fn(token_list *tokens, expr_t *parent)
@@ -311,6 +378,10 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 
 		if (is_var_def(tokens, tok))
 			tok = var_def(node, tokens, tok);
+
+		// TODO:
+		// if (TOK_IS(tok, T_KEYWORD, "ret"))
+		// tok = ret_expr(node, tokens, tok);
 
 		tok = next_tok(NULL);
 	}

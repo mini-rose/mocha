@@ -81,7 +81,7 @@ void generate(expr_t *ast)
 		LLVMTypeRef fn_type =
 		    gen_function(fn->return_type, 0, fn->n_args, fn->args);
 		LLVMValueRef fn_val = LLVMAddFunction(mod, fn->name, fn_type);
-		LLVMBasicBlockRef entry = LLVMAppendBasicBlock(fn_val, "start");
+		LLVMBasicBlockRef entry = LLVMAppendBasicBlock(fn_val, "entry");
 		LLVMBuilderRef builder = LLVMCreateBuilder();
 		LLVMPositionBuilderAtEnd(builder, entry);
 
@@ -95,15 +95,6 @@ void generate(expr_t *ast)
 			case E_CALL:
 				break;
 			case E_VARDEF:
-				if (!LLVMGetNamedGlobal(
-					mod, E_AS_VDEF(next->data)->name))
-					LLVMBuildAlloca(
-					    builder,
-					    gen_type(
-						E_AS_VDECL(next->data)->type,
-						0),
-					    E_AS_VDECL(next->data)->name);
-
 				break;
 			case E_VARDECL:
 				LLVMBuildAlloca(
@@ -113,6 +104,10 @@ void generate(expr_t *ast)
 				break;
 			case E_ASSIGN:
 				break;
+			case E_RETURN:
+				if (E_AS_RETURN(next->data)->type == T_VOID
+				    || E_AS_RETURN(next->data)->type == T_NULL)
+					LLVMBuildRetVoid(builder);
 			}
 
 			next = next->child;

@@ -22,6 +22,7 @@ typedef enum
 	E_MODULE,
 	E_FUNCTION,
 	E_CALL,
+	E_RETURN,
 	E_VARDEF,
 	E_VARDECL,
 	E_ASSIGN,
@@ -48,6 +49,11 @@ typedef struct {
 	char *name;
 	plain_type type;
 } arg_t;
+
+typedef struct {
+	plain_type type;
+	char *value;
+} ret_t;
 
 /* function definition */
 typedef struct
@@ -81,10 +87,11 @@ typedef struct
 	char *value;
 } num_expr_t;
 
-#define E_AS_MOD(DATAPTR) ((mod_expr_t *) (DATAPTR))
+#define E_AS_MOD(DATAPTR)    ((mod_expr_t *) (DATAPTR))
 #define E_AS_FN(DATAPTR)  ((fn_expr_t *) (DATAPTR))
 #define E_AS_VDECL(DATAPTR) ((var_decl_expr_t *) (DATAPTR))
 #define E_AS_VDEF(DATAPTR)  ((var_expr_t *) (DATAPTR))
+#define E_AS_RETURN(DATAPTR) ((var_expr_t *) (DATAPTR))
 
 expr_t *parse(token_list *list);
 void expr_destroy(expr_t *expr);
