@@ -1,8 +1,11 @@
 #include "nxg/parser.h"
 #include "nxg/tokenize.h"
+
 #include <llvm-c/Core.h>
+#include <nxg/error.h>
 #include <nxg/generate.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 
 #define LEN(array) sizeof(array) / sizeof(array[0])
@@ -45,23 +48,42 @@ LLVMTypeRef gen_type(plain_type type, int length)
 	return NULL;
 }
 
-LLVMTypeRef gen_function(plain_type ret_type, int length, int nargs, ...)
+LLVMTypeRef gen_function(plain_type ret_type, int length, int nargs, arg_t **args)
 {
-	va_list args;
 	LLVMTypeRef params[nargs];
 
-	va_start(args, nargs);
-
 	for (int i = 0; i < nargs; i++) {
-		int type = va_arg(args, int);
-
-		if (type == T_STRING)
-			params[i] = gen_type(type, va_arg(args, int));
-		else
-			params[i] = gen_type(type, 0);
+		params[i] = gen_type(args[i]->type, 0);
 	}
 
 	return LLVMFunctionType(gen_type(ret_type, length), params, nargs, 0);
 }
 
-void generate(expr_t *ast) { }
+expr_t *next_expr(expr_t *ast)
+{
+	static expr_t *expr = NULL;
+
+	if (expr == NULL)
+		return expr = ast;
+
+	return expr = expr->next;
+}
+
+void generate(expr_t *ast) {
+	expr_t *expr = next_expr(ast);
+	LLVMModuleRef mod = LLVMModuleCreateWithName(E_AS_MOD(ast->data)->name);
+
+	expr = next_expr(NULL);
+
+	while (expr && expr->type == E_FUNCTION) {
+		fn_expr_t *fn = E_AS_FN(expr->data);
+		LLVMTypeRef fn_type =
+		    gen_function(fn->return_type, 0, fn->n_args, fn->args);
+		//LLVMValueRef fn_val =
+		LLVMAddFunction(mod, fn->name, fn_type);
+		expr = next_expr(expr->next);
+	};
+
+	LLVMPrintModuleToFile(mod, "example.ll", 0);
+	LLVMDisposeModule(mod);
+}
