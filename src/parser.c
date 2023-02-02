@@ -3,6 +3,7 @@
 #include <nxg/error.h>
 #include <nxg/parser.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -156,7 +157,7 @@ static bool is_var_assign(token_list *list, token *var)
 {
 	token *operator = list->tokens[index_of_tok(list, var) + 1];
 
-	return !strncmp(operator->value, "=", 1);
+	return !strncmp(operator->value, "=", operator->len);
 }
 
 static bool is_var_declared(token_list *list, token *func, token *var)
@@ -185,7 +186,7 @@ static bool is_var_defined(token_list *list, token *func, token *var)
 
 	for (int i = index; i < list->length; i++) {
 		if (TOK_IS(list->tokens[i], T_PUNCT, "}"))
-			return false;
+			goto undefined;
 
 		if (TOK_IS(list->tokens[i], T_IDENT, name)
 		    && is_var_assign(list, list->tokens[i])) {
@@ -194,6 +195,7 @@ static bool is_var_defined(token_list *list, token *func, token *var)
 		}
 	}
 
+undefined:
 	free(name);
 	return false;
 }
@@ -234,7 +236,8 @@ static token *var_decl(expr_t *parent, token_list *tokens, token *current)
 	return tokens->tokens[index + 3];
 }
 
-static token *var_def(expr_t *parent, token_list *tokens, token *current)
+static token *var_def(expr_t *parent, token_list *tokens, token *func,
+		      token *current)
 {
 	var_expr_t *data;
 	expr_t *node;
@@ -261,7 +264,21 @@ static token *var_def(expr_t *parent, token_list *tokens, token *current)
 	next_tok(NULL);
 
 	while ((tok = next_tok(NULL))->type != T_NEWLINE) {
-		// TODO: parsing math expressions
+		if (tok->type == T_IDENT) {
+			if (!is_var_defined(tokens, func, tok)) {
+				error_at(tokens->source->content, tok->value,
+					 "Used undefined variable '%.*s'",
+					 tok->len, tok->value);
+				exit(1);
+			}
+
+			if (is_math_expr(tokens, tok)) {
+				error_at(
+				    tokens->source->content, tok->value,
+				    "Math expressions are not supported yet");
+				exit(1);
+			}
+		}
 	}
 
 	data->value = value;
@@ -289,7 +306,7 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 {
 	fn_expr_t *data;
 	expr_t *node;
-	token *tok;
+	token *tok, *func;
 
 	node = expr_add_next(parent);
 	data = calloc(sizeof(*data), 1);
@@ -300,6 +317,7 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 	data->n_args = 0;
 
 	tok = next_tok(NULL);
+	func = tok;
 
 	/* name */
 	if (tok->type != T_IDENT) {
@@ -406,7 +424,7 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 			tok = var_decl(node, tokens, tok);
 
 		if (is_var_def(tokens, tok))
-			tok = var_def(node, tokens, tok);
+			tok = var_def(node, tokens, func, tok);
 
 		// TODO:
 		// if (TOK_IS(tok, T_KEYWORD, "ret"))

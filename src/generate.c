@@ -89,12 +89,17 @@ void generate(expr_t *ast)
 
 		while (next) {
 			switch (next->type) {
-			case E_MODULE:
+			case E_MODULE: /* fallthrough */
 			case E_FUNCTION:
 				break;
 			case E_CALL:
 				break;
 			case E_VARDEF:
+				LLVMBuildAlloca(
+				    builder,
+				    gen_type(E_AS_VDECL(next->data)->type, 0),
+				    E_AS_VDECL(next->data)->name);
+
 				break;
 			case E_VARDECL:
 				LLVMBuildAlloca(

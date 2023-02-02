@@ -1,5 +1,6 @@
 /* Example coffee program */
 
 fn main() {
-	a: i32
+	b: i32 = 12
+	a: i32 = b
 }
