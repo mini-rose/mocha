@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #define TOK_IS(TOK, TYPE, VALUE)                                               \
  (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
@@ -151,6 +152,13 @@ static bool is_var_def(token_list *list, token *cur)
 	    && type->type == T_DATATYPE && operator->type == T_OPERATOR;
 }
 
+static bool is_var_assign(token_list *list, token *var)
+{
+	token *operator = list->tokens[index_of_tok(list, var) + 1];
+
+	return !strncmp(operator->value, "=", 1);
+}
+
 static bool is_var_declared(token_list *list, token *func, token *var)
 {
 	int index = index_of_tok(list, func);
@@ -167,6 +175,27 @@ static bool is_var_declared(token_list *list, token *func, token *var)
 	}
 
 	return decl < index_of_tok(list, var);
+}
+
+static bool is_var_defined(token_list *list, token *func, token *var)
+{
+	int index = index_of_tok(list, func);
+
+	char *name = strndup(var->value, var->len);
+
+	for (int i = index; i < list->length; i++) {
+		if (TOK_IS(list->tokens[i], T_PUNCT, "}"))
+			return false;
+
+		if (TOK_IS(list->tokens[i], T_IDENT, name)
+		    && is_var_assign(list, list->tokens[i])) {
+			free(name);
+			return true;
+		}
+	}
+
+	free(name);
+	return false;
 }
 
 static bool is_math_expr(token_list *list, token *start)
