@@ -2,6 +2,7 @@
 #include <memory.h>
 #include <nxg/error.h>
 #include <nxg/file.h>
+#include <nxg/keyword.h>
 #include <nxg/tokenize.h>
 #include <nxg/type.h>
 #include <stdbool.h>
@@ -156,7 +157,7 @@ token_list *tokens(file *source)
 
 			str = push_str(p, q);
 
-			if (is_kw(str))
+			if (is_keyword(str))
 				tok = token_new(last = T_KEYWORD, p, q - p);
 			else if (is_type(str))
 				tok = token_new(last = T_DATATYPE, p, q - p);

@@ -1,49 +1,47 @@
 #include "nxg/tokenize.h"
+#include "nxg/type.h"
 
 #include <nxg/error.h>
 #include <nxg/parser.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 
-#define TOK_IS(TOK, TYPE, VALUE)                                               \
- (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
-
-static void mod_expr_free(mod_expr_t *module)
+static node *node_new()
 {
-	free(module->name);
+	return (node *) calloc(1, sizeof(node));
 }
 
-static void fn_expr_free(fn_expr_t *function)
+static void node_destroy(node *n)
 {
-	free(function->name);
+	node *next;
 
-	for (int i = 0; i < function->n_args; i++) {
-		free(function->args[i]->name);
-		free(function->args[i]);
+	if (!n->next)
+		goto free;
+
+	while (n->next) {
+		next = n->next;
+		n->free(n->data);
+		free(n);
+		n = next;
 	}
 
-	free(function->args);
+free:
+	n->free(n->data);
+	free(n);
 }
 
-static void var_expr_free(var_expr_t *variable)
+static module_t *module_new()
 {
-	free(variable->name);
-	free(variable->value);
+	return (module_t *) calloc(1, sizeof(module_t));
 }
 
-static void ret_expr_free(var_expr_t *variable)
+static void module_destroy(module_t *m)
 {
-	free(variable->name);
-	free(variable->value);
-}
+	if (m->name)
+		free(m->name);
 
-static void var_decl_expr_free(var_decl_expr_t *variable)
-{
-	free(variable->name);
+	free(m);
 }
 
 static token *next_tok(const token_list *list)
@@ -56,297 +54,123 @@ static token *next_tok(const token_list *list)
 		: self->tokens[++current];
 }
 
-static expr_t *expr_add_child(expr_t *parent)
+#define TOK_IS(TOK, TYPE, STR)                                                 \
+ ((TOK)->type == TYPE && !strncmp((TOK)->value, STR, (TOK)->len))
+
+static arg_t *arg_new()
 {
-	expr_t *node = calloc(sizeof(*node), 1);
-	parent->child = node;
-	return node;
+	return (arg_t *) calloc(1, sizeof(arg_t));
 }
 
-static expr_t *expr_add_next(expr_t *prev)
+static void arg_destroy(arg_t *a)
 {
-	expr_t *node = calloc(sizeof(*node), 1);
+	if (a->name)
+		free(a->name);
+
+	free(a);
+}
+
+static func_t *func_new()
+{
+	return (func_t *) calloc(1, sizeof(func_t));
+}
+
+static void func_destroy(func_t *func)
+{
+	int i;
+
+	if (func->name)
+		free(func->name);
+
+	for (i = 0; i < func->n_args; i++)
+		arg_destroy(func->args[i]);
+
+	if (func->args)
+		free(func->args);
+
+	free(func);
+}
+
+static void func_add_arg(func_t *func, token *name, token *type)
+{
+	func->args = realloc(func->args, ++func->n_args * sizeof(arg_t));
+	func->args[func->n_args - 1] = arg_new();
+	char *type_str = strndup(type->value, type->len);
+	func->args[func->n_args - 1]->type = get_type(type_str);
+	free(type_str);
+	func->args[func->n_args - 1]->name = strndup(name->value, name->len);
+}
+
+// Returns next node
+static node *node_add_next(node *prev)
+{
+	node *next = node_new();
 
 	while (prev->next)
 		prev = prev->next;
 
-	prev->next = node;
-	return node;
+	prev->next = next;
+	next->prev = prev;
+
+	return next;
 }
 
-static plain_type type_index(const char *str, int length)
+static void fn_print(func_t *func)
 {
-	static const char *types[] = {"",    "str", "i8",  "i16",  "i32",
-				      "i64", "f32", "f64", "bool", ""};
+	int i;
 
-	for (int i = 0; i < sizeof(types) / sizeof(types[0]); i++)
-		if (!strncmp(str, types[i], length))
-			return i;
+	printf("NAME: %s\n", func->name);
+	printf("RETURN: %i\n", func->return_type);
+	fputs("ARGS: \n\t", stdout);
 
-	return 0;
-}
-
-static void fn_args_append(fn_expr_t *fn, token *name, token *type)
-{
-	fn->args = realloc(fn->args, sizeof(arg_t) * ++fn->n_args);
-	fn->args[fn->n_args - 1] = malloc(sizeof(arg_t));
-	fn->args[fn->n_args - 1]->name = strndup(name->value, name->len);
-	fn->args[fn->n_args - 1]->type = type_index(type->value, type->len);
-}
-
-
-static bool is_func(token_list *list, const char *str)
-{
-	for (int i = 0; i < list->length; i++) {
-		if (TOK_IS(list->tokens[i], T_KEYWORD, "fn")
-		    && !strncmp(str, list->tokens[i + 1]->value,
-				list->tokens[i + 1]->len)) {
-			return true;
-		}
+	for (i = 0; i < func->n_args; i++) {
+		fputs(func->args[i]->name, stdout);
+		printf(": %i\n\t", func->args[i]->type);
 	}
 
-	return false;
+	fputs("\n", stdout);
 }
 
-static int index_of_tok(token_list *tokens, token *tok)
+static token *parse_fn(token_list *tokens, node *n)
 {
-	for (int i = 0; i < tokens->length; i++)
-		if (tokens->tokens[i] == tok)
-			return i;
-
-	return 0;
-}
-
-// Check pattern of variable declaration
-static bool is_var_decl(token_list *list, token *cur)
-{
-	int index = index_of_tok(list, cur);
-	token *punct;
-	token *type;
-	token *newline;
-
-	if (list->tokens[index + 1]->type == T_END
-	 && list->tokens[index + 2]->type == T_END)
-		return false;
-
-	punct = list->tokens[index + 1];
-	type = list->tokens[index + 2];
-	newline = list->tokens[index + 3];
-
-	return punct->type == T_PUNCT && !strncmp(punct->value, ":", punct->len)
-	    && type->type == T_DATATYPE && newline->type == T_NEWLINE;
-}
-
-// Check pattern of variable definition
-static bool is_var_def(token_list *list, token *cur)
-{
-	int index = index_of_tok(list, cur);
-	token *punct;
-	token *type;
-	token *operator;
-
-	punct = list->tokens[index + 1];
-	type = list->tokens[index + 2];
-	operator= list->tokens[index + 3];
-
-	return punct->type == T_PUNCT && !strncmp(punct->value, ":", punct->len)
-	    && type->type == T_DATATYPE && operator->type == T_OPERATOR;
-}
-
-static bool is_var_assign(token_list *list, token *var)
-{
-	token *operator = list->tokens[index_of_tok(list, var) + 1];
-
-	return !strncmp(operator->value, "=", operator->len);
-}
-
-static bool is_var_declared(token_list *list, token *func, token *var)
-{
-	int index = index_of_tok(list, func);
-	int decl = 0;
-
-	for (int i = index; i < list->length; i++) {
-		if (TOK_IS(list->tokens[i], T_PUNCT, "}"))
-			return false;
-
-		if (!strncmp(list->tokens[i]->value, var->value, var->len)) {
-			decl = i;
-			break;
-		}
-	}
-
-	return decl < index_of_tok(list, var);
-}
-
-static bool is_var_defined(token_list *list, token *func, token *var)
-{
-	int index = index_of_tok(list, func);
-
-	char *name = strndup(var->value, var->len);
-
-	for (int i = index; i < list->length; i++) {
-		if (TOK_IS(list->tokens[i], T_PUNCT, "}"))
-			goto undefined;
-
-		if (TOK_IS(list->tokens[i], T_IDENT, name)
-		    && is_var_assign(list, list->tokens[i])) {
-			free(name);
-			return true;
-		}
-	}
-
-undefined:
-	free(name);
-	return false;
-}
-
-static bool is_math_expr(token_list *list, token *start)
-{
-	int index = index_of_tok(list, start);
-
-	for (int i = index; i < list->length; i++) {
-		if (list->tokens[i]->type == T_NEWLINE)
-			break;
-
-		if (list->tokens[i]->type == T_OPERATOR)
-			return true;
-	}
-
-	return false;
-}
-
-static token *var_decl(expr_t *parent, token_list *tokens, token *current)
-{
-	var_decl_expr_t *data;
-	expr_t *node;
-	int index;
-
-	node = expr_add_next(parent);
-	data = calloc(sizeof(*data), 1);
-	node->type = E_VARDECL;
-	node->data = data;
-	node->data_free = (expr_free_handle) var_decl_expr_free;
-
-	index = index_of_tok(tokens, current);
-
-	data->name = strndup(current->value, current->len);
-	data->type = type_index(tokens->tokens[index + 2]->value,
-				tokens->tokens[index + 2]->len);
-
-	return tokens->tokens[index + 3];
-}
-
-static token *var_def(expr_t *parent, token_list *tokens, token *func,
-		      token *current)
-{
-	var_expr_t *data;
-	expr_t *node;
+	func_t *data;
+	node *node;
 	token *tok;
-	int index;
-	size_t len = 0;
-	char *value = NULL;
 
-	node = expr_add_next(parent);
-	data = calloc(sizeof(*data), 1);
-	node->type = E_VARDEF;
+	data = func_new();
+
+	node = node_add_next(n);
+	node->type = N_FUNCTION;
 	node->data = data;
-	node->data_free = (expr_free_handle) var_expr_free;
-
-	index = index_of_tok(tokens, current);
-
-	data->name = strndup(current->value, current->len);
-	data->with_vars = false;
-	data->type = type_index(tokens->tokens[index + 1]->value,
-				tokens->tokens[index + 1]->len);
-
-	next_tok(NULL);
-	next_tok(NULL);
-	next_tok(NULL);
-
-	while ((tok = next_tok(NULL))->type != T_NEWLINE) {
-		if (tok->type == T_IDENT) {
-			if (!is_var_defined(tokens, func, tok)) {
-				error_at(tokens->source->content, tok->value,
-					 "Used undefined variable '%.*s'",
-					 tok->len, tok->value);
-				exit(1);
-			}
-
-			if (is_math_expr(tokens, tok)) {
-				error_at(
-				    tokens->source->content, tok->value,
-				    "Math expressions are not supported yet");
-				exit(1);
-			}
-		}
-	}
-
-	data->value = value;
-
-	return tok;
-}
-
-// TODO:
-static token *ret_expr(expr_t *parent, token_list *tokens, token *current)
-{
-	ret_t *data;
-	expr_t *node;
-	int index;
-
-	node = expr_add_next(parent);
-	data = calloc(sizeof(*data), 1);
-	node->type = E_RETURN;
-	node->data = data;
-	node->data_free = (expr_free_handle) ret_expr_free;
-
-	index = index_of_tok(tokens, current);
-}
-
-static err_t parse_fn(token_list *tokens, expr_t *parent)
-{
-	fn_expr_t *data;
-	expr_t *node;
-	token *tok, *func;
-
-	node = expr_add_next(parent);
-	data = calloc(sizeof(*data), 1);
-
-	node->type = E_FUNCTION;
-	node->data = data;
-	node->data_free = (expr_free_handle) fn_expr_free;
-	data->n_args = 0;
+	node->free = (node_free) func_destroy;
 
 	tok = next_tok(NULL);
-	func = tok;
 
-	/* name */
 	if (tok->type != T_IDENT) {
 		error_at(tokens->source->content, tok->value,
 			 "expected function name, got %s", tokname(tok->type));
-		return ERR_SYNTAX;
+		exit(1);
 	}
 
 	data->name = strndup(tok->value, tok->len);
 
-	/* parameters (currently skip) */
 	tok = next_tok(NULL);
 	if (!TOK_IS(tok, T_PUNCT, "(")) {
 		error_at(tokens->source->content, tok->value,
 			 "expected `(` after function name");
-		return ERR_SYNTAX;
+		exit(1);
 	}
 
 	tok = next_tok(NULL);
-	int is_first = 1;
 	while (!TOK_IS(tok, T_PUNCT, ")")) {
-		token *name;
-		token *type;
+		static int is_first = 1;
+		token *arg_name;
+		token *arg_type;
 
 		if (TOK_IS(tok, T_END, "")) {
 			error_at(tokens->source->content, tok->value,
 				 "expected ')'.");
-
-			return ERR_SYNTAX;
+			exit(1);
 		}
 
 		if ((TOK_IS(tok, T_PUNCT, ",") && !is_first)
@@ -358,30 +182,30 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 		if (tok->type != T_IDENT) {
 			error_at(tokens->source->content, tok->value,
 				 "expected argument name");
-			return ERR_SYNTAX;
-		} else {
-			name = tok;
-
-			tok = next_tok(NULL);
-			if (!TOK_IS(tok, T_PUNCT, ":")) {
-				error_at(tokens->source->content, tok->value,
-					 "missing type for '%.*s' argument.",
-					 name->len, name->value);
-				return ERR_SYNTAX;
-			}
-
-			tok = next_tok(NULL);
-			if (tok->type != T_DATATYPE) {
-				error_at(tokens->source->content, tok->value,
-					 "expected type got: '%.*s'.", tok->len,
-					 tok->value);
-				return ERR_SYNTAX;
-			}
-
-			type = tok;
+			exit(1);
 		}
 
-		fn_args_append(data, name, type);
+		arg_name = tok;
+
+		tok = next_tok(NULL);
+		if (!TOK_IS(tok, T_PUNCT, ":")) {
+			error_at(tokens->source->content, tok->value,
+				 "missing type for '%.*s' argument.",
+				 arg_name->len, arg_name->value);
+			exit(1);
+		}
+
+		tok = next_tok(NULL);
+		if (tok->type != T_DATATYPE) {
+			error_at(tokens->source->content, tok->value,
+				 "expected type got: '%.*s'.", tok->len,
+				 tok->value);
+			exit(1);
+		}
+
+		arg_type = tok;
+
+		func_add_arg(data, arg_name, arg_type);
 
 		is_first = 0;
 		tok = next_tok(NULL);
@@ -389,100 +213,68 @@ static err_t parse_fn(token_list *tokens, expr_t *parent)
 
 	data->return_type = T_VOID;
 
-	/* return type (optional) */
 	tok = next_tok(NULL);
 	if (TOK_IS(tok, T_PUNCT, ":")) {
 		tok = next_tok(NULL);
 		if (tok->type != T_DATATYPE) {
 			error_at(tokens->source->content, tok->value,
 				 "missing function return type");
-			return ERR_SYNTAX;
+			exit(1);
 		}
 
-		data->return_type = type_index(tok->value, tok->len);
+		char *ret_name = strndup(tok->value, tok->len);
+		data->return_type = get_type(ret_name);
+		free(ret_name);
 	}
 
-	/* opening & closing braces */
 	if (TOK_IS(tok, T_NEWLINE, ""))
 		tok = next_tok(NULL);
 
 	if (!TOK_IS(tok, T_PUNCT, "{")) {
 		error_at(tokens->source->content, tok->value,
-			 "missing opening brace for `%s` function",
-			 data->name);
-		return ERR_SYNTAX;
+			 "missing opening brace for `%s` function", data->name);
+		exit(1);
 	}
 
 	tok = next_tok(NULL);
 	while (!TOK_IS(tok, T_PUNCT, "}")) {
-		if (tok->type == T_NEWLINE) {
-			tok = next_tok(NULL);
-			continue;
-		}
+		if (tok->type == T_NEWLINE)
+			goto next;
 
-		if (is_var_decl(tokens, tok))
-			tok = var_decl(node, tokens, tok);
-
-		if (is_var_def(tokens, tok))
-			tok = var_def(node, tokens, func, tok);
-
-		// TODO:
-		// if (TOK_IS(tok, T_KEYWORD, "ret"))
-		// tok = ret_expr(node, tokens, tok);
-
+next:
 		tok = next_tok(NULL);
 	}
 
-	return 0;
+	fn_print(data);
+
+	return tok;
 }
 
-expr_t *parse(token_list *tokens)
+void parse(token_list *tokens)
 {
-	token *current = next_tok(tokens);
-	expr_t *module = calloc(sizeof(*module), 1);
-	char *content = tokens->source->content;
+	node *node = node_new();
+	module_t *mod = module_new();
+	token *tok = next_tok(tokens);
 
-	module->type = E_MODULE;
-	module->data = malloc(sizeof(mod_expr_t));
-	module->data_free = (expr_free_handle) mod_expr_free;
-	E_AS_MOD(module->data)->name = strdup("__main__");
+	node->type = N_MODULE;
+	node->free = (node_free) module_destroy;
+	node->data = mod;
 
-	token_list_print(tokens);
+	mod->name = strdup("__main__");
 
-	while ((current = next_tok(NULL)) && current->type != T_END) {
-		/* top-level: function decl */
-		if (current->type == T_KEYWORD
-		    && !strncmp(current->value, "fn", current->len)) {
-			if (parse_fn(tokens, module))
-				goto err;
-		} else if (current->type == T_NEWLINE) {
+	// Parse function in global scope
+	while ((tok = next_tok(NULL)) && tok->type != T_END) {
+		if (tok->type == T_NEWLINE)
 			continue;
-		} else {
-			error_at(content, current->value,
+
+		if (TOK_IS(tok, T_KEYWORD, "fn")) {
+			tok = parse_fn(tokens, node);
+		} else  {
+			error_at(tokens->source->content, tok->value,
 				 "only functions are allowed at the top-level");
-			goto err;
+			exit(1);
 		}
 	}
 
-err:
-	return module;
-}
-
-void expr_destroy(expr_t *expr)
-{
-	if (!expr)
-		return;
-
-	if (expr->child)
-		expr_destroy(expr->child);
-	if (expr->next)
-		expr_destroy(expr->next);
-
-	if (expr->data) {
-		if (expr->data_free)
-			expr->data_free(expr->data);
-		free(expr->data);
-	}
-
-	free(expr);
+	node_destroy(node);
 }

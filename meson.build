@@ -9,10 +9,10 @@ sources = [
   'src/error.c',
   'src/parser.c',
   'src/type.c',
-  'src/generate.c'
+  'src/keyword.c'
 ]
 
-llvm = dependency('llvm')
+llvm = declare_dependency(link_args: '-lLLVM')
 
 executable(
   'nxg', sources,

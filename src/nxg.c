@@ -1,6 +1,5 @@
 #include "nxg/file.h"
 
-#include <nxg/generate.h>
 #include <nxg/nxg.h>
 #include <nxg/parser.h>
 #include <stdio.h>
@@ -26,13 +25,8 @@ static void compile(const char *input, const char *output)
 {
 	file *source = file_new(input);
 	token_list *list = tokens(source);
-	expr_t *ast = parse(list);
-	generate(ast);
-
-	(void) ast;
-
+	parse(list);
 	file_destroy(source);
-	expr_destroy(ast);
 }
 
 int main(int argc, char **argv)

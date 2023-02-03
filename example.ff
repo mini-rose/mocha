@@ -1,6 +1,9 @@
 /* Example coffee program */
 
-fn main() {
-	b: i32 = 12
-	a: i32 = b
+fn add(a: i32, b: i32) {
+	ret a + b
+}
+
+fn main(a: i32, b: i32) {
+
 }

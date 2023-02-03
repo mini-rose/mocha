@@ -1,28 +1,31 @@
 #include <nxg/type.h>
-
+#include <stdbool.h>
 #include <string.h>
-#define LEN(x) sizeof(x) / sizeof(x[0])
 
-bool is_type(char *str)
+#define LENGTH(array) sizeof(array) / sizeof(*array)
+
+static char *types[] = {
+    [T_VOID] = "void", [T_BOOL] = "bool", [T_I8] = "i8",     [T_I16] = "i16",
+    [T_I32] = "i32",   [T_I64] = "i64",   [T_I128] = "i128", [T_U8] = "u8",
+    [T_U16] = "u16",   [T_U32] = "u32",   [T_U64] = "u64",   [T_U128] = "u128",
+    [T_F32] = "f32",   [T_F64] = "f64",   [T_STR] = "str",   [T_PTR] = "ptr"};
+
+static size_t length = LENGTH(types);
+
+bool is_type(const char *str)
 {
-	static const char *types[] = {"str", "bool", "i8", "i16", "i32", "i64",
-				      "f32", "f64",  "u8", "u16", "u32", "u64"};
-
-	for (int i = 0; i < LEN(types); i++)
+	for (int i = 0; i < length; i++)
 		if (!strcmp(str, types[i]))
 			return true;
 
 	return false;
 }
 
-bool is_kw(char *str)
+type_t get_type(const char *str)
 {
-	static const char *keywords[] = {"fn",  "ret",   "if",  "elif", "else",
-					 "for", "while", "and", "or",   "not"};
+	for (int i = 0; i < length; i++)
+		if (!strcmp(str, types[i]))
+			return (type_t) i;
 
-	for (int i = 0; i < LEN(keywords); i++)
-		if (!strcmp(str, keywords[i]))
-			return true;
-
-	return false;
+	return -1;
 }
