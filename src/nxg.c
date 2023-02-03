@@ -1,5 +1,4 @@
-#include "nxg/file.h"
-
+#include <nxg/file.h>
 #include <nxg/nxg.h>
 #include <nxg/parser.h>
 #include <stdio.h>
@@ -25,7 +24,11 @@ static void compile(const char *input, const char *output)
 {
 	file *source = file_new(input);
 	token_list *list = tokens(source);
-	parse(list);
+	expr_t *ast = parse(list);
+
+	expr_print(ast);
+
+	expr_destroy(ast);
 	file_destroy(source);
 }
 

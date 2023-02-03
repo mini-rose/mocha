@@ -27,6 +27,7 @@ typedef struct
 	file *source;
 	token **tokens;
 	int length;
+	int iter;
 } token_list;
 
 const char *tokname(token_t toktype);

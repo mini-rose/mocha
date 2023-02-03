@@ -23,6 +23,7 @@ token_list *token_list_new()
 	token_list *list = (token_list *) malloc(sizeof(token_list));
 	list->tokens = NULL;
 	list->length = 0;
+	list->iter = 0;
 	return list;
 }
 
@@ -159,7 +160,7 @@ token_list *tokens(file *source)
 
 			if (is_keyword(str))
 				tok = token_new(last = T_KEYWORD, p, q - p);
-			else if (is_type(str))
+			else if (is_plain_type(str))
 				tok = token_new(last = T_DATATYPE, p, q - p);
 			else
 				tok = token_new(last = T_IDENT, p, q - p);

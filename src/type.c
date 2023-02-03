@@ -4,28 +4,48 @@
 
 #define LENGTH(array) sizeof(array) / sizeof(*array)
 
-static char *types[] = {
-    [T_VOID] = "void", [T_BOOL] = "bool", [T_I8] = "i8",     [T_I16] = "i16",
-    [T_I32] = "i32",   [T_I64] = "i64",   [T_I128] = "i128", [T_U8] = "u8",
-    [T_U16] = "u16",   [T_U32] = "u32",   [T_U64] = "u64",   [T_U128] = "u128",
-    [T_F32] = "f32",   [T_F64] = "f64",   [T_STR] = "str",   [T_PTR] = "ptr"};
+static char *plain_types[] = {
+    [PT_NULL] = "null", [PT_BOOL] = "bool", [PT_I8] = "i8",
+    [PT_I16] = "i16",   [PT_I32] = "i32",   [PT_I64] = "i64",
+    [PT_I128] = "i128", [PT_U8] = "u8",     [PT_U16] = "u16",
+    [PT_U32] = "u32",   [PT_U64] = "u64",   [PT_U128] = "u128",
+    [PT_F32] = "f32",   [PT_F64] = "f64",   [PT_STR] = "str",
+    [PT_PTR] = "ptr"};
 
-static size_t length = LENGTH(types);
+static const size_t n_plain_types = LENGTH(plain_types);
 
-bool is_type(const char *str)
+bool is_plain_type(const char *str)
 {
-	for (int i = 0; i < length; i++)
-		if (!strcmp(str, types[i]))
+	for (int i = 0; i < n_plain_types; i++)
+		if (!strcmp(str, plain_types[i]))
 			return true;
 
 	return false;
 }
 
-type_t get_type(const char *str)
+plain_type plain_type_from(const char *str, int len)
 {
-	for (int i = 0; i < length; i++)
-		if (!strcmp(str, types[i]))
-			return (type_t) i;
+	for (int i = 0; i < n_plain_types; i++)
+		if (!strncmp(str, plain_types[i], len))
+			return i;
 
-	return -1;
+	return PT_NULL;
+}
+
+const char *plain_type_name(plain_type t)
+{
+	if (t >= 0 && t < n_plain_types)
+		return plain_types[t];
+	return "<non-plain type>";
+}
+
+const char *plain_type_example_varname(plain_type t)
+{
+	if (t == PT_STR)
+		return "string";
+	if (t >= PT_I8 && t <= PT_U64)
+		return "number";
+	if (t == PT_BOOL)
+		return "is_something";
+	return "x";
 }
