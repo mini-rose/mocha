@@ -1,3 +1,5 @@
+#include "nxg/error.h"
+
 #include <nxg/type.h>
 #include <stdbool.h>
 #include <string.h>
@@ -25,9 +27,10 @@ bool is_plain_type(const char *str)
 
 plain_type plain_type_from(const char *str, int len)
 {
-	for (int i = 0; i < n_plain_types; i++)
+	for (int i = 0; i < n_plain_types; i++) {
 		if (!strncmp(str, plain_types[i], len))
 			return i;
+	}
 
 	return PT_NULL;
 }

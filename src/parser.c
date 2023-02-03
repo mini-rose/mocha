@@ -29,16 +29,16 @@ static void fn_expr_free(fn_expr_t *function)
 	free(function->params);
 }
 
-static void var_expr_free(var_expr_t *variable)
+static void value_expr_free(value_expr_t *value)
 {
-	free(variable->name);
-	free(variable->value);
+	expr_destroy(value->left);
+	expr_destroy(value->right);
 }
 
-static void ret_expr_free(var_expr_t *variable)
+static void assign_expr_free(assign_expr_t *assign)
 {
-	free(variable->name);
-	free(variable->value);
+	free(assign->name);
+	value_expr_free(&assign->value);
 }
 
 static void var_decl_expr_free(var_decl_expr_t *variable)
@@ -60,21 +60,26 @@ static token *next_tok(token_list *list)
 	return index_tok(list, list->iter++);
 }
 
-static expr_t *expr_add_next(expr_t *prev)
+static expr_t *expr_alloc()
+{
+	return calloc(1, sizeof(expr_t));
+}
+
+static expr_t *expr_add_next(expr_t *expr)
 {
 	expr_t *node = calloc(sizeof(*node), 1);
 
-	while (prev->next)
-		prev = prev->next;
+	while (expr->next)
+		expr = expr->next;
 
-	prev->next = node;
+	expr->next = node;
 	return node;
 }
 
 static expr_t *expr_add_child(expr_t *parent)
 {
 	if (parent->child)
-		return expr_add_next(parent);
+		return expr_add_next(parent->child);
 
 	expr_t *node = calloc(sizeof(*node), 1);
 	parent->child = node;
@@ -89,26 +94,21 @@ static void fn_add_param(fn_expr_t *fn, token *name, plain_type type)
 	fn->params[fn->n_params - 1]->type = type;
 }
 
-static bool is_func(token_list *list, const char *str)
+static bool block_has_named_local(expr_t *fn, const char *name, int len)
 {
-	for (int i = 0; i < list->length; i++) {
-		if (TOK_IS(list->tokens[i], T_KEYWORD, "fn")
-		    && !strncmp(str, list->tokens[i + 1]->value,
-				list->tokens[i + 1]->len)) {
-			return true;
+	expr_t *walker;
+
+	walker = fn->child;
+	while (walker) {
+		if (walker->type == E_VARDECL) {
+			if (!strncmp(E_AS_VDECL(walker->data)->name, name, len))
+				return true;
 		}
+
+		walker = walker->next;
 	}
 
 	return false;
-}
-
-static int index_of_tok(token_list *tokens, token *tok)
-{
-	for (int i = 0; i < tokens->length; i++)
-		if (tokens->tokens[i] == tok)
-			return i;
-
-	return 0;
 }
 
 /**
@@ -131,22 +131,25 @@ static bool is_var_decl(token_list *tokens, token *tok)
 }
 
 /**
- * name: type = value
+ * name[: type] = value
  */
-static bool is_var_def(token_list *tokens, token *tok)
+static bool is_var_assign(token_list *tokens, token *tok)
 {
+	int offset = 0;
+
 	if (tok->type != T_IDENT)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter);
-	if (!TOK_IS(tok, T_PUNCT, ":"))
-		return false;
+	tok = index_tok(tokens, tokens->iter + offset);
+	if (TOK_IS(tok, T_PUNCT, ":")) {
+		offset++;
+		tok = index_tok(tokens, tokens->iter + offset);
+		if (tok->type != T_DATATYPE)
+			return false;
+		offset++;
+	}
 
-	tok = index_tok(tokens, tokens->iter + 1);
-	if (tok->type != T_DATATYPE)
-		return false;
-
-	tok = index_tok(tokens, tokens->iter + 2);
+	tok = index_tok(tokens, tokens->iter + offset);
 	if (!TOK_IS(tok, T_OPERATOR, "="))
 		return false;
 
@@ -154,43 +157,24 @@ static bool is_var_def(token_list *tokens, token *tok)
 }
 
 /**
- * name = value
+ * name: type
  */
-static bool is_var_assign(token_list *tokens, token *tok)
-{
-	if (tok->type != T_IDENT)
-		return false;
-
-	tok = index_tok(tokens, tokens->iter + 1);
-	if (!TOK_IS(tok, T_PUNCT, "="))
-		return false;
-
-	return true;
-}
-
-static bool is_math_expr(token_list *list, token *start)
-{
-	int index = index_of_tok(list, start);
-
-	for (int i = index; i < list->length; i++) {
-		if (list->tokens[i]->type == T_NEWLINE)
-			break;
-
-		if (list->tokens[i]->type == T_OPERATOR)
-			return true;
-	}
-
-	return false;
-}
-
 static err_t parse_var_decl(expr_t *parent, token_list *tokens, token *tok)
 {
 	var_decl_expr_t *data;
 	expr_t *node;
 
+	if (block_has_named_local(parent, tok->value, tok->len)) {
+		error_at(tokens->source->content, tok->value,
+			 "a variable named `%.*s` already has been declared in "
+			 "this scope",
+			 tok->len, tok->value);
+	}
+
 	data = calloc(sizeof(*data), 1);
 	data->name = strndup(tok->value, tok->len);
 
+	tok = next_tok(tokens);
 	tok = next_tok(tokens);
 	data->type = plain_type_from(tok->value, tok->len);
 
@@ -202,52 +186,68 @@ static err_t parse_var_decl(expr_t *parent, token_list *tokens, token *tok)
 	return ERR_OK;
 }
 
-static err_t parse_var_def(expr_t *parent, token_list *tokens, token *current)
+/**
+ * name[: type] = value
+ */
+static err_t parse_assign(expr_t *parent, token_list *tokens, token *tok)
 {
-	var_expr_t *data;
+	assign_expr_t *data;
 	expr_t *node;
-	token *tok;
-	int index;
-	char *value = NULL;
+	token *name;
 
-	node = expr_add_child(parent);
-	data = calloc(sizeof(*data), 1);
-	node->type = E_VARDEF;
-	node->data = data;
-	node->data_free = (expr_free_handle) var_expr_free;
+	name = tok;
 
-	index = index_of_tok(tokens, current);
-
-	data->name = strndup(current->value, current->len);
-	data->with_vars = false;
-	data->type = plain_type_from(tokens->tokens[index + 1]->value,
-				     tokens->tokens[index + 1]->len);
-
-	next_tok(tokens);
-	next_tok(tokens);
-	next_tok(tokens);
-
-	while ((tok = next_tok(tokens))->type != T_NEWLINE) {
-		if (tok->type == T_IDENT) {
-			if (is_math_expr(tokens, tok)) {
-				error_at(
-				    tokens->source->content, tok->value,
-				    "Math expressions are not supported yet");
-				exit(1);
-			}
-		}
+	/* defined variable type, meaning we declare a new variable */
+	if (is_var_decl(tokens, tok)) {
+		parse_var_decl(parent, tokens, tok);
+	} else if (!block_has_named_local(parent, tok->value, tok->len)) {
+		error_at(tokens->source->content, tok->value,
+			 "unknown local: `%.*s` has not been declared anywhere",
+			 tok->len, tok->value);
 	}
 
-	data->value = value;
+	node = expr_add_child(parent);
+	data = calloc(1, sizeof(*data));
+
+	data->name = strndup(name->value, name->len);
+	node->type = E_ASSIGN;
+	node->data = data;
+	node->data_free = (expr_free_handle) assign_expr_free;
+
+	tok = next_tok(tokens);
+	while (tok->type != T_NEWLINE && tok->type != T_END)
+		tok = next_tok(tokens);
 
 	return ERR_OK;
 }
 
-static err_t parse_var_assign(expr_t *parent, token_list *tokens, token *tok)
+static err_t parse_return(expr_t *parent, token_list *tokens, token *tok)
 {
-	var_expr_t *data;
+	value_expr_t *data;
+	expr_t *node;
+
+	node = expr_add_child(parent);
+	data = calloc(1, sizeof(*data));
+
+	node->type = E_RETURN;
+	node->data = data;
+	node->data_free = (expr_free_handle) value_expr_free;
 
 	return ERR_OK;
+}
+
+static bool fn_has_return(expr_t *func)
+{
+	expr_t *walker = func->child;
+	if (!walker)
+		return false;
+
+	do {
+		if (walker->type == E_RETURN)
+			return true;
+	} while ((walker = walker->next));
+
+	return false;
 }
 
 static err_t parse_fn(token_list *tokens, expr_t *module)
@@ -393,23 +393,38 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 
 		/* statements inside the function */
 
-		if (is_var_def(tokens, tok))
-			parse_var_def(node, tokens, tok);
-		else if (is_var_decl(tokens, tok))
+		if (is_var_assign(tokens, tok))
+			parse_assign(node, tokens, tok);
+		if (is_var_decl(tokens, tok))
 			parse_var_decl(node, tokens, tok);
-		else if (is_var_assign(tokens, tok))
-			parse_var_assign(node, tokens, tok);
-		else
-			warning("unknown statement `%.*s`", tok->len,
-				tok->value);
+		else if (TOK_IS(tok, T_KEYWORD, "ret"))
+			parse_return(node, tokens, tok);
 
 		tok = next_tok(tokens);
+	}
+
+	/* Always add a return statement */
+	if (!fn_has_return(node)) {
+		expr_t *ret_expr = expr_add_child(node);
+		value_expr_t *val = calloc(1, sizeof(*val));
+		literal_expr_t *lit = calloc(1, sizeof(*lit));
+
+		ret_expr->type = E_RETURN;
+		ret_expr->data_free = (expr_free_handle) value_expr_free;
+		ret_expr->data = val;
+		val->type = VE_LIT;
+		val->value = expr_alloc();
+		val->value->type = E_LITERAL;
+		val->value->data = lit;
+		val->return_type = data->return_type;
+		lit->type = data->return_type;
+		literal_default(lit);
 	}
 
 	return 0;
 }
 
-expr_t *parse(token_list *tokens)
+expr_t *parse(token_list *tokens, const char *module_id)
 {
 	token *current = next_tok(tokens);
 	expr_t *module = calloc(sizeof(*module), 1);
@@ -418,7 +433,7 @@ expr_t *parse(token_list *tokens)
 	module->type = E_MODULE;
 	module->data = malloc(sizeof(mod_expr_t));
 	module->data_free = (expr_free_handle) mod_expr_free;
-	E_AS_MOD(module->data)->name = strdup("__main__");
+	E_AS_MOD(module->data)->name = strdup(module_id);
 
 	token_list_print(tokens);
 
@@ -462,8 +477,8 @@ void expr_destroy(expr_t *expr)
 
 static const char *expr_typename(expr_type type)
 {
-	static const char *names[] = {"MODULE", "FUNCTION", "CALL",  "RETURN",
-				      "VARDEF", "VARDECL",  "ASSIGN"};
+	static const char *names[] = {"MODULE",  "FUNCTION", "CALL",   "RETURN",
+				      "VARDECL", "ASSIGN",   "LITERAL"};
 	static const int n_names = sizeof(names) / sizeof(*names);
 
 	if (type >= 0 && type < n_names)
@@ -501,7 +516,8 @@ static const char *func_str_signature(fn_expr_t *func)
 static const char *expr_info(expr_t *expr)
 {
 	static char info[512];
-	var_expr_t *var;
+	assign_expr_t *var;
+	char *buf;
 
 	switch (expr->type) {
 	case E_MODULE:
@@ -516,10 +532,21 @@ static const char *expr_info(expr_t *expr)
 			 plain_type_name(E_AS_VDECL(expr->data)->type),
 			 E_AS_VDECL(expr->data)->name);
 		break;
-	case E_VARDEF:
-		var = E_AS_VDEF(expr->data);
-		snprintf(info, 512, "%s: %s = %s", var->name,
-			 plain_type_name(var->type), var->value);
+	case E_ASSIGN:
+		var = E_AS_ASS(expr->data);
+		snprintf(info, 512, "%s = expr -> %s", var->name,
+			 plain_type_name(var->value.return_type));
+		break;
+	case E_LITERAL:
+		buf = stringify_literal(E_AS_LIT(expr->data));
+		snprintf(info, 512, "%s: %s", buf,
+			 plain_type_name(E_AS_LIT(expr->data)->type));
+		free(buf);
+		break;
+	case E_RETURN:
+		snprintf(info, 512, "%s %s",
+			 plain_type_name(E_AS_VAL(expr->data)->return_type),
+			 value_expr_type_name(E_AS_VAL(expr->data)->type));
 		break;
 	default:
 		info[0] = 0;
@@ -528,7 +555,7 @@ static const char *expr_info(expr_t *expr)
 	return info;
 }
 
-static void expr_print_level(expr_t *expr, int level)
+static void expr_print_level(expr_t *expr, int level, bool with_next)
 {
 	expr_t *walker;
 
@@ -538,16 +565,70 @@ static void expr_print_level(expr_t *expr, int level)
 
 	printf("%s %s\n", expr_typename(expr->type), expr_info(expr));
 
-	walker = expr->next;
-	while (walker && (walker = walker->next)) {
-		expr_print_level(walker, level);
+	if (expr->type == E_RETURN) {
+		value_expr_t *val = expr->data;
+		if (val->left)
+			expr_print_level(val->left, level + 1, true);
+		if (val->right)
+			expr_print_level(val->right, level + 1, true);
 	}
 
 	if (expr->child)
-		expr_print_level(expr->child, level + 1);
+		expr_print_level(expr->child, level + 1, true);
+
+	if (with_next) {
+		walker = expr;
+		while (walker && (walker = walker->next))
+			expr_print_level(walker, level, false);
+	}
 }
 
 void expr_print(expr_t *expr)
 {
-	expr_print_level(expr, 0);
+	expr_print_level(expr, 0, true);
+}
+
+void literal_default(literal_expr_t *literal)
+{
+	plain_type t = literal->type;
+
+	switch (t) {
+	case PT_STR:
+		literal->v_str.len = 0;
+		literal->v_str.ptr = "";
+		break;
+	default:
+		memset(literal, 0, sizeof(*literal));
+		literal->type = t;
+	}
+}
+
+char *stringify_literal(literal_expr_t *literal)
+{
+	if (literal->type == PT_I32) {
+		char *buf = malloc(16);
+		snprintf(buf, 16, "%d", literal->v_i32);
+		return buf;
+	}
+
+	if (literal->type == PT_STR)
+		return strndup(literal->v_str.ptr, literal->v_str.len);
+
+	if (literal->type == PT_NULL) {
+		char *buf = malloc(5);
+		strcpy(buf, "null");
+		return buf;
+	}
+
+	return NULL;
+}
+
+const char *value_expr_type_name(value_expr_type t)
+{
+	static const char *names[] = {"REF", "LIT", "ADD", "SUB", "MUL", "DIV"};
+	static const int n_names = sizeof(names) / sizeof(*names);
+
+	if (t >= 0 && t < n_names)
+		return names[t];
+	return "<value expr type>";
 }
