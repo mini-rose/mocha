@@ -536,7 +536,6 @@ static void expr_print_level(expr_t *expr, int level)
 		fputs("  ", stdout);
 	}
 
-	/* Info about this expression. */
 	printf("%s %s\n", expr_typename(expr->type), expr_info(expr));
 
 	walker = expr->next;

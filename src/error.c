@@ -8,7 +8,7 @@ void warning(const char *format, ...)
 	va_list ap;
 	va_start(ap, format);
 	fputs("\e[33mWARNING\e[0m: ", stderr);
-	fprintf(stderr, format, ap);
+	vfprintf(stderr, format, ap);
 	fputc('\n', stderr);
 	va_end(ap);
 }
@@ -18,7 +18,7 @@ void error(const char *format, ...)
 	va_list ap;
 	va_start(ap, format);
 	fputs("\e[31mERROR\e[0m: ", stderr);
-	fprintf(stderr, format, ap);
+	vfprintf(stderr, format, ap);
 	fputc('\n', stderr);
 	va_end(ap);
 	exit(1);
