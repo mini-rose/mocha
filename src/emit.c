@@ -134,7 +134,12 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 			      E_AS_FN(context->func->data)->name);
 		}
 
-		LLVMBuildRet(builder, ret);
+		/* Locals are stored on the stack, so automatically they become
+		   pointers, so if we want to return a value we need to store it
+		   into a variable. */
+		LLVMValueRef ret_val =
+		    LLVMBuildLoad2(builder, LLVMGetAllocatedType(ret), ret, "");
+		LLVMBuildRet(builder, ret_val);
 
 	} else if (value->type == VE_LIT) {
 		ret = NULL;
@@ -155,6 +160,51 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 	}
 }
 
+static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
+			     expr_t *node)
+{
+	LLVMValueRef var;
+	assign_expr_t *data;
+
+	data = node->data;
+	var = fn_find_local(context, data->name);
+
+	if (!var) {
+		error("local %s not found in %s", data->name,
+		      E_AS_FN(context->func->data)->name);
+	}
+
+	if (data->value.return_type
+	    != node_resolve_local(context->func, data->name, strlen(data->name))
+		   ->type) {
+		error(
+		    "mismatched expression return type with var decl for `%s`",
+		    data->name);
+	}
+
+	if (data->value.type == VE_NULL) {
+		warning("suspicious null type assignment");
+		return;
+	}
+
+	if (data->value.type == VE_REF) {
+		/* copy a value */
+		LLVMValueRef other = fn_find_local(context, data->value.name);
+		LLVMBuildStore(builder, other, var);
+	}
+
+	if (data->value.type == VE_LIT) {
+		/* assign a literal value to a variable */
+		literal_expr_t *lit = data->value.literal;
+		if (lit->type == PT_I32) {
+			LLVMBuildStore(
+			    builder,
+			    LLVMConstInt(LLVMInt32Type(), lit->v_i32, false),
+			    var);
+		}
+	}
+}
+
 void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 {
 	switch (node->type) {
@@ -167,6 +217,9 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 		break;
 	case E_RETURN:
 		emit_return_node(builder, context, node);
+		break;
+	case E_ASSIGN:
+		emit_assign_node(builder, context, node);
 		break;
 	default:
 		warning("undefined emit rules for node");

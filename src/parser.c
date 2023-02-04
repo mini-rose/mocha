@@ -105,36 +105,31 @@ static void fn_add_param(fn_expr_t *fn, token *name, plain_type type)
 	fn->params[fn->n_params - 1]->type = type;
 }
 
-static var_decl_expr_t *node_resolve_local(expr_t *node, const char *name,
-					   int len)
+var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len)
 {
-	expr_t *walker;
-
 	if (len == 0)
 		len = strlen(name);
 
-	if (node->type == E_FUNCTION) {
-		fn_expr_t *fn = node->data;
-		for (int i = 0; i < fn->n_params; i++) {
-			if (!strncmp(fn->params[i]->name, name, len))
-				return fn->params[i];
-		}
+	/* only support functions now */
+	if (node->type != E_FUNCTION)
+		return NULL;
+
+	fn_expr_t *fn = node->data;
+
+	for (int i = 0; i < fn->n_params; i++) {
+		if (!strncmp(fn->params[i]->name, name, len))
+			return fn->params[i];
 	}
 
-	walker = node->child;
-	while (walker) {
-		if (walker->type == E_VARDECL) {
-			if (!strncmp(E_AS_VDECL(walker->data)->name, name, len))
-				return walker->data;
-		}
-
-		walker = walker->next;
+	for (int i = 0; i < fn->n_locals; i++) {
+		if (!strncmp(fn->locals[i]->name, name, len))
+			return fn->locals[i];
 	}
 
 	return NULL;
 }
 
-static bool node_has_named_local(expr_t *node, const char *name, int len)
+bool node_has_named_local(expr_t *node, const char *name, int len)
 {
 	return node_resolve_local(node, name, len) != NULL;
 }
@@ -298,9 +293,9 @@ static bool is_var_assign(token_list *tokens, token *tok)
 
 static void fn_add_local_var(fn_expr_t *func, var_decl_expr_t *var)
 {
-	func->locals =
-	    realloc(func->locals, sizeof(var_decl_expr_t *) * ++func->n_locals);
-	func->locals[func->n_locals - 1] = var;
+	func->locals = realloc(func->locals, sizeof(var_decl_expr_t *)
+						 * (func->n_locals + 1));
+	func->locals[func->n_locals++] = var;
 }
 
 /**
@@ -365,9 +360,11 @@ static err_t parse_assign(expr_t *parent, fn_expr_t *fn, token_list *tokens,
 	node->data = data;
 	node->data_free = (expr_free_handle) assign_expr_free;
 
+	/* parse value */
 	tok = next_tok(tokens);
-	while (tok->type != T_NEWLINE && tok->type != T_END)
-		tok = next_tok(tokens);
+	tok = next_tok(tokens);
+
+	parse_value_expr(parent, &data->value, tokens, tok);
 
 	return ERR_OK;
 }
@@ -564,9 +561,10 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		return ERR_SYNTAX;
 	}
 
-	tok = next_tok(tokens);
 	int brace_level = 1;
 	while (brace_level != 0) {
+		tok = next_tok(tokens);
+
 		if (tok->type == T_END) {
 			if (brace_level == 1)
 				error_at(tokens->source->content, tok->value,
@@ -577,26 +575,30 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 					 brace_level);
 		}
 
-		if (tok->type == T_NEWLINE) {
-			tok = next_tok(tokens);
+		if (tok->type == T_NEWLINE)
+			continue;
+
+		if (TOK_IS(tok, T_PUNCT, "{")) {
+			brace_level++;
 			continue;
 		}
 
-		if (TOK_IS(tok, T_PUNCT, "{"))
-			brace_level++;
-		if (TOK_IS(tok, T_PUNCT, "}"))
+		if (TOK_IS(tok, T_PUNCT, "}")) {
 			brace_level--;
+			continue;
+		}
 
 		/* statements inside the function */
 
 		if (is_var_assign(tokens, tok))
 			parse_assign(node, data, tokens, tok);
-		if (is_var_decl(tokens, tok))
+		else if (is_var_decl(tokens, tok))
 			parse_var_decl(node, data, tokens, tok);
 		else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, tokens, tok);
-
-		tok = next_tok(tokens);
+		else
+			error_at(tokens->source->content, tok->value,
+				 "unparsable");
 	}
 
 	/* always add a return statement */
@@ -649,8 +651,6 @@ expr_t *parse(token_list *tokens, const char *module_id)
 	module->type = E_MODULE;
 	module->data = data;
 	module->data_free = (expr_free_handle) mod_expr_free;
-
-	token_list_print(tokens);
 
 	while ((current = next_tok(tokens)) && current->type != T_END) {
 		/* top-level: function decl */
@@ -749,7 +749,7 @@ static const char *expr_info(expr_t *expr)
 		break;
 	case E_ASSIGN:
 		var = E_AS_ASS(expr->data);
-		snprintf(info, 512, "%s = expr -> %s", var->name,
+		snprintf(info, 512, "%s = (%s) {}", var->name,
 			 plain_type_name(var->value.return_type));
 		break;
 	case E_LITERAL:

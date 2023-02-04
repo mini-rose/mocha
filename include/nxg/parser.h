@@ -122,3 +122,6 @@ void literal_default(literal_expr_t *literal);
 char *stringify_literal(literal_expr_t *literal);
 
 const char *value_expr_type_name(value_expr_type t);
+
+var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len);
+bool node_has_named_local(expr_t *node, const char *name, int len);
