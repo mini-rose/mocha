@@ -148,12 +148,12 @@ token_list *tokens(file *source)
 			continue;
 		}
 
-		if (isalpha(*p)) {
+		if (isalpha(*p) || *p == '_') {
 			token *tok;
 			char *str;
 			char *q = p;
 
-			while ((*q > 96 && *q < 123) || isdigit(*q))
+			while (isalnum(*q) || *q == '_')
 				q++;
 
 			str = push_str(p, q);
