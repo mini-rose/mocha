@@ -2,6 +2,7 @@
 #include <nxg/tokenize.h>
 #include <nxg/type.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef enum
 {
@@ -61,21 +62,23 @@ typedef struct
 	expr_t *right;
 } value_expr_t;
 
-/* function definition */
-typedef struct
-{
-	char *name;
-	int n_params;
-	fn_param_t **params;
-	plain_type return_type;
-} fn_expr_t;
-
 /* variable declaration */
 typedef struct
 {
 	plain_type type;
 	char *name;
 } var_decl_expr_t;
+
+/* function definition */
+typedef struct
+{
+	char *name;
+	int n_params;
+	fn_param_t **params;
+	var_decl_expr_t **locals;
+	size_t n_locals;
+	plain_type return_type;
+} fn_expr_t;
 
 /* variable assignment */
 typedef struct

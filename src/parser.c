@@ -20,13 +20,16 @@ static void mod_expr_free(mod_expr_t *module)
 
 static void fn_expr_free(fn_expr_t *function)
 {
+	int i;
+
 	free(function->name);
 
-	for (int i = 0; i < function->n_params; i++) {
+	for (i = 0; i < function->n_params; i++) {
 		free(function->params[i]->name);
 		free(function->params[i]);
 	}
 
+	free(function->locals);
 	free(function->params);
 }
 
@@ -157,10 +160,16 @@ static bool is_var_assign(token_list *tokens, token *tok)
 	return true;
 }
 
+static void fn_add_local_var(fn_expr_t *func, var_decl_expr_t *var)
+{
+	func->locals = realloc(func->locals, sizeof(var_decl_expr_t *) * ++func->n_locals);
+	func->locals[func->n_locals - 1] = var;
+}
+
 /**
  * name: type
  */
-static err_t parse_var_decl(expr_t *parent, token_list *tokens, token *tok)
+static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens, token *tok)
 {
 	var_decl_expr_t *data;
 	expr_t *node;
@@ -184,13 +193,15 @@ static err_t parse_var_decl(expr_t *parent, token_list *tokens, token *tok)
 	node->data = data;
 	node->data_free = (expr_free_handle) var_decl_expr_free;
 
+	fn_add_local_var(fn, data);
+
 	return ERR_OK;
 }
 
 /**
  * name[: type] = value
  */
-static err_t parse_assign(expr_t *parent, token_list *tokens, token *tok)
+static err_t parse_assign(expr_t *parent, fn_expr_t *fn, token_list *tokens, token *tok)
 {
 	assign_expr_t *data;
 	expr_t *node;
@@ -200,7 +211,7 @@ static err_t parse_assign(expr_t *parent, token_list *tokens, token *tok)
 
 	/* defined variable type, meaning we declare a new variable */
 	if (is_var_decl(tokens, tok)) {
-		parse_var_decl(parent, tokens, tok);
+		parse_var_decl(parent, fn, tokens, tok);
 	} else if (!block_has_named_local(parent, tok->value, tok->len)) {
 		error_at(tokens->source->content, tok->value,
 			 "unknown local: `%.*s` has not been declared anywhere",
@@ -350,6 +361,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 	tok = next_tok(tokens);
 	if (TOK_IS(tok, T_PUNCT, ":")) {
 		tok = next_tok(tokens);
+
 		if (tok->type != T_DATATYPE) {
 			error_at(tokens->source->content, tok->value,
 				 "expected return type, got `%.*s`", tok->len,
@@ -397,9 +409,9 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		/* statements inside the function */
 
 		if (is_var_assign(tokens, tok))
-			parse_assign(node, tokens, tok);
+			parse_assign(node, data, tokens, tok);
 		if (is_var_decl(tokens, tok))
-			parse_var_decl(node, tokens, tok);
+			parse_var_decl(node, data, tokens, tok);
 		else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, tokens, tok);
 

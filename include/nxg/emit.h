@@ -1,5 +1,6 @@
 #pragma once
 
+#include <llvm-c/Core.h>
 #include <nxg/parser.h>
 
 char *mangle(fn_expr_t *func);
