@@ -14,10 +14,19 @@
 #define TOK_IS(TOK, TYPE, VALUE)                                               \
  (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
 
+static void fn_expr_free(fn_expr_t *function);
+static void value_expr_free(value_expr_t *value);
+static void call_expr_free(call_expr_t *call);
+
 static void mod_expr_free(mod_expr_t *module)
 {
 	free(module->name);
 	free(module->source_name);
+	for (int i = 0; i < module->n_decls; i++) {
+		fn_expr_free(module->decls[i]);
+		free(module->decls[i]);
+	}
+	free(module->decls);
 }
 
 static void fn_expr_free(fn_expr_t *function)
@@ -34,9 +43,6 @@ static void fn_expr_free(fn_expr_t *function)
 	free(function->locals);
 	free(function->params);
 }
-
-static void value_expr_free(value_expr_t *value);
-static void call_expr_free(call_expr_t *call);
 
 static void value_expr_free(value_expr_t *value)
 {
@@ -113,12 +119,12 @@ static expr_t *expr_add_child(expr_t *parent)
 	return node;
 }
 
-static void fn_add_param(fn_expr_t *fn, token *name, plain_type type)
+void fn_add_param(fn_expr_t *fn, const char *name, int len, plain_type type)
 {
 	fn->params =
 	    realloc(fn->params, sizeof(var_decl_expr_t) * ++fn->n_params);
 	fn->params[fn->n_params - 1] = malloc(sizeof(var_decl_expr_t));
-	fn->params[fn->n_params - 1]->name = strndup(name->value, name->len);
+	fn->params[fn->n_params - 1]->name = strndup(name, len);
 	fn->params[fn->n_params - 1]->type = type;
 }
 
@@ -696,7 +702,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 				 "comma `,` or a closing parenthesis `)`");
 		}
 
-		fn_add_param(data, name, type);
+		fn_add_param(data, name->value, name->len, type);
 
 		if (TOK_IS(tok, T_PUNCT, ","))
 			tok = next_tok(tokens);
@@ -816,7 +822,7 @@ expr_t *parse(token_list *tokens, const char *module_id)
 	mod_expr_t *data;
 	char *content = tokens->source->content;
 
-	data = malloc(sizeof(mod_expr_t));
+	data = calloc(1, sizeof(mod_expr_t));
 	data->name = strdup(module_id);
 	data->source_name = strdup(tokens->source->path);
 

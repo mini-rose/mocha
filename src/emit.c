@@ -1,5 +1,7 @@
+#include <llvm-c/Analysis.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/Types.h>
+#include <llvm-c/blake3.h>
 #include <nxg/emit.h>
 #include <nxg/error.h>
 #include <nxg/module.h>
@@ -13,6 +15,8 @@
 
 static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 				   fn_context_t *context, call_expr_t *call);
+static LLVMValueRef fn_find_local(fn_context_t *context, const char *name);
+
 char plain_type_mid(plain_type t)
 {
 	const char type_mangle_ids[] = {
@@ -95,6 +99,17 @@ LLVMTypeRef gen_function_type(fn_expr_t *func)
 	return func_type;
 }
 
+static LLVMValueRef gen_value(LLVMBuilderRef builder, fn_context_t *context,
+			      const char *name)
+{
+	LLVMValueRef val = fn_find_local(context, name);
+	if (LLVMIsAAllocaInst(val)) {
+		val =
+		    LLVMBuildLoad2(builder, LLVMGetAllocatedType(val), val, "");
+	}
+	return val;
+}
+
 static LLVMValueRef gen_literal_value(literal_expr_t *lit)
 {
 	if (lit->type == PT_I32)
@@ -125,6 +140,17 @@ static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 	}
 
 	return NULL;
+}
+
+void emit_function_decl(LLVMModuleRef mod, fn_expr_t *fn)
+{
+	LLVMValueRef f;
+	char *mangled;
+
+	mangled = mangle(fn);
+	f = LLVMAddFunction(mod, mangled, gen_function_type(fn));
+	LLVMSetLinkage(f, LLVMExternalLinkage);
+	free(mangled);
 }
 
 void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
@@ -191,12 +217,9 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 
 	if (data->value.type == VE_REF) {
 		/* copy a value */
-		LLVMValueRef other = fn_find_local(context, data->value.name);
-		if (LLVMIsAAllocaInst(other)) {
-			other = LLVMBuildLoad2(
-			    builder, LLVMGetAllocatedType(other), other, "");
-		}
-		LLVMBuildStore(builder, other, var);
+		LLVMBuildStore(builder,
+			       gen_value(builder, context, data->value.name),
+			       var);
 	}
 
 	if (data->value.type == VE_LIT) {
@@ -230,12 +253,16 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 		if (call->args[i]->type == VE_LIT) {
 			args[i] = gen_literal_value(call->args[i]->literal);
 		} else if (call->args[i]->type == VE_REF) {
-			args[i] = fn_find_local(context, call->args[i]->name);
+			/* if we have a local value, we need to deref it */
+			args[i] =
+			    gen_value(builder, context, call->args[i]->name);
 		}
 	}
 
 	name = mangle(call->func);
 	func = LLVMGetNamedFunction(context->llvm_mod, name);
+	if (!func)
+		error("missing named func %s", name);
 	ret = LLVMBuildCall2(builder, gen_function_type(call->func), func, args,
 			     n_args, "");
 
@@ -351,6 +378,10 @@ void emit_module(expr_t *module, const char *out)
 	mod = LLVMModuleCreateWithName(mod_data->name);
 	LLVMSetSourceFileName(mod, mod_data->source_name,
 			      strlen(mod_data->source_name));
+
+	/* declare extern */
+	for (int i = 0; i < mod_data->n_decls; i++)
+		emit_function_decl(mod, mod_data->decls[i]);
 
 	expr_t *walker = module->child;
 

@@ -1,7 +1,9 @@
 #include <nxg/emit.h>
 #include <nxg/file.h>
+#include <nxg/module.h>
 #include <nxg/nxg.h>
 #include <nxg/parser.h>
+#include <nxg/type.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

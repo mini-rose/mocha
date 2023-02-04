@@ -17,6 +17,7 @@ typedef enum
 
 typedef void (*expr_free_handle)(void *expr);
 typedef struct expr expr_t;
+typedef struct fn_expr fn_expr_t;
 typedef struct literal_expr literal_expr_t;
 typedef struct call_expr call_expr_t;
 
@@ -34,6 +35,8 @@ typedef struct
 {
 	char *name;
 	char *source_name;
+	fn_expr_t **decls;
+	int n_decls;
 } mod_expr_t;
 
 typedef enum
@@ -70,7 +73,7 @@ typedef struct
 } var_decl_expr_t;
 
 /* function definition */
-typedef struct
+struct fn_expr
 {
 	char *name;
 	var_decl_expr_t **params;
@@ -78,7 +81,7 @@ typedef struct
 	int n_params;
 	int n_locals;
 	plain_type return_type;
-} fn_expr_t;
+};
 
 /* variable assignment */
 typedef struct
@@ -137,3 +140,5 @@ const char *value_expr_type_name(value_expr_type t);
 
 var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len);
 bool node_has_named_local(expr_t *node, const char *name, int len);
+
+void fn_add_param(fn_expr_t *fn, const char *name, int len, plain_type type);
