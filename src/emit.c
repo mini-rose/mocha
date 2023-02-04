@@ -2,6 +2,7 @@
 #include <llvm-c/Types.h>
 #include <nxg/emit.h>
 #include <nxg/error.h>
+#include <nxg/module.h>
 #include <nxg/nxg.h>
 #include <nxg/parser.h>
 #include <nxg/type.h>
@@ -10,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
+				   fn_context_t *context, call_expr_t *call);
 char plain_type_mid(plain_type t)
 {
 	const char type_mangle_ids[] = {
@@ -92,6 +95,14 @@ LLVMTypeRef gen_function_type(fn_expr_t *func)
 	return func_type;
 }
 
+static LLVMValueRef gen_literal_value(literal_expr_t *lit)
+{
+	if (lit->type == PT_I32)
+		return LLVMConstInt(LLVMInt32Type(), lit->v_i32, false);
+
+	return NULL;
+}
+
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 {
 	const char *loc_name;
@@ -142,17 +153,8 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 		LLVMBuildRet(builder, ret_val);
 
 	} else if (value->type == VE_LIT) {
-		ret = NULL;
-
 		/* integral constants */
-		if (value->literal->type == PT_I32) {
-			ret = LLVMConstInt(gen_plain_type(value->literal->type),
-					   value->literal->v_i32, false);
-		} else if (value->literal->type == PT_F32) {
-			ret = LLVMConstReal(LLVMFloatType(),
-					    value->literal->v_f32);
-		}
-
+		ret = gen_literal_value(value->literal);
 		if (ret)
 			LLVMBuildRet(builder, ret);
 	} else {
@@ -190,19 +192,57 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 	if (data->value.type == VE_REF) {
 		/* copy a value */
 		LLVMValueRef other = fn_find_local(context, data->value.name);
+		if (LLVMIsAAllocaInst(other)) {
+			other = LLVMBuildLoad2(
+			    builder, LLVMGetAllocatedType(other), other, "");
+		}
 		LLVMBuildStore(builder, other, var);
 	}
 
 	if (data->value.type == VE_LIT) {
 		/* assign a literal value to a variable */
-		literal_expr_t *lit = data->value.literal;
-		if (lit->type == PT_I32) {
-			LLVMBuildStore(
-			    builder,
-			    LLVMConstInt(LLVMInt32Type(), lit->v_i32, false),
-			    var);
+		LLVMBuildStore(builder, gen_literal_value(data->value.literal),
+			       var);
+	}
+
+	if (data->value.type == VE_CALL) {
+		/* assign a call result to a variable */
+		LLVMBuildStore(
+		    builder, emit_call_node(builder, context, data->value.call),
+		    var);
+	}
+}
+
+static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
+				   fn_context_t *context, call_expr_t *call)
+{
+	LLVMValueRef *args;
+	LLVMValueRef func;
+	LLVMValueRef ret;
+	char *name;
+	int n_args;
+
+	args = calloc(call->n_args, sizeof(LLVMValueRef));
+	n_args = call->n_args;
+
+	for (int i = 0; i < n_args; i++) {
+		/* literal argument */
+		if (call->args[i]->type == VE_LIT) {
+			args[i] = gen_literal_value(call->args[i]->literal);
+		} else if (call->args[i]->type == VE_REF) {
+			args[i] = fn_find_local(context, call->args[i]->name);
 		}
 	}
+
+	name = mangle(call->func);
+	func = LLVMGetNamedFunction(context->llvm_mod, name);
+	ret = LLVMBuildCall2(builder, gen_function_type(call->func), func, args,
+			     n_args, "");
+
+	free(args);
+	free(name);
+
+	return ret;
 }
 
 void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
@@ -220,6 +260,9 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 		break;
 	case E_ASSIGN:
 		emit_assign_node(builder, context, node);
+		break;
+	case E_CALL:
+		emit_call_node(builder, context, node->data);
 		break;
 	default:
 		warning("undefined emit rules for node");
@@ -241,6 +284,7 @@ void emit_function(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 	context.func = fn;
 	context.module = module;
 	context.llvm_func = func;
+	context.llvm_mod = mod;
 
 	LLVMBasicBlockRef start_block;
 	LLVMBuilderRef builder;

@@ -268,7 +268,7 @@ static value_expr_t *call_add_arg(call_expr_t *call)
 	return node;
 }
 
-static void parse_inline_call(call_expr_t *data, expr_t *mod,
+static void parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			      token_list *tokens, token *tok)
 {
 	value_expr_t *arg;
@@ -287,6 +287,19 @@ static void parse_inline_call(call_expr_t *data, expr_t *mod,
 			arg = call_add_arg(data);
 			arg->type = VE_REF;
 			arg->name = strndup(tok->value, tok->len);
+
+			var_decl_expr_t *var;
+
+			var = node_resolve_local(parent, arg->name,
+						 strlen(arg->name));
+			if (!var) {
+				error_at(tokens->source->content, tok->value,
+					 "use of undeclared variable: `%.*s`",
+					 tok->len, tok->value);
+			}
+
+			arg->return_type = var->type;
+
 		} else if (is_literal(tokens, tok)) {
 			arg = call_add_arg(data);
 			arg->literal = calloc(1, sizeof(*arg->literal));
@@ -359,7 +372,7 @@ static void parse_call(expr_t *parent, expr_t *mod, token_list *tokens,
 	node->data = data;
 	node->data_free = (expr_free_handle) call_expr_free;
 
-	parse_inline_call(data, mod, tokens, tok);
+	parse_inline_call(parent, mod, data, tokens, tok);
 }
 
 /**
@@ -405,7 +418,7 @@ static err_t parse_value_expr(expr_t *context, expr_t *mod, value_expr_t *node,
 	if (is_call(tokens, tok)) {
 		node->type = VE_CALL;
 		node->call = calloc(1, sizeof(*node->call));
-		parse_inline_call(node->call, mod, tokens, tok);
+		parse_inline_call(context, mod, node->call, tokens, tok);
 		node->return_type = node->call->func->return_type;
 	}
 
