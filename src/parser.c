@@ -595,7 +595,6 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 			parse_var_decl(node, data, tokens, tok);
 		else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, tokens, tok);
-		}
 
 		tok = next_tok(tokens);
 	}
