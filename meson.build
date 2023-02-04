@@ -9,7 +9,8 @@ sources = [
   'src/error.c',
   'src/parser.c',
   'src/type.c',
-  'src/keyword.c'
+  'src/keyword.c',
+  'src/emit.c'
 ]
 
 llvm = declare_dependency(link_args: '-lLLVM')

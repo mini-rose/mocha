@@ -15,6 +15,7 @@
 static void mod_expr_free(mod_expr_t *module)
 {
 	free(module->name);
+	free(module->source_name);
 }
 
 static void fn_expr_free(fn_expr_t *function)
@@ -233,6 +234,8 @@ static err_t parse_return(expr_t *parent, token_list *tokens, token *tok)
 	node->data = data;
 	node->data_free = (expr_free_handle) value_expr_free;
 
+	data->return_type = PT_NULL;
+
 	return ERR_OK;
 }
 
@@ -428,12 +431,16 @@ expr_t *parse(token_list *tokens, const char *module_id)
 {
 	token *current = next_tok(tokens);
 	expr_t *module = calloc(sizeof(*module), 1);
+	mod_expr_t *data;
 	char *content = tokens->source->content;
 
+	data = malloc(sizeof(mod_expr_t));
+	data->name = strdup(module_id);
+	data->source_name = strdup(tokens->source->path);
+
 	module->type = E_MODULE;
-	module->data = malloc(sizeof(mod_expr_t));
+	module->data = data;
 	module->data_free = (expr_free_handle) mod_expr_free;
-	E_AS_MOD(module->data)->name = strdup(module_id);
 
 	token_list_print(tokens);
 

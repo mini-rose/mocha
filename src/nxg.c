@@ -1,3 +1,4 @@
+#include <nxg/emit.h>
 #include <nxg/file.h>
 #include <nxg/nxg.h>
 #include <nxg/parser.h>
@@ -24,9 +25,11 @@ static void compile(const char *input, const char *output)
 {
 	file *source = file_new(input);
 	token_list *list = tokens(source);
-	expr_t *ast = parse(list, "__main__");
+	expr_t *ast = parse(list, MAIN_MODULE);
 
 	expr_print(ast);
+
+	emit_module(ast, "main.ll");
 
 	expr_destroy(ast);
 	file_destroy(source);

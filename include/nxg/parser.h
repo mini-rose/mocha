@@ -30,6 +30,7 @@ struct expr
 typedef struct
 {
 	char *name;
+	char *source_name;
 } mod_expr_t;
 
 typedef struct
