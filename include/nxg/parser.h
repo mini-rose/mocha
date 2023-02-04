@@ -18,6 +18,7 @@ typedef enum
 typedef void (*expr_free_handle)(void *expr);
 typedef struct expr expr_t;
 typedef struct literal_expr literal_expr_t;
+typedef struct call_expr call_expr_t;
 
 struct expr
 {
@@ -40,6 +41,7 @@ typedef enum
 	VE_NULL, /* */
 	VE_REF,  /* name */
 	VE_LIT,  /* literal */
+	VE_CALL, /* call */
 	VE_ADD,  /* left + right */
 	VE_SUB,  /* left - right */
 	VE_MUL,  /* left * right */
@@ -54,6 +56,7 @@ typedef struct
 	{
 		char *name;
 		literal_expr_t *literal;
+		call_expr_t *call;
 		expr_t *left;
 	};
 	expr_t *right;
@@ -84,6 +87,14 @@ typedef struct
 	value_expr_t value;
 } assign_expr_t;
 
+struct call_expr
+{
+	char *name;
+	int n_args;
+	value_expr_t **args;
+	fn_expr_t *func;
+};
+
 typedef struct
 {
 	char *ptr;
@@ -113,6 +124,7 @@ typedef struct
 #define E_AS_ASS(DATAPTR)   ((assign_expr_t *) (DATAPTR))
 #define E_AS_LIT(DATAPTR)   ((literal_expr_t *) DATAPTR)
 #define E_AS_VAL(DATAPTR)   ((value_expr_t *) DATAPTR)
+#define E_AS_CALL(DATAPTR)  ((call_expr_t *) DATAPTR)
 
 expr_t *parse(token_list *list, const char *module_id);
 void expr_destroy(expr_t *expr);
