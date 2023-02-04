@@ -199,7 +199,6 @@ static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 	if (tok->type == T_STRING) {
 		node->return_type = PT_STR;
 		node->type = VE_LIT;
-		node->literal = calloc(1, sizeof(*node->literal));
 		node->literal->type = PT_STR;
 		node->literal->v_str.ptr = strndup(tok->value, tok->len);
 		node->literal->v_str.len = tok->len;
@@ -207,7 +206,6 @@ static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 
 	if (tok->type == T_NUMBER) {
 		node->type = VE_LIT;
-		node->literal = calloc(1, sizeof(*node->literal));
 		char *tmp = strndup(tok->value, tok->len);
 
 		if (is_integer(tok)) {
@@ -242,6 +240,7 @@ static err_t parse_value_expr(expr_t *context, value_expr_t *node,
 	if (is_literal(tokens, tok)
 	    && index_tok(tokens, tokens->iter)->type == T_NEWLINE) {
 		node->type = VE_LIT;
+		node->literal = calloc(1, sizeof(*node->literal));
 		parse_literal(node, tokens, tok);
 		node->return_type = node->literal->type;
 	}
