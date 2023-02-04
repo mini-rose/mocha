@@ -4,39 +4,41 @@
 
 typedef enum
 {
-	// Pointer to nothing
-	T_VOID = 0,
+	PT_NULL = 0,
 
 	// Integers
-	T_BOOL = 1,
-	T_I8 = 2,
-	T_I16 = 3,
-	T_I32 = 4,
-	T_I64 = 5,
-	T_I128 = 6,
+	PT_BOOL = 1,
+	PT_I8 = 2,
+	PT_I16 = 3,
+	PT_I32 = 4,
+	PT_I64 = 5,
+	PT_I128 = 6,
 
 	// Unsigned integers
-	T_U8 = 7,
-	T_U16 = 8,
-	T_U32 = 9,
-	T_U64 = 10,
-	T_U128 = 11,
+	PT_U8 = 7,
+	PT_U16 = 8,
+	PT_U32 = 9,
+	PT_U64 = 10,
+	PT_U128 = 11,
 
 	// Floating point numbers
-	T_F32 = 12,
-	T_F64 = 13,
+	PT_F32 = 12,
+	PT_F64 = 13,
 
 	// String
-	T_STR = 14,
-	T_PTR = 15
-} type_t;
+	PT_STR = 14,
+	PT_PTR = 15
+} plain_type;
 
 /**
  * Checks is string a type
  */
-bool is_type(const char *);
+bool is_plain_type(const char *str);
 
 /**
  * Get index of type in type enum;
  */
-type_t get_type(const char *);
+plain_type plain_type_from(const char *str, int len);
+
+const char *plain_type_example_varname(plain_type t);
+const char *plain_type_name(plain_type t);
