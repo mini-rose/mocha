@@ -8,25 +8,25 @@ types, similar to what C++ or Rust does with their code.
 
 The main function will get mangled to `cf.main`.
 
-	add(i32 a, i64 b) -> cf.addil
+	add(i32 a, i64 b) -> _C3addil
 
 This add function has 2 paramters, a regular int (i) and a 64 bit signed
 integer (l), which get added at the end of the function name.
 
 General construction:
 
-	all symbols have the `cf` prefix
+	all symbols have the `_C` prefix
 	|             a list of parameter types
 	v             v
-	cf.module.namexxx
+	_C6module4namexxx
 	   ^      ^
-	   |      the raw function name
+	   |      len + name of the function
 	   each function name has the full module path
 
 
 This means that `fn add<T>(T a, T b) {}` would get mangled differently
 depending on the type of T. For example, add<i32>(...) would become
-`addii`, while add<u128>(...) would become `addQQ`.
+`_C3addii`, while add<u128>(...) would become `_C3addQQ`.
 
 Plain data types get a single char as their type id. This is the full
 table of plain data:

@@ -17,6 +17,7 @@ typedef enum
 
 typedef void (*expr_free_handle)(void *expr);
 typedef struct expr expr_t;
+typedef struct literal_expr literal_expr_t;
 
 struct expr
 {
@@ -34,20 +35,15 @@ typedef struct
 	char *source_name;
 } mod_expr_t;
 
-typedef struct
-{
-	char *name;
-	plain_type type;
-} fn_param_t;
-
 typedef enum
 {
-	VE_REF, /* L */
-	VE_LIT, /* L */
-	VE_ADD, /* L + R */
-	VE_SUB, /* L - R */
-	VE_MUL, /* L * R */
-	VE_DIV, /* L / R */
+	VE_NULL, /* */
+	VE_REF,  /* name */
+	VE_LIT,  /* literal */
+	VE_ADD,  /* left + right */
+	VE_SUB,  /* left - right */
+	VE_MUL,  /* left * right */
+	VE_DIV,  /* left / right */
 } value_expr_type;
 
 typedef struct
@@ -56,7 +52,8 @@ typedef struct
 	value_expr_type type;
 	union
 	{
-		expr_t *value;
+		char *name;
+		literal_expr_t *literal;
 		expr_t *left;
 	};
 	expr_t *right;
@@ -73,10 +70,10 @@ typedef struct
 typedef struct
 {
 	char *name;
-	int n_params;
-	fn_param_t **params;
+	var_decl_expr_t **params;
 	var_decl_expr_t **locals;
-	size_t n_locals;
+  int n_params;
+	int n_locals;
 	plain_type return_type;
 } fn_expr_t;
 
@@ -93,15 +90,16 @@ typedef struct
 	int len;
 } sized_string_t;
 
-typedef struct
+struct literal_expr
 {
 	plain_type type;
 	union
 	{
 		int v_i32;
+		float v_f32;
 		sized_string_t v_str;
 	};
-} literal_expr_t;
+};
 
 typedef struct
 {

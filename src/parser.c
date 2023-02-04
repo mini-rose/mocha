@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <nxg/error.h>
 #include <nxg/parser.h>
 #include <nxg/tokenize.h>
@@ -35,8 +36,18 @@ static void fn_expr_free(fn_expr_t *function)
 
 static void value_expr_free(value_expr_t *value)
 {
-	expr_destroy(value->left);
-	expr_destroy(value->right);
+	if (value->type == VE_NULL)
+		return;
+	else if (value->type == VE_REF)
+		free(value->name);
+	else if (value->type == VE_LIT) {
+		if (value->literal->type == PT_STR)
+			free(value->literal->v_str.ptr);
+		free(value->literal);
+	} else {
+		expr_destroy(value->left);
+		expr_destroy(value->right);
+	}
 }
 
 static void assign_expr_free(assign_expr_t *assign)
@@ -64,11 +75,6 @@ static token *next_tok(token_list *list)
 	return index_tok(list, list->iter++);
 }
 
-static expr_t *expr_alloc()
-{
-	return calloc(1, sizeof(expr_t));
-}
-
 static expr_t *expr_add_next(expr_t *expr)
 {
 	expr_t *node = calloc(sizeof(*node), 1);
@@ -92,27 +98,45 @@ static expr_t *expr_add_child(expr_t *parent)
 
 static void fn_add_param(fn_expr_t *fn, token *name, plain_type type)
 {
-	fn->params = realloc(fn->params, sizeof(fn_param_t) * ++fn->n_params);
-	fn->params[fn->n_params - 1] = malloc(sizeof(fn_param_t));
+	fn->params =
+	    realloc(fn->params, sizeof(var_decl_expr_t) * ++fn->n_params);
+	fn->params[fn->n_params - 1] = malloc(sizeof(var_decl_expr_t));
 	fn->params[fn->n_params - 1]->name = strndup(name->value, name->len);
 	fn->params[fn->n_params - 1]->type = type;
 }
 
-static bool block_has_named_local(expr_t *fn, const char *name, int len)
+static var_decl_expr_t *node_resolve_local(expr_t *node, const char *name,
+					   int len)
 {
 	expr_t *walker;
 
-	walker = fn->child;
+	if (len == 0)
+		len = strlen(name);
+
+	if (node->type == E_FUNCTION) {
+		fn_expr_t *fn = node->data;
+		for (int i = 0; i < fn->n_params; i++) {
+			if (!strncmp(fn->params[i]->name, name, len))
+				return fn->params[i];
+		}
+	}
+
+	walker = node->child;
 	while (walker) {
 		if (walker->type == E_VARDECL) {
 			if (!strncmp(E_AS_VDECL(walker->data)->name, name, len))
-				return true;
+				return walker->data;
 		}
 
 		walker = walker->next;
 	}
 
-	return false;
+	return NULL;
+}
+
+static bool node_has_named_local(expr_t *node, const char *name, int len)
+{
+	return node_resolve_local(node, name, len) != NULL;
 }
 
 /**
@@ -132,6 +156,118 @@ static bool is_var_decl(token_list *tokens, token *tok)
 		return false;
 
 	return true;
+}
+
+/**
+ * literal ::= string | integer | float | "null"
+ */
+static bool is_literal(token_list *tokens, token *tok)
+{
+	return tok->type == T_NUMBER || tok->type == T_STRING
+	    || TOK_IS(tok, T_DATATYPE, "null");
+}
+
+static bool is_integer(token *tok)
+{
+	for (int i = 0; i < tok->len; i++) {
+		if (!isdigit(tok->value[i]))
+			return false;
+	}
+
+	return true;
+}
+
+static bool is_float(token *tok)
+{
+	bool found_dot = false;
+	for (int i = 0; i < tok->len; i++) {
+		if (tok->value[i] == '.') {
+			if (!found_dot)
+				found_dot = true;
+			else
+				return false;
+			continue;
+		}
+
+		if (!isdigit(tok->value[i]))
+			return false;
+	}
+
+	return true;
+}
+
+static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
+{
+	/* string */
+	if (tok->type == T_STRING) {
+		node->return_type = PT_STR;
+		node->type = VE_LIT;
+		node->literal->type = PT_STR;
+		node->literal->v_str.ptr = strndup(tok->value, tok->len);
+		node->literal->v_str.len = tok->len;
+	}
+
+	if (tok->type == T_NUMBER) {
+		node->type = VE_LIT;
+		char *tmp = strndup(tok->value, tok->len);
+
+		if (is_integer(tok)) {
+			node->literal->type = PT_I32;
+			node->literal->v_i32 = strtol(tmp, NULL, 10);
+		} else if (is_float(tok)) {
+			node->literal->type = PT_F32;
+			node->literal->v_f32 = strtof(tmp, NULL);
+		}
+
+		free(tmp);
+	}
+
+	/* "null" */
+	if (TOK_IS(tok, T_DATATYPE, "null")) {
+		node->return_type = PT_NULL;
+		node->type = VE_NULL;
+	}
+}
+
+/**
+ * literal   ::= string | integer | float | "null"
+ * reference ::= identifier
+ * value     ::= literal | reference | value operator value
+ *
+ * value
+ */
+static err_t parse_value_expr(expr_t *context, value_expr_t *node,
+			      token_list *tokens, token *tok)
+{
+	/* literal */
+	if (is_literal(tokens, tok)
+	    && index_tok(tokens, tokens->iter)->type == T_NEWLINE) {
+		node->type = VE_LIT;
+		node->literal = calloc(1, sizeof(*node->literal));
+		parse_literal(node, tokens, tok);
+		node->return_type = node->literal->type;
+	}
+
+	/* reference */
+	if (tok->type == T_IDENT
+	    && index_tok(tokens, tokens->iter)->type == T_NEWLINE) {
+		if (!node_has_named_local(context, tok->value, tok->len)) {
+			error_at(tokens->source->content, tok->value,
+				 "use of undeclared variable: `%.*s`", tok->len,
+				 tok->value);
+		}
+
+		node->type = VE_REF;
+		node->name = strndup(tok->value, tok->len);
+
+		var_decl_expr_t *var =
+		    node_resolve_local(context, tok->value, tok->len);
+		node->return_type = var->type;
+	}
+
+	/* TODO: value operator value */
+
+	return ERR_OK;
 }
 
 /**
@@ -174,7 +310,7 @@ static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens, t
 	var_decl_expr_t *data;
 	expr_t *node;
 
-	if (block_has_named_local(parent, tok->value, tok->len)) {
+	if (node_has_named_local(parent, tok->value, tok->len)) {
 		error_at(tokens->source->content, tok->value,
 			 "a variable named `%.*s` already has been declared in "
 			 "this scope",
@@ -214,8 +350,8 @@ static err_t parse_assign(expr_t *parent, fn_expr_t *fn, token_list *tokens, tok
 		parse_var_decl(parent, fn, tokens, tok);
 	} else if (!block_has_named_local(parent, tok->value, tok->len)) {
 		error_at(tokens->source->content, tok->value,
-			 "unknown local: `%.*s` has not been declared anywhere",
-			 tok->len, tok->value);
+			 "use of undeclared variable: `%.*s`", tok->len,
+			 tok->value);
 	}
 
 	node = expr_add_child(parent);
@@ -233,8 +369,12 @@ static err_t parse_assign(expr_t *parent, fn_expr_t *fn, token_list *tokens, tok
 	return ERR_OK;
 }
 
+/**
+ * ret [value]
+ */
 static err_t parse_return(expr_t *parent, token_list *tokens, token *tok)
 {
+	plain_type return_type;
 	value_expr_t *data;
 	expr_t *node;
 
@@ -245,7 +385,40 @@ static err_t parse_return(expr_t *parent, token_list *tokens, token *tok)
 	node->data = data;
 	node->data_free = (expr_free_handle) value_expr_free;
 
-	data->return_type = PT_NULL;
+	return_type = PT_NULL;
+	if (parent->type == E_FUNCTION)
+		return_type = E_AS_FN(parent->data)->return_type;
+
+	tok = next_tok(tokens);
+	if (tok->type == T_NEWLINE && return_type != PT_NULL) {
+		error_at(tokens->source->content, tok->value,
+			 "missing return value for function that returns `%s`",
+			 plain_type_name(return_type));
+	}
+
+	if (tok->type != T_NEWLINE && return_type == PT_NULL) {
+		error_at(
+		    tokens->source->content, tok->value,
+		    "cannot return a value from a function returning null");
+	}
+
+	/* return without a value */
+	if (return_type == PT_NULL) {
+		data->return_type = PT_NULL;
+		data->type = VE_NULL;
+		return ERR_OK;
+	}
+
+	/* return with a value */
+	parse_value_expr(parent, data, tokens, tok);
+
+	if (data->return_type != E_AS_FN(parent->data)->return_type) {
+		error_at(tokens->source->content, tok->value,
+			 "mismatched return type: expression returns %s, while "
+			 "the function returns %s",
+			 plain_type_name(data->return_type),
+			 plain_type_name(E_AS_FN(parent->data)->return_type));
+	}
 
 	return ERR_OK;
 }
@@ -269,6 +442,8 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 	fn_expr_t *data;
 	expr_t *node;
 	token *tok;
+	token *name;
+	token *return_type_tok;
 
 	node = expr_add_child(module);
 	data = calloc(sizeof(*data), 1);
@@ -288,6 +463,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		return ERR_SYNTAX;
 	}
 
+	name = tok;
 	data->name = strndup(tok->value, tok->len);
 
 	/* parameters */
@@ -306,10 +482,10 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		if (tok->type == T_DATATYPE) {
 			error_at(tokens->source->content, tok->value,
 				 "the parameter name comes first - the type is "
-				 "located after a colon like this: `%.*s %s`",
-				 tok->len, tok->value,
+				 "located after a colon like this: `%s: %.*s`",
 				 plain_type_example_varname(
-				     plain_type_from(tok->value, tok->len)));
+				     plain_type_from(tok->value, tok->len)),
+				 tok->len, tok->value);
 		}
 
 		if (tok->type != T_IDENT) {
@@ -359,6 +535,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 
 	/* return type (optional) */
 	tok = next_tok(tokens);
+	return_type_tok = NULL;
 	if (TOK_IS(tok, T_PUNCT, ":")) {
 		tok = next_tok(tokens);
 
@@ -370,6 +547,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		}
 
 		data->return_type = plain_type_from(tok->value, tok->len);
+		return_type_tok = tok;
 		tok = next_tok(tokens);
 	}
 
@@ -414,26 +592,42 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 			parse_var_decl(node, data, tokens, tok);
 		else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, tokens, tok);
+		}
 
 		tok = next_tok(tokens);
 	}
 
-	/* Always add a return statement */
+	/* always add a return statement */
 	if (!fn_has_return(node)) {
+		if (data->return_type != PT_NULL) {
+			error_at(tokens->source->content, tok->value,
+				 "missing return statement for %s", data->name);
+		}
+
 		expr_t *ret_expr = expr_add_child(node);
 		value_expr_t *val = calloc(1, sizeof(*val));
-		literal_expr_t *lit = calloc(1, sizeof(*lit));
 
 		ret_expr->type = E_RETURN;
 		ret_expr->data_free = (expr_free_handle) value_expr_free;
 		ret_expr->data = val;
-		val->type = VE_LIT;
-		val->value = expr_alloc();
-		val->value->type = E_LITERAL;
-		val->value->data = lit;
-		val->return_type = data->return_type;
-		lit->type = data->return_type;
-		literal_default(lit);
+		val->type = VE_NULL;
+		val->return_type = PT_NULL;
+	}
+
+	if (!strcmp(data->name, "main")) {
+		if (data->n_params) {
+			error_at(
+			    tokens->source->content, name->value,
+			    "the main function does not take any arguments");
+		}
+
+		if (data->return_type != PT_NULL) {
+			error_at(
+			    tokens->source->content, return_type_tok->value,
+			    "the main function cannot return `%.*s`, as it "
+			    "always returns `null`",
+			    return_type_tok->len, return_type_tok->value);
+		}
 	}
 
 	return 0;
@@ -574,23 +768,41 @@ static const char *expr_info(expr_t *expr)
 	return info;
 }
 
-static void expr_print_level(expr_t *expr, int level, bool with_next)
+static void expr_print_level(expr_t *expr, int level, bool with_next);
+
+static void expr_print_value_expr(expr_t *expr, int level)
 {
-	expr_t *walker;
+	value_expr_t *val = expr->data;
 
-	for (int i = 0; i < level; i++) {
+	for (int i = 0; i < level; i++)
 		fputs("  ", stdout);
-	}
 
-	printf("%s %s\n", expr_typename(expr->type), expr_info(expr));
-
-	if (expr->type == E_RETURN) {
-		value_expr_t *val = expr->data;
+	if (val->type == VE_NULL) {
+		printf("literal: null\n");
+	} else if (val->type == VE_REF) {
+		printf("ref: `%s`\n", val->name);
+	} else if (val->type == VE_LIT) {
+		printf("literal: %s\n", plain_type_name(val->literal->type));
+	} else {
+		printf("value:\n");
 		if (val->left)
 			expr_print_level(val->left, level + 1, true);
 		if (val->right)
 			expr_print_level(val->right, level + 1, true);
 	}
+}
+
+static void expr_print_level(expr_t *expr, int level, bool with_next)
+{
+	expr_t *walker;
+
+	for (int i = 0; i < level; i++)
+		fputs("  ", stdout);
+
+	printf("%s %s\n", expr_typename(expr->type), expr_info(expr));
+
+	if (expr->type == E_RETURN)
+		expr_print_value_expr(expr, level + 1);
 
 	if (expr->child)
 		expr_print_level(expr->child, level + 1, true);
@@ -644,7 +856,8 @@ char *stringify_literal(literal_expr_t *literal)
 
 const char *value_expr_type_name(value_expr_type t)
 {
-	static const char *names[] = {"REF", "LIT", "ADD", "SUB", "MUL", "DIV"};
+	static const char *names[] = {"NULL", "REF", "LIT", "ADD",
+				      "SUB",  "MUL", "DIV"};
 	static const int n_names = sizeof(names) / sizeof(*names);
 
 	if (t >= 0 && t < n_names)
