@@ -23,10 +23,22 @@ char plain_type_mid(plain_type t)
 	return 'x';
 }
 
+static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref)
+{
+	context->locals = realloc(
+	    context->locals, sizeof(LLVMValueRef) * (context->n_locals + 1));
+	context->locals[context->n_locals++] = ref;
+}
+
+static void fn_context_destroy(fn_context_t *context)
+{
+	free(context->locals);
+}
+
 char *mangle(fn_expr_t *func)
 {
 	char *name = calloc(128, 4);
-	snprintf(name, 512, "cf.%s", func->name);
+	snprintf(name, 512, "_C%d%s", (int) strlen(func->name), func->name);
 	for (int i = 0; i < func->n_params; i++) {
 		char id = plain_type_mid(func->params[i]->type);
 		name[strlen(name)] = id;
@@ -80,53 +92,102 @@ LLVMTypeRef gen_function_type(fn_expr_t *func)
 	return func_type;
 }
 
-void emit_return_node(LLVMBuilderRef builder, expr_t *node)
+static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 {
-	LLVMValueRef llvm_val;
+	const char *loc_name;
+	size_t loc_siz;
+	fn_expr_t *fn;
+
+	fn = context->func->data;
+
+	/* search the param list */
+	for (int i = 0; i < fn->n_params; i++) {
+		if (!strcmp(fn->params[i]->name, name))
+			return LLVMGetParam(context->llvm_func, i);
+	}
+
+	/* search the local list */
+	for (int i = 0; i < context->n_locals; i++) {
+		loc_name = LLVMGetValueName2(context->locals[i], &loc_siz);
+		if (!strcmp(loc_name, name))
+			return context->locals[i];
+	}
+
+	return NULL;
+}
+
+void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
+		      expr_t *node)
+{
+	LLVMValueRef ret;
 	value_expr_t *value;
 
 	value = node->data;
-	if (value->type != VE_LIT) {
-		warning("emit_return_node: we don't know how to emit this "
-			"return type");
-		return;
-	}
 
-	if (value->return_type == PT_NULL) {
+	if (value->type == VE_NULL) {
 		LLVMBuildRetVoid(builder);
+	} else if (value->type == VE_REF) {
+
+		/* return a local */
+		if (!(ret = fn_find_local(context, value->name))) {
+			error("local ref failed of `%s` in %s", value->name,
+			      E_AS_FN(context->func->data)->name);
+		}
+
+		LLVMBuildRet(builder, ret);
+
+	} else if (value->type == VE_LIT) {
+		ret = NULL;
+
+		/* integral constants */
+		if (value->literal->type == PT_I32) {
+			ret = LLVMConstInt(gen_plain_type(value->literal->type),
+					   value->literal->v_i32, false);
+		} else if (value->literal->type == PT_F32) {
+			ret = LLVMConstReal(LLVMFloatType(),
+					    value->literal->v_f32);
+		}
+
+		if (ret)
+			LLVMBuildRet(builder, ret);
 	} else {
-		llvm_val =
-		    LLVMConstInt(gen_plain_type(value->return_type), 0, false);
-		LLVMBuildRet(builder, llvm_val);
+		warning("emit_return_node: no idea how to emit this value");
 	}
 }
 
-void emit_node(LLVMBuilderRef builder, expr_t *node)
+void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 {
-
 	switch (node->type) {
 	case E_VARDECL:
-		LLVMBuildAlloca(builder,
-				gen_plain_type(E_AS_VDECL(node->data)->type),
-				E_AS_VDECL(node->data)->name);
+		fn_context_add_local(
+		    context,
+		    LLVMBuildAlloca(
+			builder, gen_plain_type(E_AS_VDECL(node->data)->type),
+			E_AS_VDECL(node->data)->name));
 		break;
 	case E_RETURN:
-		emit_return_node(builder, node);
+		emit_return_node(builder, context, node);
 		break;
 	default:
 		warning("undefined emit rules for node");
 	}
 }
 
-void emit_function(LLVMModuleRef mod, expr_t *node)
+void emit_function(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 {
 	LLVMTypeRef func_type;
 	LLVMValueRef func;
+	fn_context_t context;
 	char *name;
 
-	func_type = gen_function_type(node->data);
-	name = mangle(node->data);
+	func_type = gen_function_type(fn->data);
+	name = mangle(fn->data);
 	func = LLVMAddFunction(mod, name, func_type);
+
+	memset(&context, 0, sizeof(context));
+	context.func = fn;
+	context.module = module;
+	context.llvm_func = func;
 
 	LLVMBasicBlockRef start_block;
 	LLVMBuilderRef builder;
@@ -136,13 +197,14 @@ void emit_function(LLVMModuleRef mod, expr_t *node)
 	builder = LLVMCreateBuilder();
 	LLVMPositionBuilderAtEnd(builder, start_block);
 
-	walker = node->child;
+	walker = fn->child;
 	while (walker) {
-		emit_node(builder, walker);
+		emit_node(builder, &context, walker);
 		walker = walker->next;
 	}
 
 	LLVMDisposeBuilder(builder);
+	fn_context_destroy(&context);
 	free(name);
 }
 
@@ -154,6 +216,13 @@ void emit_main_function(LLVMModuleRef mod)
 
 	param_types[0] = LLVMInt32Type();
 	param_types[1] = LLVMPointerType(LLVMPointerType(LLVMInt8Type(), 0), 0);
+
+	/**
+	 * int main(int argc, char **argv)
+	 * {
+	 *      cf.main();
+	 * }
+	 */
 
 	func = LLVMAddFunction(
 	    mod, "main",
@@ -167,7 +236,7 @@ void emit_main_function(LLVMModuleRef mod)
 	LLVMPositionBuilderAtEnd(builder, start_block);
 
 	LLVMBuildCall2(builder, LLVMFunctionType(LLVMVoidType(), NULL, 0, 0),
-		       LLVMGetNamedFunction(mod, "cf.main"), NULL, 0, "");
+		       LLVMGetNamedFunction(mod, "_C4main"), NULL, 0, "");
 
 	return_value = LLVMConstNull(LLVMInt32Type());
 	LLVMBuildRet(builder, return_value);
@@ -190,7 +259,7 @@ void emit_module(expr_t *module, const char *out)
 
 	while (walker) {
 		if (walker->type == E_FUNCTION)
-			emit_function(mod, walker);
+			emit_function(mod, module, walker);
 		else
 			error("cannot emit anything other than a function");
 		walker = walker->next;

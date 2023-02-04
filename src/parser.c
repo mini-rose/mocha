@@ -432,6 +432,8 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 	fn_expr_t *data;
 	expr_t *node;
 	token *tok;
+	token *name;
+	token *return_type_tok;
 
 	node = expr_add_child(module);
 	data = calloc(sizeof(*data), 1);
@@ -451,6 +453,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		return ERR_SYNTAX;
 	}
 
+	name = tok;
 	data->name = strndup(tok->value, tok->len);
 
 	/* parameters */
@@ -469,10 +472,10 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		if (tok->type == T_DATATYPE) {
 			error_at(tokens->source->content, tok->value,
 				 "the parameter name comes first - the type is "
-				 "located after a colon like this: `%.*s %s`",
-				 tok->len, tok->value,
+				 "located after a colon like this: `%s: %.*s`",
 				 plain_type_example_varname(
-				     plain_type_from(tok->value, tok->len)));
+				     plain_type_from(tok->value, tok->len)),
+				 tok->len, tok->value);
 		}
 
 		if (tok->type != T_IDENT) {
@@ -522,6 +525,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 
 	/* return type (optional) */
 	tok = next_tok(tokens);
+	return_type_tok = NULL;
 	if (TOK_IS(tok, T_PUNCT, ":")) {
 		tok = next_tok(tokens);
 		if (tok->type != T_DATATYPE) {
@@ -532,6 +536,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		}
 
 		data->return_type = plain_type_from(tok->value, tok->len);
+		return_type_tok = tok;
 		tok = next_tok(tokens);
 	}
 
@@ -596,6 +601,22 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		ret_expr->data = val;
 		val->type = VE_NULL;
 		val->return_type = PT_NULL;
+	}
+
+	if (!strcmp(data->name, "main")) {
+		if (data->n_params) {
+			error_at(
+			    tokens->source->content, name->value,
+			    "the main function does not take any arguments");
+		}
+
+		if (data->return_type != PT_NULL) {
+			error_at(
+			    tokens->source->content, return_type_tok->value,
+			    "the main function cannot return `%.*s`, as it "
+			    "always returns `null`",
+			    return_type_tok->len, return_type_tok->value);
+		}
 	}
 
 	return 0;

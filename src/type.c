@@ -25,6 +25,11 @@ bool is_plain_type(const char *str)
 	return false;
 }
 
+bool is_plain_type_an_int(plain_type t)
+{
+	return t >= PT_BOOL && t <= PT_U128;
+}
+
 plain_type plain_type_from(const char *str, int len)
 {
 	for (int i = 0; i < n_plain_types; i++) {

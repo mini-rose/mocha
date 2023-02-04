@@ -35,6 +35,8 @@ typedef enum
  */
 bool is_plain_type(const char *str);
 
+bool is_plain_type_an_int(plain_type t);
+
 /**
  * Get index of type in type enum;
  */
