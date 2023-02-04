@@ -298,14 +298,16 @@ static bool is_var_assign(token_list *tokens, token *tok)
 
 static void fn_add_local_var(fn_expr_t *func, var_decl_expr_t *var)
 {
-	func->locals = realloc(func->locals, sizeof(var_decl_expr_t *) * ++func->n_locals);
+	func->locals =
+	    realloc(func->locals, sizeof(var_decl_expr_t *) * ++func->n_locals);
 	func->locals[func->n_locals - 1] = var;
 }
 
 /**
  * name: type
  */
-static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens, token *tok)
+static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens,
+			    token *tok)
 {
 	var_decl_expr_t *data;
 	expr_t *node;
@@ -337,7 +339,8 @@ static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens, t
 /**
  * name[: type] = value
  */
-static err_t parse_assign(expr_t *parent, fn_expr_t *fn, token_list *tokens, token *tok)
+static err_t parse_assign(expr_t *parent, fn_expr_t *fn, token_list *tokens,
+			  token *tok)
 {
 	assign_expr_t *data;
 	expr_t *node;
@@ -348,7 +351,7 @@ static err_t parse_assign(expr_t *parent, fn_expr_t *fn, token_list *tokens, tok
 	/* defined variable type, meaning we declare a new variable */
 	if (is_var_decl(tokens, tok)) {
 		parse_var_decl(parent, fn, tokens, tok);
-	} else if (!block_has_named_local(parent, tok->value, tok->len)) {
+	} else if (!node_has_named_local(parent, tok->value, tok->len)) {
 		error_at(tokens->source->content, tok->value,
 			 "use of undeclared variable: `%.*s`", tok->len,
 			 tok->value);
@@ -592,7 +595,6 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 			parse_var_decl(node, data, tokens, tok);
 		else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, tokens, tok);
-		}
 
 		tok = next_tok(tokens);
 	}

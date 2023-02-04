@@ -72,7 +72,7 @@ typedef struct
 	char *name;
 	var_decl_expr_t **params;
 	var_decl_expr_t **locals;
-  int n_params;
+	int n_params;
 	int n_locals;
 	plain_type return_type;
 } fn_expr_t;
