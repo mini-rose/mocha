@@ -193,7 +193,7 @@ token_list *tokens(file *source)
 
 			static char *operators[] = {"=",  "==", "!=", "+",  "-",
 						    "--", "++", "-=", "+=", "/",
-						    "%",  "/=", "%="};
+						    "%",  "/=", "%=", "*"};
 
 			for (int i = 0;
 			     i < sizeof(operators) / sizeof(*operators); i++) {
