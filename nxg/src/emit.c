@@ -76,8 +76,8 @@ LLVMTypeRef gen_function_type(fn_expr_t *func)
 	return func_type;
 }
 
-static LLVMValueRef gen_value(LLVMBuilderRef builder, fn_context_t *context,
-			      const char *name)
+static LLVMValueRef gen_local_value(LLVMBuilderRef builder,
+				    fn_context_t *context, const char *name)
 {
 	LLVMValueRef val = fn_find_local(context, name);
 	if (LLVMIsAAllocaInst(val)) {
@@ -91,6 +91,46 @@ static LLVMValueRef gen_literal_value(literal_expr_t *lit)
 {
 	if (lit->type == PT_I32)
 		return LLVMConstInt(LLVMInt32Type(), lit->v_i32, false);
+
+	return NULL;
+}
+
+/**
+ * Generate a new value in the block from the value expression given. It can be
+ * a reference to a variable, a literal value, a call or two-hand-side
+ * operation.
+ */
+static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
+				  value_expr_t *value)
+{
+	if (value->type == VE_NULL) {
+		error("tried to generate a null value");
+	} else if (value->type == VE_REF) {
+		return gen_local_value(builder, context, value->name);
+	} else if (value->type == VE_LIT) {
+		return gen_literal_value(value->literal);
+	} else if (value->type == VE_CALL) {
+		return emit_call_node(builder, context, value->call);
+	} else {
+		if (!value->left || !value->right) {
+			error("undefined value: two-side op with only one side "
+			      "defined");
+		}
+
+		LLVMValueRef new, left, right;
+
+		new = NULL;
+		left = gen_new_value(builder, context, value->left);
+		right = gen_new_value(builder, context, value->right);
+
+		if (value->type == VE_ADD) {
+			new = LLVMBuildAdd(builder, left, right, "");
+		} else {
+			error("unknown operation: %d", value->type);
+		}
+
+		return new;
+	}
 
 	return NULL;
 }
@@ -140,41 +180,25 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 
 	if (value->type == VE_NULL) {
 		LLVMBuildRetVoid(builder);
-	} else if (value->type == VE_REF) {
-
-		/* return a local */
-		if (!(ret = fn_find_local(context, value->name))) {
-			error("local ref failed of `%s` in %s", value->name,
-			      E_AS_FN(context->func->data)->name);
-		}
-
-		/* Locals are stored on the stack, so automatically they become
-		   pointers, so if we want to return a value we need to store it
-		   into a variable. */
-		LLVMValueRef ret_val =
-		    LLVMBuildLoad2(builder, LLVMGetAllocatedType(ret), ret, "");
-		LLVMBuildRet(builder, ret_val);
-
-	} else if (value->type == VE_LIT) {
-		/* integral constants */
-		ret = gen_literal_value(value->literal);
-		if (ret)
-			LLVMBuildRet(builder, ret);
 	} else {
-		warning("emit_return_node: no idea how to emit this value");
+		ret = gen_new_value(builder, context, node->data);
+		if (!ret)
+			error("could not generate return value for %s",
+			      E_AS_FN(context->func->data)->name);
+		LLVMBuildRet(builder, ret);
 	}
 }
 
 static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 			     expr_t *node)
 {
-	LLVMValueRef var;
+	LLVMValueRef local;
 	assign_expr_t *data;
 
 	data = node->data;
-	var = fn_find_local(context, data->name);
+	local = fn_find_local(context, data->name);
 
-	if (!var) {
+	if (!local) {
 		error("local %s not found in %s", data->name,
 		      E_AS_FN(context->func->data)->name);
 	}
@@ -182,35 +206,13 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 	if (data->value->return_type
 	    != node_resolve_local(context->func, data->name, strlen(data->name))
 		   ->type) {
-		error(
-		    "mismatched expression return type with var decl for `%s`",
-		    data->name);
+		error("mismatched expression return type with var decl "
+		      "for `%s`",
+		      data->name);
 	}
 
-	if (data->value->type == VE_NULL) {
-		warning("suspicious null type assignment");
-		return;
-	}
-
-	if (data->value->type == VE_REF) {
-		/* copy a value */
-		LLVMBuildStore(builder,
-			       gen_value(builder, context, data->value->name),
-			       var);
-	}
-
-	if (data->value->type == VE_LIT) {
-		/* assign a literal value to a variable */
-		LLVMBuildStore(builder, gen_literal_value(data->value->literal),
-			       var);
-	}
-
-	if (data->value->type == VE_CALL) {
-		/* assign a call result to a variable */
-		LLVMBuildStore(
-		    builder,
-		    emit_call_node(builder, context, data->value->call), var);
-	}
+	LLVMBuildStore(builder, gen_new_value(builder, context, data->value),
+		       local);
 }
 
 static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
@@ -230,9 +232,8 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 		if (call->args[i]->type == VE_LIT) {
 			args[i] = gen_literal_value(call->args[i]->literal);
 		} else if (call->args[i]->type == VE_REF) {
-			/* if we have a local value, we need to deref it */
-			args[i] =
-			    gen_value(builder, context, call->args[i]->name);
+			args[i] = gen_local_value(builder, context,
+						  call->args[i]->name);
 		}
 	}
 
@@ -366,7 +367,8 @@ void emit_module(expr_t *module, const char *out)
 		if (walker->type == E_FUNCTION)
 			emit_function(mod, module, walker);
 		else
-			error("cannot emit anything other than a function");
+			error("cannot emit anything other than a "
+			      "function");
 		walker = walker->next;
 	}
 
