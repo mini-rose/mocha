@@ -31,11 +31,19 @@ void error_at(const char *content, const char *pos, const char *format, ...)
 
 	const char *start = pos;
 	const char *end = pos;
+	const char *ptr = pos;
 	int line = 1;
+	int tabs = 0;
 
 	for (const char *p = content; p < pos; p++)
 		if (*p == '\n')
 			line++;
+
+	while (content < ptr && *ptr != '\n') {
+		if (*ptr == '\t')
+			tabs++;
+		ptr--;
+	}
 
 	while (content < start && start[-1] != '\n')
 		start--;
@@ -44,7 +52,8 @@ void error_at(const char *content, const char *pos, const char *format, ...)
 		end++;
 
 	fprintf(stderr, "%i\t%.*s\n \t%*s\e[33m^ \e[31m", line,
-		(int) (end - start), start, (int) (pos - start), "");
+		(int) (end - start), start, (int) (pos - start) + (tabs * 3),
+		"");
 
 	vfprintf(stderr, format, ap);
 	fputs("\e[0m\n", stderr);
