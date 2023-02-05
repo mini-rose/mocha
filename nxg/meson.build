@@ -11,7 +11,8 @@ sources = [
   'src/type.c',
   'src/keyword.c',
   'src/emit.c',
-  'src/module.c'
+  'src/module.c',
+  'src/mangle.c'
 ]
 
 llvm = declare_dependency(link_args: '-lLLVM')

@@ -4,6 +4,7 @@
 #include <llvm-c/blake3.h>
 #include <nxg/emit.h>
 #include <nxg/error.h>
+#include <nxg/mangle.h>
 #include <nxg/module.h>
 #include <nxg/nxg.h>
 #include <nxg/parser.h>
@@ -17,19 +18,6 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 				   fn_context_t *context, call_expr_t *call);
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name);
 
-char plain_type_mid(plain_type t)
-{
-	const char type_mangle_ids[] = {
-	    [PT_NULL] = 'n', [PT_BOOL] = 'b', [PT_I8] = 'c',   [PT_U8] = 'C',
-	    [PT_I16] = 's',  [PT_U16] = 'S',  [PT_I32] = 'i',  [PT_U32] = 'I',
-	    [PT_I64] = 'l',  [PT_U64] = 'L',  [PT_I128] = 'q', [PT_U128] = 'Q',
-	    [PT_F32] = 'f',  [PT_F64] = 'd',  [PT_STR] = 's',  [PT_PTR] = 'p'};
-	const int n = sizeof(type_mangle_ids);
-	if (t >= 0 && t < n)
-		return type_mangle_ids[t];
-	return 'x';
-}
-
 static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref)
 {
 	context->locals = realloc(
@@ -40,17 +28,6 @@ static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref)
 static void fn_context_destroy(fn_context_t *context)
 {
 	free(context->locals);
-}
-
-char *mangle(fn_expr_t *func)
-{
-	char *name = calloc(128, 4);
-	snprintf(name, 512, "_C%d%s", (int) strlen(func->name), func->name);
-	for (int i = 0; i < func->n_params; i++) {
-		char id = plain_type_mid(func->params[i]->type);
-		name[strlen(name)] = id;
-	}
-	return name;
 }
 
 LLVMTypeRef gen_plain_type(plain_type t)
@@ -147,7 +124,7 @@ void emit_function_decl(LLVMModuleRef mod, fn_expr_t *fn)
 	LLVMValueRef f;
 	char *mangled;
 
-	mangled = mangle(fn);
+	mangled = nxg_mangle(fn);
 	f = LLVMAddFunction(mod, mangled, gen_function_type(fn));
 	LLVMSetLinkage(f, LLVMExternalLinkage);
 	free(mangled);
@@ -259,7 +236,7 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 		}
 	}
 
-	name = mangle(call->func);
+	name = nxg_mangle(call->func);
 	func = LLVMGetNamedFunction(context->llvm_mod, name);
 	if (!func)
 		error("missing named func %s", name);
@@ -304,7 +281,7 @@ void emit_function(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 	char *name;
 
 	func_type = gen_function_type(fn->data);
-	name = mangle(fn->data);
+	name = nxg_mangle(fn->data);
 	func = LLVMAddFunction(mod, name, func_type);
 
 	memset(&context, 0, sizeof(context));
