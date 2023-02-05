@@ -30,6 +30,25 @@ typedef enum
 	PT_PTR = 15
 } plain_type;
 
+typedef struct type type_t;
+
+typedef enum
+{
+	TY_PLAIN,   /* T */
+	TY_POINTER, /* &T */
+	TY_ARRAY,   /* T[] */
+} type_type;
+
+struct type
+{
+	type_type type;
+	union
+	{
+		plain_type v_plain; /* plain type */
+		type_t *v_base;     /* base type of pointer */
+	};
+};
+
 /**
  * Checks is string a type
  */
