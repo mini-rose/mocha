@@ -12,7 +12,7 @@ typedef enum
 	E_RETURN, /* data is a pointer to a value_expr_t */
 	E_VARDECL,
 	E_ASSIGN,
-	E_LITERAL,
+	E_VALUE,
 } expr_type;
 
 typedef void (*expr_free_handle)(void *expr);
@@ -20,6 +20,7 @@ typedef struct expr expr_t;
 typedef struct fn_expr fn_expr_t;
 typedef struct literal_expr literal_expr_t;
 typedef struct call_expr call_expr_t;
+typedef struct value_expr value_expr_t;
 
 struct expr
 {
@@ -51,7 +52,7 @@ typedef enum
 	VE_DIV,  /* left / right */
 } value_expr_type;
 
-typedef struct
+struct value_expr
 {
 	plain_type return_type;
 	value_expr_type type;
@@ -60,10 +61,10 @@ typedef struct
 		char *name;
 		literal_expr_t *literal;
 		call_expr_t *call;
-		expr_t *left;
+		value_expr_t *left;
 	};
-	expr_t *right;
-} value_expr_t;
+	value_expr_t *right;
+};
 
 /* variable declaration */
 typedef struct
@@ -87,7 +88,7 @@ struct fn_expr
 typedef struct
 {
 	char *name;
-	value_expr_t value;
+	value_expr_t *value;
 } assign_expr_t;
 
 struct call_expr
@@ -137,6 +138,7 @@ void literal_default(literal_expr_t *literal);
 char *stringify_literal(literal_expr_t *literal);
 
 const char *value_expr_type_name(value_expr_type t);
+value_expr_type value_expr_type_from_op(token *op);
 
 var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len);
 bool node_has_named_local(expr_t *node, const char *name, int len);

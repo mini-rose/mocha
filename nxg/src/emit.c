@@ -179,7 +179,7 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		      E_AS_FN(context->func->data)->name);
 	}
 
-	if (data->value.return_type
+	if (data->value->return_type
 	    != node_resolve_local(context->func, data->name, strlen(data->name))
 		   ->type) {
 		error(
@@ -187,29 +187,29 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		    data->name);
 	}
 
-	if (data->value.type == VE_NULL) {
+	if (data->value->type == VE_NULL) {
 		warning("suspicious null type assignment");
 		return;
 	}
 
-	if (data->value.type == VE_REF) {
+	if (data->value->type == VE_REF) {
 		/* copy a value */
 		LLVMBuildStore(builder,
-			       gen_value(builder, context, data->value.name),
+			       gen_value(builder, context, data->value->name),
 			       var);
 	}
 
-	if (data->value.type == VE_LIT) {
+	if (data->value->type == VE_LIT) {
 		/* assign a literal value to a variable */
-		LLVMBuildStore(builder, gen_literal_value(data->value.literal),
+		LLVMBuildStore(builder, gen_literal_value(data->value->literal),
 			       var);
 	}
 
-	if (data->value.type == VE_CALL) {
+	if (data->value->type == VE_CALL) {
 		/* assign a call result to a variable */
 		LLVMBuildStore(
-		    builder, emit_call_node(builder, context, data->value.call),
-		    var);
+		    builder,
+		    emit_call_node(builder, context, data->value->call), var);
 	}
 }
 
