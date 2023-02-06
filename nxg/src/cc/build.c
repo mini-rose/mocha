@@ -1,11 +1,11 @@
 /* nxg/build.c
    Copyright (c) 2023 mini-rose */
 
-#include <nxg/emit.h>
-#include <nxg/file.h>
+#include <nxg/cc/emit.h>
+#include <nxg/cc/parser.h>
+#include <nxg/cc/tokenize.h>
 #include <nxg/nxg.h>
-#include <nxg/parser.h>
-#include <nxg/tokenize.h>
+#include <nxg/utils/file.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -1,6 +1,4 @@
-#include "nxg/error.h"
-
-#include <nxg/type.h>
+#include <nxg/cc/type.h>
 #include <stdbool.h>
 #include <string.h>
 

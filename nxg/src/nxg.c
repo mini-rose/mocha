@@ -1,11 +1,14 @@
 #include <fcntl.h>
-#include <nxg/emit.h>
-#include <nxg/file.h>
-#include <nxg/module.h>
+#include <jansson.h>
+#include <nxg/bs/buildfile.h>
+#include <nxg/cc/emit.h>
+#include <nxg/cc/module.h>
+#include <nxg/cc/parser.h>
+#include <nxg/cc/tokenize.h>
+#include <nxg/cc/type.h>
 #include <nxg/nxg.h>
-#include <nxg/parser.h>
-#include <nxg/tokenize.h>
-#include <nxg/type.h>
+#include <nxg/utils/error.h>
+#include <nxg/utils/file.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,18 +42,12 @@ int main(int argc, char **argv)
 {
 	settings_t settings = {0};
 	settings.output = "a.out";
+	settings.global = false;
 	int opt;
 
 	if (argc == 1) {
 		help();
 		exit(0);
-	}
-
-	for (int i = 0; i < argc; i++) {
-		if (!strncmp(argv[i], "--help", 6))
-			full_help();
-		if (!strncmp(argv[i], "--version", 10))
-			version();
 	}
 
 	/* NOTE: for our uses, we might want to use a custom argument parser to
@@ -71,6 +68,15 @@ int main(int argc, char **argv)
 			version();
 			break;
 		}
+	}
+
+	for (int i = 0; i < argc; i++) {
+		if (!strncmp(argv[i], "--help", 6))
+			full_help();
+		if (!strncmp(argv[i], "--version", 10))
+			version();
+		// if (!strncmp(argv[i], ".", 2))
+		// buildfile(&settings);
 	}
 
 	settings.input = argv[optind];

@@ -1,4 +1,4 @@
-#include <nxg/keyword.h>
+#include <nxg/cc/keyword.h>
 #include <stdbool.h>
 #include <string.h>
 

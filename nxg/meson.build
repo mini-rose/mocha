@@ -4,16 +4,17 @@ includes = include_directories('include')
 
 sources = [
   'src/nxg.c',
-  'src/tokenize.c',
-  'src/file.c',
-  'src/error.c',
-  'src/parser.c',
-  'src/type.c',
-  'src/keyword.c',
-  'src/emit.c',
-  'src/module.c',
-  'src/mangle.c',
-  'src/build.c'
+  'src/cc/tokenize.c',
+  'src/cc/file.c',
+  'src/cc/error.c',
+  'src/cc/parser.c',
+  'src/cc/type.c',
+  'src/cc/keyword.c',
+  'src/cc/emit.c',
+  'src/cc/module.c',
+  'src/cc/mangle.c',
+  'src/cc/build.c',
+  'src/bs/buildfile.c'
 ]
 
 llvm = declare_dependency(link_args: '-lLLVM')

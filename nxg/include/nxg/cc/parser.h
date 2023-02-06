@@ -1,6 +1,6 @@
 #pragma once
-#include <nxg/tokenize.h>
-#include <nxg/type.h>
+#include <nxg/cc/tokenize.h>
+#include <nxg/cc/type.h>
 #include <stdbool.h>
 #include <stddef.h>
 
