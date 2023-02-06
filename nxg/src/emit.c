@@ -305,6 +305,11 @@ void emit_function(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 		walker = walker->next;
 	}
 
+	if (LLVMVerifyFunction(func, LLVMPrintMessageAction)) {
+		error("something is wrong with the emitted `%s` function",
+		      name);
+	}
+
 	LLVMDisposeBuilder(builder);
 	fn_context_destroy(&context);
 	free(name);
@@ -375,6 +380,11 @@ void emit_module(expr_t *module, const char *out)
 	/* if we're in the main module, add a main function */
 	if (!strcmp(mod_data->name, MAIN_MODULE))
 		emit_main_function(mod);
+
+	if (LLVMVerifyModule(mod, LLVMPrintMessageAction, &err_msg)) {
+		error("something is wrong with the emitted `%s` module",
+		      mod_data->name);
+	}
 
 	LLVMPrintModuleToFile(mod, out, &err_msg);
 	LLVMDisposeMessage(err_msg);

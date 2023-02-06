@@ -1,0 +1,77 @@
+/* nxg/build.c
+   Copyright (c) 2023 mini-rose */
+
+#include <nxg/emit.h>
+#include <nxg/file.h>
+#include <nxg/nxg.h>
+#include <nxg/parser.h>
+#include <nxg/tokenize.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+static char *file_basename(const char *file)
+{
+	size_t n;
+	char *name;
+
+	n = strchr(file, '.') - file;
+	name = malloc(n + 1);
+	strncpy(name, file, n);
+	name[n] = 0;
+
+	return name;
+}
+
+static void build_and_link(const char *input, const char *output)
+{
+	char cmd[1024];
+	char *name;
+	FILE *proc;
+
+	name = file_basename(input);
+
+	/* mod.ll -> mod.s */
+	snprintf(cmd, 1024, "/usr/bin/llc -O=2 -o %s.s %s", name, input);
+	proc = popen(cmd, "r");
+
+	pclose(proc);
+
+	/* mod.s -> mod.o */
+	snprintf(cmd, 1024, "/usr/bin/as -o %s.o %s.s", name, name);
+	proc = popen(cmd, "r");
+	pclose(proc);
+
+	/* mod.o -> output */
+	snprintf(cmd, 1024,
+		 "/usr/bin/ld -o %s -dynamic-linker /lib/ld-linux-x86-64.so.2 "
+		 "/lib/crt1.o /lib/crti.o %s.o /lib/crtn.o -lc",
+		 output, name);
+	proc = popen(cmd, "r");
+	pclose(proc);
+
+	free(name);
+}
+
+void compile(settings_t *settings)
+{
+	char module_path[512];
+	file *source = file_new(settings->input);
+	token_list *list = tokens(source);
+	expr_t *ast = parse(list, MAIN_MODULE);
+
+	mkdir("/tmp/nxg", 0777);
+
+	if (settings->show_ast)
+		expr_print(ast);
+
+	snprintf(module_path, 512, "/tmp/nxg/%s.ll", MAIN_MODULE);
+	emit_module(ast, module_path);
+
+	build_and_link(module_path, settings->output);
+
+	expr_destroy(ast);
+	file_destroy(source);
+	token_list_destroy(list);
+}
