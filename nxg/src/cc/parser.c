@@ -360,6 +360,7 @@ static type_t *parse_type(token_list *tokens, token *tok)
 		ty = type_from_sized_string(tok->value, tok->len);
 	}
 
+	tok = index_tok(tokens, tokens->iter);
 	if (TOK_IS(tok, T_PUNCT, "[")) {
 		/* array type */
 		tok = next_tok(tokens);
@@ -374,8 +375,14 @@ static type_t *parse_type(token_list *tokens, token *tok)
 		array_ty->type = TY_ARRAY;
 		array_ty->len = strtol(tok->value, NULL, 10);
 		array_ty->v_base = ty;
-		return array_ty;
 
+		tok = next_tok(tokens);
+		if (!TOK_IS(tok, T_PUNCT, "]")) {
+			error_at(tokens->source->content, tok->value,
+				 "expected closing bracket `]`");
+		}
+
+		return array_ty;
 	} else {
 		/* regular type */
 		return ty;
@@ -519,9 +526,20 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	/* arguments - currently only support variable names & literals
 	 */
 	while (!TOK_IS(tok, T_PUNCT, ")")) {
-		if (tok->type == T_IDENT) {
+		if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")) {
 			arg = call_add_arg(data);
 			arg->type = VE_REF;
+			if (TOK_IS(tok, T_PUNCT, "&")) {
+				arg->type = VE_PTR;
+				tok = next_tok(tokens);
+				if (tok->type != T_IDENT) {
+					error_at(tokens->source->content,
+						 tok->value,
+						 "expected variable name after "
+						 "reference marker");
+				}
+			}
+
 			arg->name = strndup(tok->value, tok->len);
 
 			var_decl_expr_t *var;
@@ -534,7 +552,13 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 					 tok->len, tok->value);
 			}
 
-			arg->return_type = type_copy(var->type);
+			/* if we have a reference marker (&x), then the return
+			   type is the pointer type of the value */
+			if (arg->type == VE_PTR)
+				arg->return_type = type_pointer_of(var->type);
+			else
+				arg->return_type = type_copy(var->type);
+
 		} else if (is_literal(tok)) {
 			arg = call_add_arg(data);
 			parse_literal(arg, tokens, tok);
@@ -941,7 +965,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 	node->data = data;
 	node->data_free = (expr_free_handle) fn_expr_free;
 	data->n_params = 0;
-	data->return_type = type_new();
+	data->return_type = type_new_null();
 
 	tok = next_tok(tokens);
 
@@ -1286,6 +1310,8 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 		       val->call->n_args);
 		for (int i = 0; i < val->call->n_args; i++)
 			expr_print_value_expr(val->call->args[i], level + 1);
+	} else if (val->type == VE_PTR) {
+		printf("addr: `&%s`\n", val->name);
 	} else {
 		printf("op: %s\n", value_expr_type_name(val->type));
 		if (val->left)
@@ -1374,8 +1400,8 @@ char *stringify_literal(literal_expr_t *literal)
 
 const char *value_expr_type_name(value_expr_type t)
 {
-	static const char *names[] = {"NULL", "REF", "LIT", "CALL",
-				      "ADD",  "SUB", "MUL", "DIV"};
+	static const char *names[] = {"NULL", "REF", "LIT", "CALL", "ADD",
+				      "SUB",  "MUL", "DIV", "PTR"};
 	static const int n_names = sizeof(names) / sizeof(*names);
 
 	if (t >= 0 && t < n_names)

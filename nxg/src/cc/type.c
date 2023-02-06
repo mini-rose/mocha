@@ -132,6 +132,14 @@ type_t *type_copy(type_t *ty)
 	return new_ty;
 }
 
+type_t *type_pointer_of(type_t *ty)
+{
+	type_t *ptr = type_new_null();
+	ptr->type = TY_POINTER;
+	ptr->v_base = type_copy(ty);
+	return ptr;
+}
+
 bool type_cmp(type_t *left, type_t *right)
 {
 	if (left == right)
@@ -176,6 +184,11 @@ char *type_name(type_t *ty)
 {
 	char *name = calloc(512, 1);
 	char *tmp;
+
+	if (!ty || ty->type == TY_NULL) {
+		snprintf(name, 512, "null");
+		return name;
+	}
 
 	if (ty->type == TY_PLAIN) {
 		snprintf(name, 512, "%s",

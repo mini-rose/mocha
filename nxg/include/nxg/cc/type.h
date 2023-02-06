@@ -75,6 +75,7 @@ type_t *type_new();
 type_t *type_new_null();
 type_t *type_new_plain(plain_type t);
 type_t *type_copy(type_t *ty);
+type_t *type_pointer_of(type_t *ty);
 bool type_cmp(type_t *left, type_t *right);
 char *type_name(type_t *ty);
 void type_destroy(type_t *ty);

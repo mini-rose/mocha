@@ -51,6 +51,7 @@ typedef enum
 	VE_SUB,  /* left - right */
 	VE_MUL,  /* left * right */
 	VE_DIV,  /* left / right */
+	VE_PTR,  /* name */
 } value_expr_type;
 
 struct value_expr
