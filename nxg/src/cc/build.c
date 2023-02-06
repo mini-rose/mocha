@@ -75,6 +75,11 @@ void compile(settings_t *settings)
 
 	build_and_link(module_path, settings->output);
 
+	if (settings->using_bs) {
+		free(settings->input);
+		free(settings->output);
+	}
+
 	expr_destroy(ast);
 	file_destroy(source);
 	token_list_destroy(list);

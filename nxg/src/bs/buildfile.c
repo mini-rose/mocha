@@ -6,16 +6,42 @@
 #include <stdlib.h>
 #include <string.h>
 
-void bs_parse_options(char *value, settings_t *settings)
+void bs_parse_opt(char *opt_s, char *opt_e, settings_t *settings)
 {
-	char *p = value;
-
-	while (*p) {
-		switch (*p) {
+	if ((opt_e - opt_s) == 1 && *opt_s != ' ')
+		switch (*opt_s) {
 			case 'p':
 				settings->show_ast = true;
 				break;
 		}
+}
+
+void bs_parse_arr(char *key_s, char *key_e, char *val_s, settings_t *settings)
+{
+	char *p = val_s;
+
+	// options: ['-p', '-v']
+	if (strncmp("options", key_s, key_e - key_s))
+		error("invalid key: %.*s", key_e - key_s, key_s);
+
+	while (*p != '\n' && *p) {
+		if (isspace(*p)) {
+			p++;
+			continue;
+		}
+
+		if (*p == '\'') {
+			char *q;
+
+			// Skip string quote and '-'
+			p += 2;
+
+			q = strstr(p, "'");
+
+			bs_parse_opt(p, q, settings);
+		}
+
+		p++;
 	}
 }
 
@@ -23,19 +49,16 @@ void bs_parse(char *key_s, char *key_e, char *val_s, settings_t *settings)
 {
 	char *eol = strstr(val_s, "\n");
 
-	printf("KEY: %.*s\n", (int) (key_e - key_s), key_s);
-
-	if (!strncmp("input", key_s, key_e - key_s)) {
+	// input: file.ff
+	if (!strncmp("input", key_s, key_e - key_s))
 		settings->input = strndup(val_s, eol - val_s);
-		printf("VALUE: '%s'\n", settings->input);
-		return;
-	}
 
-	if (!strncmp("output", key_s, key_e - key_s)) {
+	// output: a.out
+	else if (!strncmp("output", key_s, key_e - key_s))
 		settings->output = strndup(val_s, eol - val_s);
-		printf("VALUE: '%s'\n", settings->output);
-		return;
-	}
+
+	else
+		error("invalid key: %.*s", key_e - key_s, key_s);
 }
 
 void buildfile(settings_t *settings)
@@ -45,6 +68,17 @@ void buildfile(settings_t *settings)
 	char *s = p;
 
 	while (*p) {
+		if (!strncmp(p, "/*", 2)) {
+			char *q = strstr(p + 2, "*/");
+
+			if (!q)
+				error_at(f->content, p,
+					 "Unterminated comment.");
+
+			p += q - p + 2;
+			continue;
+		}
+
 		if (isspace(*p)) {
 			p++;
 			continue;
@@ -56,7 +90,10 @@ void buildfile(settings_t *settings)
 			while (isspace(*q))
 				q++;
 
-			bs_parse(s, p, q, settings);
+			if (*q == '[')
+				bs_parse_arr(s, p, q + 1, settings);
+			else
+				bs_parse(s, p, q, settings);
 
 			while (*p != '\n')
 				p++;
@@ -68,6 +105,4 @@ void buildfile(settings_t *settings)
 	}
 
 	file_destroy(f);
-
-	exit(0);
 }

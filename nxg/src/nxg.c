@@ -43,6 +43,8 @@ int main(int argc, char **argv)
 	settings_t settings = {0};
 	settings.output = "a.out";
 	settings.global = false;
+	settings.input = NULL;
+	settings.using_bs = false;
 	int opt;
 
 	if (argc == 1) {
@@ -75,11 +77,16 @@ int main(int argc, char **argv)
 			full_help();
 		if (!strncmp(argv[i], "--version", 10))
 			version();
-		// if (!strncmp(argv[i], ".", 2))
-		// buildfile(&settings);
+
+		if (!strncmp(argv[i], ".", 2)) {
+			buildfile(&settings);
+			settings.using_bs = true;
+		}
 	}
 
-	settings.input = argv[optind];
+	if (settings.input == NULL)
+		settings.input = argv[optind];
+
 	compile(&settings);
 
 	return 0;

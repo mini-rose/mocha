@@ -13,8 +13,9 @@ typedef struct
 {
 	bool show_ast;
 	bool global;
-	const char *output;
-	const char *input;
+	bool using_bs;
+	char *output;
+	char *input;
 } settings_t;
 
 /* Compile all input files into a single binary. */
