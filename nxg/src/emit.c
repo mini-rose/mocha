@@ -162,12 +162,14 @@ static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 void emit_function_decl(LLVMModuleRef mod, fn_expr_t *fn)
 {
 	LLVMValueRef f;
-	char *mangled;
+	char *ident;
 
-	mangled = nxg_mangle(fn);
-	f = LLVMAddFunction(mod, mangled, gen_function_type(fn));
+	ident = fn->flags & FN_NOMANGLE ? fn->name : nxg_mangle(fn);
+	f = LLVMAddFunction(mod, ident, gen_function_type(fn));
 	LLVMSetLinkage(f, LLVMExternalLinkage);
-	free(mangled);
+
+	if (!(fn->flags & FN_NOMANGLE))
+		free(ident);
 }
 
 void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
@@ -237,7 +239,9 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 		}
 	}
 
-	name = nxg_mangle(call->func);
+	name = call->func->name;
+	if (!(call->func->flags & FN_NOMANGLE))
+		name = nxg_mangle(call->func);
 	func = LLVMGetNamedFunction(context->llvm_mod, name);
 	if (!func)
 		error("missing named func %s", name);
@@ -245,7 +249,9 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 			     n_args, "");
 
 	free(args);
-	free(name);
+
+	if (!(call->func->flags & FN_NOMANGLE))
+		free(name);
 
 	return ret;
 }
@@ -268,6 +274,8 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 		break;
 	case E_CALL:
 		emit_call_node(builder, context, node->data);
+		break;
+	case E_SKIP:
 		break;
 	default:
 		warning("undefined emit rules for node");

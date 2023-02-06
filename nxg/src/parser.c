@@ -323,11 +323,120 @@ static value_expr_t *call_add_arg(call_expr_t *call)
 	return node;
 }
 
-static void parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
-			      token_list *tokens, token *tok)
+static bool is_builtin_function(token *name)
+{
+	static const char *builtins[] = {"__builtin_decl",
+					 "__builtin_externcall"};
+	static const int n_builtins = sizeof(builtins) / sizeof(*builtins);
+
+	for (int i = 0; i < n_builtins; i++) {
+		if (!strncmp(builtins[i], name->value, name->len))
+			return true;
+	}
+
+	return false;
+}
+
+static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens,
+					   int arg_pos)
+{
+	token *arg;
+
+	while ((arg = index_tok(tokens, arg_pos++))->type != T_NEWLINE) {
+		if (arg->type != T_DATATYPE) {
+			error_at(tokens->source->content, arg->value,
+				 "expected function parameter type, got `%.*s`",
+				 arg->len, arg->value);
+		}
+
+		fn_add_param(decl, "_", 1,
+			     plain_type_from(arg->value, arg->len));
+
+		arg = index_tok(tokens, arg_pos++);
+		if (TOK_IS(arg, T_PUNCT, ")"))
+			break;
+
+		if (!TOK_IS(arg, T_PUNCT, ",")) {
+			error_at(tokens->source->content, arg->value,
+				 "expected comma between arguments, got `%.*s`",
+				 arg->len, arg->value);
+		}
+	}
+}
+
+static err_t parse_builtin_call(expr_t *parent, expr_t *mod, call_expr_t *data,
+				token_list *tokens, token *tok)
+{
+	/* Built-in calls are not always function calls, they may be
+	   "macro-like" functions which turn into something else. */
+
+	int arg_pos = tokens->iter + 1;
+	token *name, *arg;
+
+	name = tok;
+	while (!TOK_IS(tok, T_PUNCT, ")"))
+		tok = next_tok(tokens);
+
+	if (!strncmp("__builtin_decl", name->value, name->len)) {
+		fn_expr_t *decl = module_add_decl(mod);
+
+		decl->flags = FN_NOMANGLE;
+
+		/* function name */
+		arg = index_tok(tokens, arg_pos++);
+		if (arg->type != T_STRING) {
+			error_at(tokens->source->content, arg->value,
+				 "first argument to __builtin_decl must be a "
+				 "string with the function name");
+		}
+
+		decl->name = strndup(arg->value, arg->len);
+
+		arg = index_tok(tokens, arg_pos++);
+		if (!TOK_IS(arg, T_PUNCT, ",")) {
+			error_at(tokens->source->content, arg->value,
+				 "missing return type argument");
+		}
+
+		/* return type */
+		arg = index_tok(tokens, arg_pos++);
+		if (arg->type != T_DATATYPE) {
+			error_at(tokens->source->content, arg->value,
+				 "second argument to __builtin_decl is "
+				 "expected to be the return type");
+		}
+
+		decl->return_type = plain_type_from(arg->value, arg->len);
+
+		arg = index_tok(tokens, arg_pos++);
+		if (TOK_IS(arg, T_PUNCT, ")"))
+			return ERR_WAS_BUILTIN;
+
+		if (!TOK_IS(arg, T_PUNCT, ",")) {
+			error_at(tokens->source->content, arg->value,
+				 "expected comma between arguments, got `%.*s`",
+				 arg->len, arg->value);
+		}
+
+		collect_builtin_decl_arguments(decl, tokens, arg_pos);
+
+		return ERR_WAS_BUILTIN;
+	} else {
+		error_at(tokens->source->content, tok->value,
+			 "this builtin call is not yet implemented");
+	}
+
+	return ERR_OK;
+}
+
+static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
+			       token_list *tokens, token *tok)
 {
 	value_expr_t *arg;
 	token *fn_name_tok;
+
+	if (is_builtin_function(tok))
+		return parse_builtin_call(parent, mod, data, tokens, tok);
 
 	data->name = strndup(tok->value, tok->len);
 	fn_name_tok = tok;
@@ -410,6 +519,8 @@ static void parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			 i + 1, plain_type_name(target->params[i]->type),
 			 plain_type_name(data->args[i]->return_type));
 	}
+
+	return ERR_OK;
 }
 
 /**
@@ -428,7 +539,12 @@ static void parse_call(expr_t *parent, expr_t *mod, token_list *tokens,
 	node->data = data;
 	node->data_free = (expr_free_handle) call_expr_free;
 
-	parse_inline_call(parent, mod, data, tokens, tok);
+	if (parse_inline_call(parent, mod, data, tokens, tok)
+	    == ERR_WAS_BUILTIN) {
+		free(data);
+		memset(node, 0, sizeof(*node));
+		node->type = E_SKIP;
+	}
 }
 
 static err_t parse_single_value(expr_t *context, expr_t *mod,
@@ -894,9 +1010,9 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 			parse_assign(node, module, data, tokens, tok);
 		else if (is_var_decl(tokens, tok))
 			parse_var_decl(node, data, tokens, tok);
-		else if (is_call(tokens, tok))
+		else if (is_call(tokens, tok)) {
 			parse_call(node, module, tokens, tok);
-		else if (TOK_IS(tok, T_KEYWORD, "ret"))
+		} else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, module, tokens, tok);
 		else
 			error_at(tokens->source->content, tok->value,
@@ -996,8 +1112,8 @@ void expr_destroy(expr_t *expr)
 
 static const char *expr_typename(expr_type type)
 {
-	static const char *names[] = {"MODULE",  "FUNCTION", "CALL", "RETURN",
-				      "VARDECL", "ASSIGN",   "VALUE"};
+	static const char *names[] = {"SKIP",   "MODULE",  "FUNCTION", "CALL",
+				      "RETURN", "VARDECL", "ASSIGN",   "VALUE"};
 	static const int n_names = sizeof(names) / sizeof(*names);
 
 	if (type >= 0 && type < n_names)
@@ -1005,9 +1121,9 @@ static const char *expr_typename(expr_type type)
 	return "<EXPR>";
 }
 
-static const char *func_str_signature(fn_expr_t *func)
+char *fn_str_signature(fn_expr_t *func)
 {
-	static char sig[1024];
+	char *sig = calloc(1024, 1);
 	char buf[64];
 	memset(sig, 0, 1024);
 
@@ -1036,14 +1152,16 @@ static const char *expr_info(expr_t *expr)
 {
 	static char info[512];
 	assign_expr_t *var;
+	char *tmp;
 
 	switch (expr->type) {
 	case E_MODULE:
 		snprintf(info, 512, "%s", E_AS_MOD(expr->data)->name);
 		break;
 	case E_FUNCTION:
-		snprintf(info, 512, "%s",
-			 func_str_signature(E_AS_FN(expr->data)));
+		tmp = fn_str_signature(E_AS_FN(expr->data));
+		snprintf(info, 512, "%s", tmp);
+		free(tmp);
 		break;
 	case E_VARDECL:
 		snprintf(info, 512, "%s %s",

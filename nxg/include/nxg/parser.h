@@ -6,6 +6,7 @@
 
 typedef enum
 {
+	E_SKIP, /* empty expression, skip these in emit() */
 	E_MODULE,
 	E_FUNCTION,
 	E_CALL,
@@ -73,6 +74,8 @@ typedef struct
 	char *name;
 } var_decl_expr_t;
 
+#define FN_NOMANGLE 1
+
 /* function definition */
 struct fn_expr
 {
@@ -82,6 +85,7 @@ struct fn_expr
 	int n_params;
 	int n_locals;
 	plain_type return_type;
+	int flags;
 };
 
 /* variable assignment */
@@ -144,3 +148,4 @@ var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len);
 bool node_has_named_local(expr_t *node, const char *name, int len);
 
 void fn_add_param(fn_expr_t *fn, const char *name, int len, plain_type type);
+char *fn_str_signature(fn_expr_t *func);

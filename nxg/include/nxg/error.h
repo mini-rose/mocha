@@ -4,6 +4,7 @@ typedef enum
 {
 	ERR_OK,
 	ERR_SYNTAX,
+	ERR_WAS_BUILTIN
 } err_t;
 
 void warning(const char *format, ...);
