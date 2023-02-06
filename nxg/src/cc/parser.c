@@ -339,6 +339,51 @@ static void parse_reference(value_expr_t *node, expr_t *context,
 	node->return_type = type_copy(var->type);
 }
 
+static type_t *parse_type(token_list *tokens, token *tok)
+{
+	type_t *ty;
+
+	if (TOK_IS(tok, T_PUNCT, "&")) {
+		tok = next_tok(tokens);
+		ty = type_new_null();
+		ty->type = TY_POINTER;
+		ty->v_base = parse_type(tokens, tok);
+		return ty;
+	}
+
+	if (tok->type == T_IDENT) {
+		error_at(tokens->source->content, tok->value,
+			 "object types are not yet implemented");
+	}
+
+	if (tok->type == T_DATATYPE) {
+		ty = type_from_sized_string(tok->value, tok->len);
+	}
+
+	if (TOK_IS(tok, T_PUNCT, "[")) {
+		/* array type */
+		tok = next_tok(tokens);
+		tok = next_tok(tokens);
+
+		if (tok->type != T_NUMBER) {
+			error_at(tokens->source->content, tok->value,
+				 "missing array size");
+		}
+
+		type_t *array_ty = type_new_null();
+		array_ty->type = TY_ARRAY;
+		array_ty->len = strtol(tok->value, NULL, 10);
+		array_ty->v_base = ty;
+		return array_ty;
+
+	} else {
+		/* regular type */
+		return ty;
+	}
+
+	return type_new_null();
+}
+
 static value_expr_t *call_add_arg(call_expr_t *call)
 {
 	value_expr_t *node = calloc(1, sizeof(*node));
@@ -939,17 +984,9 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		name = tok;
 		tok = next_tok(tokens);
 
-		if (tok->type == T_DATATYPE) {
-			error_at(tokens->source->content, tok->value,
-				 "you missed a colon between the name and "
-				 "type, try `%.*s: %.*s`",
-				 name->len, name->value, tok->len, tok->value);
-		}
-
 		if (!TOK_IS(tok, T_PUNCT, ":")) {
 			error_at(tokens->source->content, name->value,
-				 "the `%.*s` parameter is missing a "
-				 "type, try "
+				 "the `%.*s` parameter is missing a type, try "
 				 "`%.*s: i32`",
 				 name->len, name->value, name->len,
 				 name->value);
@@ -957,12 +994,9 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 
 		tok = next_tok(tokens);
 
-		if (tok->type != T_DATATYPE) {
-			error_at(tokens->source->content, tok->value,
-				 "unknown type `%.*s`", tok->len, tok->value);
-		}
+		/* get the data type */
 
-		type = type_from_sized_string(tok->value, tok->len);
+		type = parse_type(tokens, tok);
 		tok = next_tok(tokens);
 
 		if (!TOK_IS(tok, T_PUNCT, ",") && !TOK_IS(tok, T_PUNCT, ")")) {
