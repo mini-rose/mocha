@@ -123,10 +123,18 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 		left = gen_new_value(builder, context, value->left);
 		right = gen_new_value(builder, context, value->right);
 
-		if (value->type == VE_ADD) {
+		switch (value->type) {
+		case VE_ADD:
 			new = LLVMBuildAdd(builder, left, right, "");
-		} else {
-			error("unknown operation: %d", value->type);
+			break;
+		case VE_SUB:
+			new = LLVMBuildSub(builder, left, right, "");
+			break;
+		case VE_MUL:
+			new = LLVMBuildMul(builder, left, right, "");
+			break;
+		default:
+			error("unknown operation: %s", value_expr_type_name(value->type));
 		}
 
 		return new;
