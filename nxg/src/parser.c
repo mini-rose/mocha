@@ -228,7 +228,7 @@ static bool is_reference(token *tok)
  */
 static bool is_single_value(token_list *tokens, token *tok)
 {
-	return is_literal(tok) || tok->type == T_IDENT || is_call(tokens, tok);
+	return is_literal(tok) || is_reference(tok) || is_call(tokens, tok);
 }
 
 static bool is_integer(token *tok)
@@ -436,8 +436,7 @@ static err_t parse_single_value(expr_t *context, expr_t *mod,
 				token *tok)
 {
 	/* literal */
-	if (is_literal(tok)
-	    && index_tok(tokens, tokens->iter)->type == T_NEWLINE) {
+	if (is_literal(tok)) {
 		parse_literal(node, tokens, tok);
 		return ERR_OK;
 	}
@@ -1097,7 +1096,7 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 		for (int i = 0; i < val->call->n_args; i++)
 			expr_print_value_expr(val->call->args[i], level + 1);
 	} else {
-		printf("value:\n");
+		printf("op: %s\n", value_expr_type_name(val->type));
 		if (val->left)
 			expr_print_value_expr(val->left, level + 1);
 		if (val->right)

@@ -37,7 +37,6 @@ void token_list_destroy(token_list *list)
 
 void token_destroy(token *tok)
 {
-	free((void *) tok->value);
 	free(tok);
 }
 
