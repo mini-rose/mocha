@@ -12,6 +12,7 @@
 typedef struct
 {
 	bool show_ast;
+	bool global;
 	const char *output;
 	const char *input;
 } settings_t;

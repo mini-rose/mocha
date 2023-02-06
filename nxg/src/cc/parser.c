@@ -1,9 +1,9 @@
 #include <ctype.h>
-#include <nxg/error.h>
-#include <nxg/module.h>
-#include <nxg/parser.h>
-#include <nxg/tokenize.h>
-#include <nxg/type.h>
+#include <nxg/cc/module.h>
+#include <nxg/cc/parser.h>
+#include <nxg/cc/tokenize.h>
+#include <nxg/cc/type.h>
+#include <nxg/utils/error.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>

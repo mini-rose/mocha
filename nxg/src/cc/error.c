@@ -1,7 +1,8 @@
-#include <nxg/error.h>
+#include <nxg/utils/error.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdnoreturn.h>
 
 void warning(const char *format, ...)
 {

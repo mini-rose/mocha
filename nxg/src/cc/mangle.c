@@ -1,7 +1,7 @@
 /* nxg/mangle.c
    Copyright (c) 2023 mini-rose */
 
-#include <nxg/mangle.h>
+#include <nxg/cc/mangle.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

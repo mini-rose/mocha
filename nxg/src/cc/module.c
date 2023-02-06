@@ -1,5 +1,5 @@
-#include <nxg/module.h>
-#include <nxg/parser.h>
+#include <nxg/cc/module.h>
+#include <nxg/cc/parser.h>
 #include <stdlib.h>
 #include <string.h>
 

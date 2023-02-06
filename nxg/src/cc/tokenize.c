@@ -1,10 +1,10 @@
 #include <ctype.h>
 #include <memory.h>
-#include <nxg/error.h>
-#include <nxg/file.h>
-#include <nxg/keyword.h>
-#include <nxg/tokenize.h>
-#include <nxg/type.h>
+#include <nxg/cc/keyword.h>
+#include <nxg/cc/tokenize.h>
+#include <nxg/cc/type.h>
+#include <nxg/utils/error.h>
+#include <nxg/utils/file.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>

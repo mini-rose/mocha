@@ -1,5 +1,5 @@
-#include <nxg/error.h>
-#include <nxg/file.h>
+#include <nxg/utils/error.h>
+#include <nxg/utils/file.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
