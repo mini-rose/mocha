@@ -1,6 +1,9 @@
-#pragma once
+/* type.h - type definitions
+   Copyright (c) 2023 mini-rose */
 
-#define bool _Bool
+#pragma once
+#include <stdbool.h>
+#include <stddef.h>
 
 typedef enum
 {
@@ -25,9 +28,9 @@ typedef enum
 	PT_F32 = 12,
 	PT_F64 = 13,
 
-	// String
+	// String is a plain type from the language perspective, and a complex
+	// struct type in the compiler itself.
 	PT_STR = 14,
-	PT_PTR = 15
 } plain_type;
 
 typedef struct type type_t;
@@ -37,15 +40,24 @@ typedef enum
 	TY_PLAIN,   /* T */
 	TY_POINTER, /* &T */
 	TY_ARRAY,   /* T[] */
+	TY_OBJECT,  /* obj T {} */
 } type_type;
+
+typedef struct
+{
+	type_t **fields;
+	int n_fields;
+} object_type_t;
 
 struct type
 {
 	type_type type;
+	size_t len; /* in case of array type */
 	union
 	{
-		plain_type v_plain; /* plain type */
-		type_t *v_base;     /* base type of pointer */
+		plain_type v_plain;      /* plain type */
+		type_t *v_base;          /* base type of pointer/element */
+		object_type_t *v_object; /* object type */
 	};
 };
 
@@ -54,8 +66,6 @@ struct type
  */
 bool is_plain_type(const char *str);
 
-bool is_plain_type_an_int(plain_type t);
-
 /**
  * Get index of type in type enum;
  */
@@ -63,3 +73,7 @@ plain_type plain_type_from(const char *str, int len);
 
 const char *plain_type_example_varname(plain_type t);
 const char *plain_type_name(plain_type t);
+
+type_t *type_from_string(const char *str);
+void type_destroy(type_t *ty);
+const char *type_example_varname(type_t *ty);

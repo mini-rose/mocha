@@ -16,7 +16,7 @@ static char mangled_type_char(plain_type t)
 	    [PT_NULL] = 'v', [PT_BOOL] = 'b', [PT_I8] = 'a',   [PT_U8] = 'h',
 	    [PT_I16] = 's',  [PT_U16] = 't',  [PT_I32] = 'i',  [PT_U32] = 'j',
 	    [PT_I64] = 'l',  [PT_U64] = 'm',  [PT_I128] = 'n', [PT_U128] = 'o',
-	    [PT_F32] = 'f',  [PT_F64] = 'd',  [PT_STR] = 'S',  [PT_PTR] = 'p'};
+	    [PT_F32] = 'f',  [PT_F64] = 'd',  [PT_STR] = 'S'};
 	const int n = sizeof(type_mangle_ids);
 
 	if (t >= 0 && t < n)
