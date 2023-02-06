@@ -55,7 +55,7 @@ typedef enum
 
 struct value_expr
 {
-	plain_type return_type;
+	type_t *return_type;
 	value_expr_type type;
 	union
 	{
@@ -70,7 +70,7 @@ struct value_expr
 /* variable declaration */
 typedef struct
 {
-	plain_type type;
+	type_t *type;
 	char *name;
 } var_decl_expr_t;
 
@@ -84,7 +84,7 @@ struct fn_expr
 	var_decl_expr_t **locals;
 	int n_params;
 	int n_locals;
-	plain_type return_type;
+	type_t *return_type;
 	int flags;
 };
 
@@ -111,7 +111,7 @@ typedef struct
 
 struct literal_expr
 {
-	plain_type type;
+	type_t *type;
 	union
 	{
 		int v_i32;
@@ -119,12 +119,6 @@ struct literal_expr
 		sized_string_t v_str;
 	};
 };
-
-typedef struct
-{
-	plain_type type;
-	char *value;
-} num_expr_t;
 
 #define E_AS_MOD(DATAPTR)   ((mod_expr_t *) (DATAPTR))
 #define E_AS_FN(DATAPTR)    ((fn_expr_t *) (DATAPTR))
@@ -147,5 +141,5 @@ value_expr_type value_expr_type_from_op(token *op);
 var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len);
 bool node_has_named_local(expr_t *node, const char *name, int len);
 
-void fn_add_param(fn_expr_t *fn, const char *name, int len, plain_type type);
+void fn_add_param(fn_expr_t *fn, const char *name, int len, type_t *type);
 char *fn_str_signature(fn_expr_t *func);

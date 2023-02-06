@@ -30,7 +30,7 @@ static void fn_context_destroy(fn_context_t *context)
 	free(context->locals);
 }
 
-LLVMTypeRef gen_plain_type(plain_type t)
+static LLVMTypeRef gen_plain_type(plain_type t)
 {
 	switch (t) {
 	case PT_U8:
@@ -54,9 +54,24 @@ LLVMTypeRef gen_plain_type(plain_type t)
 		return LLVMDoubleType();
 	case PT_BOOL:
 		return LLVMInt1Type();
+	case PT_STR:
+		error("LLVM str type is not yet implemented");
 	default:
 		return LLVMVoidType();
 	}
+}
+
+LLVMTypeRef gen_type(type_t *ty)
+{
+	if (ty->type == TY_PLAIN)
+		return gen_plain_type(ty->v_plain);
+	if (ty->type == TY_POINTER)
+		return LLVMPointerType(gen_type(ty->v_base), 0);
+	if (ty->type == TY_ARRAY)
+		return LLVMArrayType(gen_type(ty->v_base), ty->len);
+	if (ty->type == TY_OBJECT)
+		error("LLVM object type is not yet implemented");
+	return LLVMVoidType();
 }
 
 LLVMTypeRef gen_function_type(fn_expr_t *func)
@@ -67,10 +82,10 @@ LLVMTypeRef gen_function_type(fn_expr_t *func)
 	param_types = calloc(func->n_params, sizeof(LLVMTypeRef));
 
 	for (int i = 0; i < func->n_params; i++)
-		param_types[i] = gen_plain_type(func->params[i]->type);
+		param_types[i] = gen_type(func->params[i]->type);
 
-	func_type = LLVMFunctionType(gen_plain_type(func->return_type),
-				     param_types, func->n_params, 0);
+	func_type = LLVMFunctionType(gen_type(func->return_type), param_types,
+				     func->n_params, 0);
 	free(param_types);
 
 	return func_type;
@@ -89,7 +104,7 @@ static LLVMValueRef gen_local_value(LLVMBuilderRef builder,
 
 static LLVMValueRef gen_literal_value(literal_expr_t *lit)
 {
-	if (lit->type == PT_I32)
+	if (lit->type->v_plain == PT_I32)
 		return LLVMConstInt(LLVMInt32Type(), lit->v_i32, false);
 
 	return NULL;
@@ -213,9 +228,10 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		      E_AS_FN(context->func->data)->name);
 	}
 
-	if (data->value->return_type
-	    != node_resolve_local(context->func, data->name, strlen(data->name))
-		   ->type) {
+	if (!type_cmp(data->value->return_type,
+		      node_resolve_local(context->func, data->name,
+					 strlen(data->name))
+			  ->type)) {
 		error("mismatched expression return type with var decl "
 		      "for `%s`",
 		      data->name);
@@ -270,9 +286,9 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 	case E_VARDECL:
 		fn_context_add_local(
 		    context,
-		    LLVMBuildAlloca(
-			builder, gen_plain_type(E_AS_VDECL(node->data)->type),
-			E_AS_VDECL(node->data)->name));
+		    LLVMBuildAlloca(builder,
+				    gen_type(E_AS_VDECL(node->data)->type),
+				    E_AS_VDECL(node->data)->name));
 		break;
 	case E_RETURN:
 		emit_return_node(builder, context, node);

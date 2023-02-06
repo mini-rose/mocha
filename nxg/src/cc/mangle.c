@@ -1,6 +1,9 @@
 /* nxg/mangle.c
    Copyright (c) 2023 mini-rose */
 
+#include "nxg/cc/type.h"
+#include "nxg/utils/error.h"
+
 #include <nxg/cc/mangle.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,10 +16,10 @@ static char mangled_type_char(plain_type t)
 	   https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangle.builtin-type
 	 */
 	const char type_mangle_ids[] = {
-	    [PT_NULL] = 'v', [PT_BOOL] = 'b', [PT_I8] = 'a',   [PT_U8] = 'h',
-	    [PT_I16] = 's',  [PT_U16] = 't',  [PT_I32] = 'i',  [PT_U32] = 'j',
-	    [PT_I64] = 'l',  [PT_U64] = 'm',  [PT_I128] = 'n', [PT_U128] = 'o',
-	    [PT_F32] = 'f',  [PT_F64] = 'd',  [PT_STR] = 'S'};
+	    [0] = 'v',      [PT_BOOL] = 'b', [PT_I8] = 'a',   [PT_U8] = 'h',
+	    [PT_I16] = 's', [PT_U16] = 't',  [PT_I32] = 'i',  [PT_U32] = 'j',
+	    [PT_I64] = 'l', [PT_U64] = 'm',  [PT_I128] = 'n', [PT_U128] = 'o',
+	    [PT_F32] = 'f', [PT_F64] = 'd',  [PT_STR] = 'S'};
 	const int n = sizeof(type_mangle_ids);
 
 	if (t >= 0 && t < n)
@@ -24,14 +27,39 @@ static char mangled_type_char(plain_type t)
 	return 'v';
 }
 
+char *mangled_type_str(type_t *ty, char *buf)
+{
+	int offt;
+
+	if (!buf)
+		buf = calloc(512, 1);
+
+	if (ty->type == TY_PLAIN) {
+		buf[0] = mangled_type_char(ty->v_plain);
+	} else if (ty->type == TY_POINTER) {
+		buf[0] = 'P';
+		mangled_type_str(ty->v_base, &buf[1]);
+	} else if (ty->type == TY_ARRAY) {
+		buf[0] = 'A';
+		offt = sprintf(&buf[1], "%zu", ty->len);
+		mangled_type_str(ty->v_base, &buf[2 + offt]);
+	} else if (ty->type == TY_OBJECT) {
+		/* parse this as the fully qualified name of the type */
+		sprintf(buf, "%s", ty->v_object->name);
+	} else {
+		error("cannot mangle %s type", type_name(ty));
+	}
+
+	return buf;
+}
+
 char *nxg_mangle(const fn_expr_t *func)
 {
-	char *name = malloc(512);
-	memset(name, 0, 512);
+	char *name = calloc(512, 1);
 
 	snprintf(name, 512, "_C%d%s", (int) strlen(func->name), func->name);
 	for (int i = 0; i < func->n_params; i++)
-		name[strlen(name)] = mangled_type_char(func->params[i]->type);
+		mangled_type_str(func->params[i]->type, &name[strlen(name)]);
 
 	return name;
 }

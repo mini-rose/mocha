@@ -7,8 +7,6 @@
 
 typedef enum
 {
-	PT_NULL = 0,
-
 	// Integers
 	PT_BOOL = 1,
 	PT_I8 = 2,
@@ -37,6 +35,7 @@ typedef struct type type_t;
 
 typedef enum
 {
+	TY_NULL,    /* null */
 	TY_PLAIN,   /* T */
 	TY_POINTER, /* &T */
 	TY_ARRAY,   /* T[] */
@@ -45,6 +44,7 @@ typedef enum
 
 typedef struct
 {
+	char *name;
 	type_t **fields;
 	int n_fields;
 } object_type_t;
@@ -66,14 +66,16 @@ struct type
  */
 bool is_plain_type(const char *str);
 
-/**
- * Get index of type in type enum;
- */
-plain_type plain_type_from(const char *str, int len);
-
 const char *plain_type_example_varname(plain_type t);
 const char *plain_type_name(plain_type t);
 
 type_t *type_from_string(const char *str);
+type_t *type_from_sized_string(const char *str, int len);
+type_t *type_new();
+type_t *type_new_null();
+type_t *type_new_plain(plain_type t);
+type_t *type_copy(type_t *ty);
+bool type_cmp(type_t *left, type_t *right);
+char *type_name(type_t *ty);
 void type_destroy(type_t *ty);
 const char *type_example_varname(type_t *ty);

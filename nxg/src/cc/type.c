@@ -1,13 +1,14 @@
 #include <nxg/cc/type.h>
 #include <nxg/utils/error.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define LENGTH(array) sizeof(array) / sizeof(*array)
 
 static char *plain_types[] = {
-    [PT_NULL] = "null", [PT_BOOL] = "bool", [PT_I8] = "i8",
+    [0] = "null",       [PT_BOOL] = "bool", [PT_I8] = "i8",
     [PT_I16] = "i16",   [PT_I32] = "i32",   [PT_I64] = "i64",
     [PT_I128] = "i128", [PT_U8] = "u8",     [PT_U16] = "u16",
     [PT_U32] = "u32",   [PT_U64] = "u64",   [PT_U128] = "u128",
@@ -22,16 +23,6 @@ bool is_plain_type(const char *str)
 			return true;
 
 	return false;
-}
-
-plain_type plain_type_from(const char *str, int len)
-{
-	for (int i = 0; i < n_plain_types; i++) {
-		if (!strncmp(str, plain_types[i], len))
-			return i;
-	}
-
-	return PT_NULL;
 }
 
 const char *plain_type_name(plain_type t)
@@ -75,6 +66,141 @@ type_t *type_from_string(const char *str)
 	}
 
 	return ty;
+}
+
+type_t *type_from_sized_string(const char *str, int len)
+{
+	char *ty_str = strndup(str, len);
+	type_t *ty = type_from_string(ty_str);
+	free(ty_str);
+	return ty;
+}
+
+type_t *type_new()
+{
+	return calloc(1, sizeof(type_t));
+}
+
+type_t *type_new_null()
+{
+	type_t *ty = type_new();
+	ty->type = TY_NULL;
+	return ty;
+}
+
+type_t *type_new_plain(plain_type t)
+{
+	type_t *ty = type_new();
+	ty->type = TY_PLAIN;
+	ty->v_plain = t;
+	return ty;
+}
+
+void object_type_add_field(object_type_t *obj, type_t *ty)
+{
+	obj->fields =
+	    realloc(obj->fields, sizeof(type_t *) * (obj->n_fields + 1));
+	obj->fields[obj->n_fields++] = ty;
+}
+
+static object_type_t *object_type_copy(object_type_t *ty)
+{
+	object_type_t *new;
+
+	new = calloc(1, sizeof(*new));
+
+	new->n_fields = ty->n_fields;
+	for (int i = 0; i < ty->n_fields; i++)
+		object_type_add_field(new, type_copy(ty->fields[i]));
+
+	return new;
+}
+
+type_t *type_copy(type_t *ty)
+{
+	type_t *new_ty;
+
+	new_ty = calloc(1, sizeof(*new_ty));
+	memcpy(new_ty, ty, sizeof(*ty));
+
+	if (ty->type == TY_POINTER || ty->type == TY_ARRAY) {
+		new_ty->v_base = type_copy(ty->v_base);
+	} else if (ty->type == TY_OBJECT) {
+		new_ty->v_object = object_type_copy(ty->v_object);
+	}
+
+	return new_ty;
+}
+
+bool type_cmp(type_t *left, type_t *right)
+{
+	if (left == right)
+		return true;
+
+	if (left->type != right->type)
+		return false;
+
+	if (left->type == TY_PLAIN)
+		return left->v_plain == right->v_plain;
+
+	if (left->type == TY_POINTER)
+		return type_cmp(left->v_base, right->v_base);
+
+	if (left->type == TY_ARRAY) {
+		if (left->len != right->len)
+			return false;
+		return type_cmp(left->v_base, right->v_base);
+	}
+
+	if (left->type == TY_OBJECT) {
+		if (left->v_object->n_fields != right->v_object->n_fields)
+			return false;
+
+		if (strcmp(left->v_object->name, right->v_object->name))
+			return false;
+
+		for (int i = 0; i < left->v_object->n_fields; i++) {
+			if (!type_cmp(left->v_object->fields[i],
+				      right->v_object->fields[i])) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+char *type_name(type_t *ty)
+{
+	char *name = calloc(512, 1);
+	char *tmp;
+
+	if (ty->type == TY_PLAIN) {
+		snprintf(name, 512, "%s",
+			 ty->v_plain <= PT_STR ? plain_types[ty->v_plain]
+					       : "<plain type>");
+	} else if (ty->type == TY_POINTER) {
+		tmp = type_name(ty->v_base);
+		snprintf(name, 512, "&%s", tmp);
+		free(tmp);
+	} else if (ty->type == TY_ARRAY) {
+		tmp = type_name(ty->v_base);
+		snprintf(name, 512, "%s[%zu]", tmp, ty->len);
+		free(tmp);
+	} else if (ty->type == TY_OBJECT) {
+		snprintf(name, 512, "%s { ", ty->v_object->name);
+		for (int i = 0; i < ty->v_object->n_fields; i++) {
+			tmp = type_name(ty->v_object->fields[i]);
+			strcat(name, tmp);
+			strcat(name, " ");
+			free(tmp);
+		}
+		strcat(name, "}");
+	}
+
+	return name;
 }
 
 void type_destroy(type_t *ty)

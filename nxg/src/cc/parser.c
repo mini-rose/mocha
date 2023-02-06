@@ -37,12 +37,25 @@ static void fn_expr_free(fn_expr_t *function)
 	free(function->name);
 
 	for (i = 0; i < function->n_params; i++) {
+		type_destroy(function->params[i]->type);
 		free(function->params[i]->name);
 		free(function->params[i]);
 	}
 
+	type_destroy(function->return_type);
 	free(function->locals);
 	free(function->params);
+}
+
+static void literal_expr_free(literal_expr_t *lit)
+{
+	if (lit->type->type != TY_PLAIN)
+		error("a literal cannot be a non-plain type");
+
+	if (lit->type->v_plain == PT_STR)
+		free(lit->v_str.ptr);
+
+	type_destroy(lit->type);
 }
 
 static void value_expr_free(value_expr_t *value)
@@ -55,8 +68,7 @@ static void value_expr_free(value_expr_t *value)
 	else if (value->type == VE_REF) {
 		free(value->name);
 	} else if (value->type == VE_LIT) {
-		if (value->literal->type == PT_STR)
-			free(value->literal->v_str.ptr);
+		literal_expr_free(value->literal);
 		free(value->literal);
 	} else if (value->type == VE_CALL) {
 		call_expr_free(value->call);
@@ -67,6 +79,8 @@ static void value_expr_free(value_expr_t *value)
 		value_expr_free(value->right);
 		free(value->right);
 	}
+
+	type_destroy(value->return_type);
 }
 
 static void call_expr_free(call_expr_t *call)
@@ -88,6 +102,7 @@ static void assign_expr_free(assign_expr_t *assign)
 
 static void var_decl_expr_free(var_decl_expr_t *variable)
 {
+	type_destroy(variable->type);
 	free(variable->name);
 }
 
@@ -126,13 +141,13 @@ static expr_t *expr_add_child(expr_t *parent)
 	return node;
 }
 
-void fn_add_param(fn_expr_t *fn, const char *name, int len, plain_type type)
+void fn_add_param(fn_expr_t *fn, const char *name, int len, type_t *type)
 {
 	fn->params =
 	    realloc(fn->params, sizeof(var_decl_expr_t) * ++fn->n_params);
 	fn->params[fn->n_params - 1] = malloc(sizeof(var_decl_expr_t));
 	fn->params[fn->n_params - 1]->name = strndup(name, len);
-	fn->params[fn->n_params - 1]->type = type;
+	fn->params[fn->n_params - 1]->type = type_copy(type);
 }
 
 var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len)
@@ -267,10 +282,11 @@ static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 	/* string */
 	if (tok->type == T_STRING) {
 		node->literal = calloc(1, sizeof(*node->literal));
-		node->return_type = PT_STR;
-		node->literal->type = PT_STR;
+		node->return_type = type_new_plain(PT_STR);
+		node->literal->type = type_new_plain(PT_STR);
 		node->literal->v_str.ptr = strndup(tok->value, tok->len);
 		node->literal->v_str.len = tok->len;
+		return;
 	}
 
 	if (tok->type == T_NUMBER) {
@@ -278,23 +294,32 @@ static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 		char *tmp = strndup(tok->value, tok->len);
 
 		if (is_integer(tok)) {
-			node->return_type = PT_I32;
-			node->literal->type = PT_I32;
+			node->return_type = type_new_plain(PT_I32);
+			node->literal->type = type_new_plain(PT_I32);
 			node->literal->v_i32 = strtol(tmp, NULL, 10);
 		} else if (is_float(tok)) {
-			node->return_type = PT_F32;
-			node->literal->type = PT_F32;
+			node->return_type = type_new_plain(PT_F32);
+			node->literal->type = type_new_plain(PT_F32);
 			node->literal->v_f32 = strtof(tmp, NULL);
+		} else {
+			error_at(tokens->source->content, tok->value,
+				 "cannot parse this number");
 		}
 
 		free(tmp);
+
+		return;
 	}
 
 	/* "null" */
 	if (TOK_IS(tok, T_DATATYPE, "null")) {
-		node->return_type = PT_NULL;
+		node->return_type = type_new_null();
 		node->type = VE_NULL;
+		return;
 	}
+
+	error_at(tokens->source->content, tok->value,
+		 "unparsable literal `%.*s`", tok->len, tok->value);
 }
 
 static void parse_reference(value_expr_t *node, expr_t *context,
@@ -311,7 +336,7 @@ static void parse_reference(value_expr_t *node, expr_t *context,
 
 	var_decl_expr_t *var =
 	    node_resolve_local(context, tok->value, tok->len);
-	node->return_type = var->type;
+	node->return_type = type_copy(var->type);
 }
 
 static value_expr_t *call_add_arg(call_expr_t *call)
@@ -349,8 +374,9 @@ static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens,
 				 arg->len, arg->value);
 		}
 
-		fn_add_param(decl, "_", 1,
-			     plain_type_from(arg->value, arg->len));
+		type_t *ty = type_from_sized_string(arg->value, arg->len);
+		fn_add_param(decl, "_", 1, ty);
+		type_destroy(ty);
 
 		arg = index_tok(tokens, arg_pos++);
 		if (TOK_IS(arg, T_PUNCT, ")"))
@@ -406,7 +432,8 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 				 "expected to be the return type");
 		}
 
-		decl->return_type = plain_type_from(arg->value, arg->len);
+		decl->return_type =
+		    type_from_sized_string(arg->value, arg->len);
 
 		arg = index_tok(tokens, arg_pos++);
 		if (TOK_IS(arg, T_PUNCT, ")"))
@@ -462,8 +489,7 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 					 tok->len, tok->value);
 			}
 
-			arg->return_type = var->type;
-
+			arg->return_type = type_copy(var->type);
 		} else if (is_literal(tok)) {
 			arg = call_add_arg(data);
 			parse_literal(arg, tokens, tok);
@@ -510,14 +536,15 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	for (int i = 0; i < data->n_args; i++) {
 		/* the result of the expression must match the parameter
 		 */
-		if (data->args[i]->return_type == target->params[i]->type)
+		if (type_cmp(data->args[i]->return_type,
+			     target->params[i]->type))
 			continue;
 
 		error_at(tokens->source->content, fn_name_tok->value,
 			 "the type of the %d argument should be `%s`, "
 			 "not `%s`",
-			 i + 1, plain_type_name(target->params[i]->type),
-			 plain_type_name(data->args[i]->return_type));
+			 i + 1, type_name(target->params[i]->type),
+			 type_name(data->args[i]->return_type));
 	}
 
 	return ERR_OK;
@@ -562,7 +589,7 @@ static err_t parse_single_value(expr_t *context, expr_t *mod,
 		node->type = VE_CALL;
 		node->call = calloc(1, sizeof(*node->call));
 		parse_inline_call(context, mod, node->call, tokens, tok);
-		node->return_type = node->call->func->return_type;
+		node->return_type = type_copy(node->call->func->return_type);
 		return ERR_OK;
 	}
 
@@ -620,7 +647,7 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	/* resolve the return type of the expression; for now, just
 	   assume that it's the same of whateever the return type of the
 	   left operand is */
-	node->return_type = node->left->return_type;
+	node->return_type = type_copy(node->left->return_type);
 
 	/* if the is an operator after this expression, set this whole
 	   expression to the left-hand side, and pass it again to a
@@ -727,7 +754,7 @@ static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens,
 
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
-	data->type = plain_type_from(tok->value, tok->len);
+	data->type = type_from_sized_string(tok->value, tok->len);
 
 	node = expr_add_child(parent);
 	node->type = E_VARDECL;
@@ -784,7 +811,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 			  token *tok)
 {
-	plain_type return_type;
+	type_t *return_type;
 	value_expr_t *data;
 	expr_t *node;
 
@@ -795,27 +822,29 @@ static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 	node->data = data;
 	node->data_free = (expr_free_handle) value_expr_free;
 
-	return_type = PT_NULL;
-	if (parent->type == E_FUNCTION)
-		return_type = E_AS_FN(parent->data)->return_type;
+	return_type = type_new_null();
+	if (parent->type == E_FUNCTION) {
+		type_destroy(return_type);
+		return_type = type_copy(E_AS_FN(parent->data)->return_type);
+	}
 
 	tok = next_tok(tokens);
-	if (tok->type == T_NEWLINE && return_type != PT_NULL) {
+	if (tok->type == T_NEWLINE && return_type->type != TY_NULL) {
 		error_at(tokens->source->content, tok->value,
 			 "missing return value for function that "
 			 "returns `%s`",
-			 plain_type_name(return_type));
+			 type_name(return_type));
 	}
 
-	if (tok->type != T_NEWLINE && return_type == PT_NULL) {
+	if (tok->type != T_NEWLINE && return_type->type == TY_NULL) {
 		error_at(tokens->source->content, tok->value,
 			 "cannot return a value from a function "
 			 "returning null");
 	}
 
 	/* return without a value */
-	if (return_type == PT_NULL) {
-		data->return_type = PT_NULL;
+	if (return_type->type == TY_NULL) {
+		data->return_type = type_new_null();
 		data->type = VE_NULL;
 		return ERR_OK;
 	}
@@ -824,14 +853,16 @@ static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 	node->data = parse_value_expr(parent, mod, data, tokens, tok);
 	data = node->data;
 
-	if (data->return_type != E_AS_FN(parent->data)->return_type) {
+	if (!type_cmp(data->return_type, E_AS_FN(parent->data)->return_type)) {
 		error_at(tokens->source->content, tok->value,
 			 "mismatched return type: expression returns "
 			 "%s, while "
 			 "the function returns %s",
-			 plain_type_name(data->return_type),
-			 plain_type_name(E_AS_FN(parent->data)->return_type));
+			 type_name(data->return_type),
+			 type_name(E_AS_FN(parent->data)->return_type));
 	}
+
+	type_destroy(return_type);
 
 	return ERR_OK;
 }
@@ -865,7 +896,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 	node->data = data;
 	node->data_free = (expr_free_handle) fn_expr_free;
 	data->n_params = 0;
-	data->return_type = PT_NULL;
+	data->return_type = type_new();
 
 	tok = next_tok(tokens);
 
@@ -887,18 +918,17 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 
 	tok = next_tok(tokens);
 	while (!TOK_IS(tok, T_PUNCT, ")")) {
-		plain_type type;
+		type_t *type;
 		token *name;
 
 		if (tok->type == T_DATATYPE) {
-			error_at(tokens->source->content, tok->value,
-				 "the parameter name comes first - the type "
-				 "is "
-				 "located after a colon like this: `%s: "
-				 "%.*s`",
-				 plain_type_example_varname(
-				     plain_type_from(tok->value, tok->len)),
-				 tok->len, tok->value);
+			error_at(
+			    tokens->source->content, tok->value,
+			    "the parameter name comes first - the type "
+			    "is located after a colon like this: `%s: %.*s`",
+			    type_example_varname(
+				type_from_sized_string(tok->value, tok->len)),
+			    tok->len, tok->value);
 		}
 
 		if (tok->type != T_IDENT) {
@@ -932,7 +962,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 				 "unknown type `%.*s`", tok->len, tok->value);
 		}
 
-		type = plain_type_from(tok->value, tok->len);
+		type = type_from_sized_string(tok->value, tok->len);
 		tok = next_tok(tokens);
 
 		if (!TOK_IS(tok, T_PUNCT, ",") && !TOK_IS(tok, T_PUNCT, ")")) {
@@ -942,6 +972,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 		}
 
 		fn_add_param(data, name->value, name->len, type);
+		type_destroy(type);
 
 		if (TOK_IS(tok, T_PUNCT, ","))
 			tok = next_tok(tokens);
@@ -961,7 +992,10 @@ params_skip:
 			return ERR_SYNTAX;
 		}
 
-		data->return_type = plain_type_from(tok->value, tok->len);
+		if (data->return_type)
+			type_destroy(data->return_type);
+		data->return_type =
+		    type_from_sized_string(tok->value, tok->len);
 		return_type_tok = tok;
 		tok = next_tok(tokens);
 	}
@@ -1020,7 +1054,7 @@ params_skip:
 
 	/* always add a return statement */
 	if (!fn_has_return(node)) {
-		if (data->return_type != PT_NULL) {
+		if (data->return_type->type != TY_NULL) {
 			error_at(tokens->source->content, tok->value,
 				 "missing return statement for %s", data->name);
 		}
@@ -1032,7 +1066,6 @@ params_skip:
 		ret_expr->data_free = (expr_free_handle) value_expr_free;
 		ret_expr->data = val;
 		val->type = VE_NULL;
-		val->return_type = PT_NULL;
 	}
 
 	if (!strcmp(data->name, "main")) {
@@ -1042,12 +1075,11 @@ params_skip:
 				 "arguments");
 		}
 
-		if (data->return_type != PT_NULL) {
+		if (data->return_type->type != TY_NULL) {
 			error_at(tokens->source->content,
 				 return_type_tok->value,
-				 "the main function cannot return "
-				 "`%.*s`, as it "
-				 "always returns `null`",
+				 "the main function cannot return `%.*s`, as "
+				 "it always returns `null`",
 				 return_type_tok->len, return_type_tok->value);
 		}
 	}
@@ -1124,25 +1156,30 @@ char *fn_str_signature(fn_expr_t *func)
 {
 	char *sig = calloc(1024, 1);
 	char buf[64];
+	char *ty_str;
 	memset(sig, 0, 1024);
 
 	snprintf(sig, 1024, "%s(", func->name);
 
 	for (int i = 0; i < func->n_params - 1; i++) {
-		snprintf(buf, 64, "%s: %s, ", func->params[i]->name,
-			 plain_type_name(func->params[i]->type));
+		ty_str = type_name(func->params[i]->type);
+		snprintf(buf, 64, "%s: %s, ", func->params[i]->name, ty_str);
 		strcat(sig, buf);
+		free(ty_str);
 	}
 
 	if (func->n_params > 0) {
-		snprintf(
-		    buf, 64, "%s: %s", func->params[func->n_params - 1]->name,
-		    plain_type_name(func->params[func->n_params - 1]->type));
+		ty_str = type_name(func->params[func->n_params - 1]->type);
+		snprintf(buf, 64, "%s: %s",
+			 func->params[func->n_params - 1]->name, ty_str);
 		strcat(sig, buf);
+		free(ty_str);
 	}
 
-	snprintf(buf, 64, "): %s", plain_type_name(func->return_type));
+	ty_str = type_name(func->return_type);
+	snprintf(buf, 64, "): %s", ty_str);
 	strcat(sig, buf);
+	free(ty_str);
 
 	return sig;
 }
@@ -1151,7 +1188,7 @@ static const char *expr_info(expr_t *expr)
 {
 	static char info[512];
 	assign_expr_t *var;
-	char *tmp;
+	char *tmp = NULL;
 
 	switch (expr->type) {
 	case E_MODULE:
@@ -1160,21 +1197,19 @@ static const char *expr_info(expr_t *expr)
 	case E_FUNCTION:
 		tmp = fn_str_signature(E_AS_FN(expr->data));
 		snprintf(info, 512, "%s", tmp);
-		free(tmp);
 		break;
 	case E_VARDECL:
-		snprintf(info, 512, "%s %s",
-			 plain_type_name(E_AS_VDECL(expr->data)->type),
-			 E_AS_VDECL(expr->data)->name);
+		tmp = type_name(E_AS_VDECL(expr->data)->type);
+		snprintf(info, 512, "%s %s", tmp, E_AS_VDECL(expr->data)->name);
 		break;
 	case E_ASSIGN:
 		var = E_AS_ASS(expr->data);
-		snprintf(info, 512, "%s = %s", var->name,
-			 plain_type_name(var->value->return_type));
+		tmp = type_name(var->value->return_type);
+		snprintf(info, 512, "%s = %s", var->name, tmp);
 		break;
 	case E_RETURN:
-		snprintf(info, 512, "%s %s",
-			 plain_type_name(E_AS_VAL(expr->data)->return_type),
+		tmp = type_name(E_AS_VAL(expr->data)->return_type);
+		snprintf(info, 512, "%s %s", tmp,
 			 value_expr_type_name(E_AS_VAL(expr->data)->type));
 		break;
 	case E_CALL:
@@ -1186,6 +1221,7 @@ static const char *expr_info(expr_t *expr)
 		info[0] = 0;
 	}
 
+	free(tmp);
 	return info;
 }
 
@@ -1194,6 +1230,7 @@ static void expr_print_level(expr_t *expr, int level, bool with_next);
 static void expr_print_value_expr(value_expr_t *val, int level)
 {
 	char *lit_str;
+	char *tmp = NULL;
 
 	for (int i = 0; i < level; i++)
 		fputs("  ", stdout);
@@ -1204,8 +1241,8 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 		printf("ref: `%s`\n", val->name);
 	} else if (val->type == VE_LIT) {
 		lit_str = stringify_literal(val->literal);
-		printf("literal: %s %s\n", plain_type_name(val->literal->type),
-		       lit_str);
+		tmp = type_name(val->literal->type);
+		printf("literal: %s %s\n", tmp, lit_str);
 		free(lit_str);
 	} else if (val->type == VE_CALL) {
 		printf("call: `%s` n_args=%d\n", val->call->name,
@@ -1219,6 +1256,8 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 		if (val->right)
 			expr_print_value_expr(val->right, level + 1);
 	}
+
+	free(tmp);
 }
 
 static void expr_print_level(expr_t *expr, int level, bool with_next)
@@ -1260,9 +1299,9 @@ void expr_print(expr_t *expr)
 
 void literal_default(literal_expr_t *literal)
 {
-	plain_type t = literal->type;
+	type_t *t = literal->type;
 
-	switch (t) {
+	switch (literal->type->v_plain) {
 	case PT_STR:
 		literal->v_str.len = 0;
 		literal->v_str.ptr = "";
@@ -1275,16 +1314,19 @@ void literal_default(literal_expr_t *literal)
 
 char *stringify_literal(literal_expr_t *literal)
 {
-	if (literal->type == PT_I32) {
+	if (literal->type->type != TY_PLAIN)
+		error("literal cannot be of non-plain type");
+
+	if (literal->type->v_plain == PT_I32) {
 		char *buf = malloc(16);
 		snprintf(buf, 16, "%d", literal->v_i32);
 		return buf;
 	}
 
-	if (literal->type == PT_STR)
+	if (literal->type->v_plain == PT_STR)
 		return strndup(literal->v_str.ptr, literal->v_str.len);
 
-	if (literal->type == PT_NULL) {
+	if (literal->type == TY_NULL) {
 		char *buf = malloc(5);
 		strcpy(buf, "null");
 		return buf;
