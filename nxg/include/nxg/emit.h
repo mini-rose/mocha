@@ -14,4 +14,4 @@ typedef struct
 	int n_locals;
 } fn_context_t;
 
-void emit_module(expr_t *module, const char *out);
+void emit_module(expr_t *module, const char *out, bool is_main);

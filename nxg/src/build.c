@@ -59,19 +59,24 @@ void compile(settings_t *settings)
 	char module_path[512];
 	file *source = file_new(settings->input);
 	token_list *list = tokens(source);
-	expr_t *ast = parse(list, MAIN_MODULE);
+	char *module_name;
+	expr_t *ast;
+
+	module_name = file_basename(settings->input);
+	ast = parse(list, module_name);
 
 	mkdir("/tmp/nxg", 0777);
 
 	if (settings->show_ast)
 		expr_print(ast);
 
-	snprintf(module_path, 512, "/tmp/nxg/%s.ll", MAIN_MODULE);
-	emit_module(ast, module_path);
+	snprintf(module_path, 512, "/tmp/nxg/%s.ll", module_name);
+	emit_module(ast, module_path, true);
 
 	build_and_link(module_path, settings->output);
 
 	expr_destroy(ast);
 	file_destroy(source);
 	token_list_destroy(list);
+	free(module_name);
 }

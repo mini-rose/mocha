@@ -351,7 +351,7 @@ void emit_main_function(LLVMModuleRef mod)
 	LLVMDisposeBuilder(builder);
 }
 
-void emit_module(expr_t *module, const char *out)
+void emit_module(expr_t *module, const char *out, bool is_main)
 {
 	LLVMModuleRef mod;
 	mod_expr_t *mod_data;
@@ -378,7 +378,7 @@ void emit_module(expr_t *module, const char *out)
 	}
 
 	/* if we're in the main module, add a main function */
-	if (!strcmp(mod_data->name, MAIN_MODULE))
+	if (is_main)
 		emit_main_function(mod);
 
 	if (LLVMVerifyModule(mod, LLVMPrintMessageAction, &err_msg)) {
