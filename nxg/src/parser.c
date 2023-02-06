@@ -879,12 +879,10 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 	name = tok;
 	data->name = strndup(tok->value, tok->len);
 
-	/* parameters */
+	/* parameters (optional) */
 	tok = next_tok(tokens);
 	if (!TOK_IS(tok, T_PUNCT, "(")) {
-		error_at(tokens->source->content, tok->value,
-			 "expected `(` after function name");
-		return ERR_SYNTAX;
+		goto params_skip;
 	}
 
 	tok = next_tok(tokens);
@@ -951,6 +949,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 
 	/* return type (optional) */
 	tok = next_tok(tokens);
+params_skip:
 	return_type_tok = NULL;
 	if (TOK_IS(tok, T_PUNCT, ":")) {
 		tok = next_tok(tokens);
