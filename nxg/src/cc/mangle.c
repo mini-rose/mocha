@@ -15,12 +15,12 @@ static char mangled_type_char(plain_type t)
 	   we use an upper case 'S' for.
 	   https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangle.builtin-type
 	 */
-	const char type_mangle_ids[] = {
+	static const char type_mangle_ids[] = {
 	    [0] = 'v',      [PT_BOOL] = 'b', [PT_I8] = 'a',   [PT_U8] = 'h',
 	    [PT_I16] = 's', [PT_U16] = 't',  [PT_I32] = 'i',  [PT_U32] = 'j',
 	    [PT_I64] = 'l', [PT_U64] = 'm',  [PT_I128] = 'n', [PT_U128] = 'o',
 	    [PT_F32] = 'f', [PT_F64] = 'd',  [PT_STR] = 'S'};
-	const int n = sizeof(type_mangle_ids);
+	static const int n = sizeof(type_mangle_ids);
 
 	if (t >= 0 && t < n)
 		return type_mangle_ids[t];
@@ -41,11 +41,12 @@ char *mangled_type_str(type_t *ty, char *buf)
 		mangled_type_str(ty->v_base, &buf[1]);
 	} else if (ty->type == TY_ARRAY) {
 		buf[0] = 'A';
-		offt = sprintf(&buf[1], "%zu", ty->len);
+		offt = sprintf(&buf[1], "%zu_", ty->len);
 		mangled_type_str(ty->v_base, &buf[2 + offt]);
 	} else if (ty->type == TY_OBJECT) {
 		/* parse this as the fully qualified name of the type */
-		sprintf(buf, "%s", ty->v_object->name);
+		sprintf(buf, "%zu%s", strlen(ty->v_object->name),
+			ty->v_object->name);
 	} else {
 		error("cannot mangle %s type", type_name(ty));
 	}

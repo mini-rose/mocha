@@ -1,0 +1,12 @@
+__builtin_decl("cf_devprintint", null, i32)
+
+fn change_int(int: &i32, new_num: i32) {
+	*int = new_num
+	cf_devprintint(*int)
+}
+
+fn main {
+	x: i32 = 66
+	change_int(&x, 55)
+	cf_devprintint(x)
+}
