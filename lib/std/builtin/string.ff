@@ -1,0 +1,11 @@
+/* std.builtin.string - builtin string calls library
+   Copyright (c) 2023 mini-rose */
+
+/*
+ * Calls to these functions are emitted by the compiler for basic string
+ * operations. For user-side string manipulation, see std.string instead.
+ */
+
+__builtin_decl("cf_stralloc", null, &str, &i8, u64)
+__builtin_decl("cf_strcopy", null, &str, &str)
+__builtin_decl("cf_strfree", null, &str)

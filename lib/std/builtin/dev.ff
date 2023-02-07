@@ -1,0 +1,4 @@
+/* std.builtin.dev - language developer toolkit
+   Copyright (c) 2023 mini-rose */
+
+__builtin_decl("cf_devprintint", null, i32)
