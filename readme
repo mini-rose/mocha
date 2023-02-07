@@ -4,3 +4,19 @@ coffee
 This is the main repository for the coffee project, and it contains the
 nxg compiler/build system, the Coffee standard library along with some other tools
 for operating on the language.
+
+syntax
+------
+Coffee synax excels at being simple, legible, and fast to type. 
+An example function that adds two 32-bit integers:
+
+   function name
+   ˅
+fn add(a: i32, b: i32) {
+       ˄ 
+       32-bit integer argument
+  
+  return expression
+  ˅
+  ret a + b
+}
