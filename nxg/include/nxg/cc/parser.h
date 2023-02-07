@@ -43,15 +43,16 @@ typedef struct
 
 typedef enum
 {
-	VE_NULL, /* */
-	VE_REF,  /* name */
-	VE_LIT,  /* literal */
-	VE_CALL, /* call */
-	VE_ADD,  /* left + right */
-	VE_SUB,  /* left - right */
-	VE_MUL,  /* left * right */
-	VE_DIV,  /* left / right */
-	VE_PTR,  /* name */
+	VE_NULL,  /* */
+	VE_REF,   /* name */
+	VE_LIT,   /* literal */
+	VE_CALL,  /* call */
+	VE_ADD,   /* left + right */
+	VE_SUB,   /* left - right */
+	VE_MUL,   /* left * right */
+	VE_DIV,   /* left / right */
+	VE_PTR,   /* &name */
+	VE_DEREF, /* *name */
 } value_expr_type;
 
 struct value_expr
@@ -92,7 +93,7 @@ struct fn_expr
 /* variable assignment */
 typedef struct
 {
-	char *name;
+	value_expr_t *to;
 	value_expr_t *value;
 } assign_expr_t;
 
@@ -132,6 +133,7 @@ struct literal_expr
 expr_t *parse(token_list *list, const char *module_id);
 void expr_destroy(expr_t *expr);
 void expr_print(expr_t *expr);
+const char *expr_typename(expr_type type);
 
 void literal_default(literal_expr_t *literal);
 char *stringify_literal(literal_expr_t *literal);

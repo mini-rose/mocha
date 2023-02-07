@@ -65,7 +65,8 @@ static void value_expr_free(value_expr_t *value)
 
 	if (value->type == VE_NULL)
 		return;
-	else if (value->type == VE_REF) {
+	else if (value->type == VE_REF || value->type == VE_PTR
+		 || value->type == VE_DEREF) {
 		free(value->name);
 	} else if (value->type == VE_LIT) {
 		literal_expr_free(value->literal);
@@ -96,7 +97,8 @@ static void call_expr_free(call_expr_t *call)
 static void assign_expr_free(assign_expr_t *assign)
 {
 	value_expr_free(assign->value);
-	free(assign->name);
+	value_expr_free(assign->to);
+	free(assign->to);
 	free(assign->value);
 }
 
@@ -544,8 +546,7 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 			var_decl_expr_t *var;
 
-			var = node_resolve_local(parent, arg->name,
-						 strlen(arg->name));
+			var = node_resolve_local(parent, arg->name, 0);
 			if (!var) {
 				error_at(tokens->source->content, tok->value,
 					 "use of undeclared variable: `%.*s`",
@@ -775,6 +776,11 @@ static bool is_var_assign(token_list *tokens, token *tok)
 {
 	int offset = 0;
 
+	if (TOK_IS(tok, T_OPERATOR, "*")) {
+		tok = index_tok(tokens, tokens->iter);
+		offset++;
+	}
+
 	if (tok->type != T_IDENT)
 		return false;
 
@@ -844,25 +850,50 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	assign_expr_t *data;
 	expr_t *node;
 	token *name;
+	bool deref = false;
 
 	name = tok;
+
+	if (TOK_IS(tok, T_OPERATOR, "*")) {
+		deref = true;
+		tok = next_tok(tokens);
+		name = tok;
+	}
 
 	/* defined variable type, meaning we declare a new variable */
 	if (is_var_decl(tokens, tok)) {
 		parse_var_decl(parent, fn, tokens, tok);
-	} else if (!node_has_named_local(parent, tok->value, tok->len)) {
-		error_at(tokens->source->content, tok->value,
-			 "use of undeclared variable: `%.*s`", tok->len,
-			 tok->value);
+	} else if (!node_has_named_local(parent, name->value, name->len)) {
+		error_at(tokens->source->content, name->value,
+			 "use of undeclared variable: `%.*s`", name->len,
+			 name->value);
 	}
 
 	node = expr_add_child(parent);
 	data = calloc(1, sizeof(*data));
+	data->to = calloc(1, sizeof(*data->to));
+	data->to->type = deref ? VE_DEREF : VE_REF;
+	data->to->name = strndup(name->value, name->len);
 
-	data->name = strndup(name->value, name->len);
 	node->type = E_ASSIGN;
 	node->data = data;
 	node->data_free = (expr_free_handle) assign_expr_free;
+
+	var_decl_expr_t *local;
+
+	local = node_resolve_local(parent, data->to->name, 0);
+
+	if (deref) {
+		data->to->type = VE_DEREF;
+		if (local->type->type != TY_POINTER) {
+			error_at(tokens->source->content, name->value,
+				 "cannot dereference a non-pointer type");
+		}
+
+		data->to->return_type = type_copy(local->type->v_base);
+	} else {
+		data->to->return_type = type_copy(local->type);
+	}
 
 	/* parse value */
 	tok = next_tok(tokens);
@@ -870,6 +901,14 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 
 	data->value = calloc(1, sizeof(*data->value));
 	data->value = parse_value_expr(parent, mod, data->value, tokens, tok);
+
+	if (!type_cmp(data->to->return_type, data->value->return_type)) {
+		error_at(tokens->source->content, name->value,
+			 "mismatched types in assignment: left is `%s` and "
+			 "right is `%s`",
+			 type_name(data->to->return_type),
+			 type_name(data->value->return_type));
+	}
 
 	return ERR_OK;
 }
@@ -1202,7 +1241,7 @@ void expr_destroy(expr_t *expr)
 	free(expr);
 }
 
-static const char *expr_typename(expr_type type)
+const char *expr_typename(expr_type type)
 {
 	static const char *names[] = {"SKIP",   "MODULE",  "FUNCTION", "CALL",
 				      "RETURN", "VARDECL", "ASSIGN",   "VALUE"};
@@ -1250,6 +1289,7 @@ static const char *expr_info(expr_t *expr)
 	static char info[512];
 	assign_expr_t *var;
 	char *tmp = NULL;
+	char marker;
 
 	switch (expr->type) {
 	case E_MODULE:
@@ -1266,7 +1306,11 @@ static const char *expr_info(expr_t *expr)
 	case E_ASSIGN:
 		var = E_AS_ASS(expr->data);
 		tmp = type_name(var->value->return_type);
-		snprintf(info, 512, "%s = %s", var->name, tmp);
+		value_expr_type_name(var->value->type);
+		marker = var->to->type == VE_LIT ? ' ' : '&';
+		marker = var->to->type == VE_DEREF ? '*' : marker;
+		snprintf(info, 512, "%c%s = (%s) %s", marker, var->to->name,
+			 tmp, value_expr_type_name(var->value->type));
 		break;
 	case E_RETURN:
 		tmp = type_name(E_AS_VAL(expr->data)->return_type);
@@ -1312,6 +1356,8 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 			expr_print_value_expr(val->call->args[i], level + 1);
 	} else if (val->type == VE_PTR) {
 		printf("addr: `&%s`\n", val->name);
+	} else if (val->type == VE_DEREF) {
+		printf("deref: `*%s`\n", val->name);
 	} else {
 		printf("op: %s\n", value_expr_type_name(val->type));
 		if (val->left)
@@ -1401,7 +1447,7 @@ char *stringify_literal(literal_expr_t *literal)
 const char *value_expr_type_name(value_expr_type t)
 {
 	static const char *names[] = {"NULL", "REF", "LIT", "CALL", "ADD",
-				      "SUB",  "MUL", "DIV", "PTR"};
+				      "SUB",  "MUL", "DIV", "PTR",  "DEREF"};
 	static const int n_names = sizeof(names) / sizeof(*names);
 
 	if (t >= 0 && t < n_names)

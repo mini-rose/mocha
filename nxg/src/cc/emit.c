@@ -18,16 +18,24 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 				   fn_context_t *context, call_expr_t *call);
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name);
 
-static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref)
+static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
+				 char *name)
 {
 	context->locals = realloc(
 	    context->locals, sizeof(LLVMValueRef) * (context->n_locals + 1));
-	context->locals[context->n_locals++] = ref;
+	context->local_names = realloc(
+	    context->local_names, sizeof(char *) * (context->n_locals + 1));
+
+	context->locals[context->n_locals] = ref;
+	context->local_names[context->n_locals++] = strdup(name);
 }
 
 static void fn_context_destroy(fn_context_t *context)
 {
 	free(context->locals);
+	for (int i = 0; i < context->n_locals; i++)
+		free(context->local_names[i]);
+	free(context->local_names);
 }
 
 static LLVMTypeRef gen_plain_type(plain_type t)
@@ -102,6 +110,15 @@ static LLVMValueRef gen_local_value(LLVMBuilderRef builder,
 	return val;
 }
 
+static LLVMValueRef gen_addr(LLVMBuilderRef builder, fn_context_t *context,
+			     const char *name)
+{
+	LLVMValueRef local = fn_find_local(context, name);
+	if (LLVMIsAAllocaInst(local))
+		return local;
+	return NULL;
+}
+
 static LLVMValueRef gen_literal_value(literal_expr_t *lit)
 {
 	if (lit->type->v_plain == PT_I32)
@@ -160,24 +177,13 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 {
-	const char *loc_name;
-	size_t loc_siz;
-	fn_expr_t *fn;
-
-	fn = context->func->data;
-
-	/* search the param list */
-	for (int i = 0; i < fn->n_params; i++) {
-		if (!strcmp(fn->params[i]->name, name))
-			return LLVMGetParam(context->llvm_func, i);
-	}
-
-	/* search the local list */
 	for (int i = 0; i < context->n_locals; i++) {
-		loc_name = LLVMGetValueName2(context->locals[i], &loc_siz);
-		if (!strcmp(loc_name, name))
+		if (!strcmp(context->local_names[i], name))
 			return context->locals[i];
 	}
+
+	error("could not find local `%s` in `%s`", name,
+	      E_AS_FN(context->func->data)->name);
 
 	return NULL;
 }
@@ -217,28 +223,20 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 			     expr_t *node)
 {
-	LLVMValueRef local;
 	assign_expr_t *data;
 
 	data = node->data;
-	local = fn_find_local(context, data->name);
 
-	if (!local) {
-		error("local %s not found in %s", data->name,
-		      E_AS_FN(context->func->data)->name);
+	/* Check for matching types on left & right side. */
+	if (!type_cmp(data->to->return_type, data->value->return_type)) {
+		error("mismatched types on left and right side of assignment "
+		      "to %s",
+		      data->to->name);
 	}
 
-	if (!type_cmp(data->value->return_type,
-		      node_resolve_local(context->func, data->name,
-					 strlen(data->name))
-			  ->type)) {
-		error("mismatched expression return type with var decl "
-		      "for `%s`",
-		      data->name);
-	}
-
+	/* Make a temporary for the object we want to store. */
 	LLVMBuildStore(builder, gen_new_value(builder, context, data->value),
-		       local);
+		       gen_addr(builder, context, data->to->name));
 }
 
 static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
@@ -260,6 +258,9 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 		} else if (call->args[i]->type == VE_REF) {
 			args[i] = gen_local_value(builder, context,
 						  call->args[i]->name);
+		} else if (call->args[i]->type == VE_PTR) {
+			args[i] =
+			    gen_addr(builder, context, call->args[i]->name);
 		}
 	}
 
@@ -287,8 +288,8 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 		fn_context_add_local(
 		    context,
 		    LLVMBuildAlloca(builder,
-				    gen_type(E_AS_VDECL(node->data)->type),
-				    E_AS_VDECL(node->data)->name));
+				    gen_type(E_AS_VDECL(node->data)->type), ""),
+		    E_AS_VDECL(node->data)->name);
 		break;
 	case E_RETURN:
 		emit_return_node(builder, context, node);
@@ -330,6 +331,15 @@ void emit_function(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 	start_block = LLVMAppendBasicBlock(func, "start");
 	builder = LLVMCreateBuilder();
 	LLVMPositionBuilderAtEnd(builder, start_block);
+
+	/* We want to move all arguments into alloca values.  */
+	fn_expr_t *data = fn->data;
+	for (int i = 0; i < data->n_params; i++) {
+		LLVMValueRef arg = LLVMBuildAlloca(
+		    builder, gen_type(data->params[i]->type), "");
+		LLVMBuildStore(builder, LLVMGetParam(func, i), arg);
+		fn_context_add_local(&context, arg, data->params[i]->name);
+	}
 
 	walker = fn->child;
 	while (walker) {

@@ -11,6 +11,7 @@ typedef struct
 	LLVMModuleRef llvm_mod;
 	LLVMValueRef llvm_func;
 	LLVMValueRef *locals;
+	char **local_names;
 	int n_locals;
 } fn_context_t;
 
