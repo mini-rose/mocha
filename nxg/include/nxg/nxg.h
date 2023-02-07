@@ -12,6 +12,7 @@
 typedef struct
 {
 	bool show_ast;
+	bool show_tokens;
 	bool global;
 	bool using_bs;
 	char *output;

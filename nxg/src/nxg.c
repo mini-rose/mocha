@@ -28,6 +28,7 @@ static inline void full_help()
 	     "  -h, --help      show this page\n"
 	     "  -v, --version   show the compiler version\n"
 	     "  -o <path>       output binary file name\n"
+	     "  -t              show generated tokens\n"
 	     "  -p              show generated AST");
 	exit(0);
 }
@@ -45,6 +46,7 @@ int main(int argc, char **argv)
 	settings.global = false;
 	settings.input = NULL;
 	settings.using_bs = false;
+	settings.show_tokens = false;
 	int opt;
 
 	if (argc == 1) {
@@ -55,7 +57,7 @@ int main(int argc, char **argv)
 	/* NOTE: for our uses, we might want to use a custom argument parser to
 	   allow for more complex combinations (along with long options). */
 
-	while ((opt = getopt(argc, argv, "o:hvp")) != -1) {
+	while ((opt = getopt(argc, argv, "o:hvpt")) != -1) {
 		switch (opt) {
 		case 'o':
 			settings.output = optarg;
@@ -65,6 +67,9 @@ int main(int argc, char **argv)
 			break;
 		case 'p':
 			settings.show_ast = true;
+			break;
+		case 't':
+			settings.show_tokens = true;
 			break;
 		case 'v':
 			version();

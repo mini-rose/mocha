@@ -62,6 +62,9 @@ void compile(settings_t *settings)
 	char *module_name;
 	expr_t *ast;
 
+	if (settings->show_tokens)
+		token_list_print(list);
+
 	module_name = file_basename(settings->input);
 	ast = parse(list, module_name);
 
