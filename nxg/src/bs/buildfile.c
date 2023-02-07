@@ -13,6 +13,9 @@ void bs_parse_opt(char *opt_s, char *opt_e, settings_t *settings)
 			case 'p':
 				settings->show_ast = true;
 				break;
+			case 't':
+				settings->show_tokens = true;
+				break;
 		}
 }
 
