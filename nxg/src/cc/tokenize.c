@@ -148,7 +148,7 @@ token_list *tokens(file *source)
 		}
 
 		if (isalpha(*p) || *p == '_') {
-			token *tok;
+			token *tok = NULL;
 			char *str;
 			char *q = p;
 
@@ -157,11 +157,11 @@ token_list *tokens(file *source)
 
 			str = push_str(p, q);
 
-			if (is_keyword(str))
+			if (is_keyword(str)) {
 				tok = token_new(last = T_KEYWORD, p, q - p);
-			else if (is_plain_type(str))
+			} else if (is_plain_type(str)) {
 				tok = token_new(last = T_DATATYPE, p, q - p);
-			else
+			} else
 				tok = token_new(last = T_IDENT, p, q - p);
 
 			token_list_append(list, tok);

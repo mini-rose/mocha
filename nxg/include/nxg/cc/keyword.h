@@ -22,7 +22,10 @@ typedef enum
 	K_NOT = 8,
 
 	// Return keyword
-	K_RETURN = 9
+	K_RETURN = 9,
+
+	// Import keyword
+	K_IMPORT = 10
 } keyword_t;
 
 bool is_keyword(const char *);

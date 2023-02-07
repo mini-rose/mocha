@@ -2,5 +2,5 @@ coffee
 ======
 
 This is the main repository for the coffee project, and it contains the
-nxg compiler, the Coffee standard library along with some other tools
+nxg compiler/build system, the Coffee standard library along with some other tools
 for operating on the language.

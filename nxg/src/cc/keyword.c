@@ -5,10 +5,10 @@
 #define LENGTH(array) sizeof(array) / sizeof(*array)
 
 static char *keywords[] = {
-    [K_FUNCTION] = "fn", [K_IF] = "if",   [K_ELIF] = "elif",
-    [K_ELSE] = "else",   [K_FOR] = "for", [K_WHILE] = "while",
-    [K_AND] = "and",     [K_OR] = "or",   [K_NOT] = "not",
-    [K_RETURN] = "ret"};
+    [K_FUNCTION] = "fn", [K_IF] = "if",     [K_ELIF] = "elif",
+    [K_ELSE] = "else",   [K_FOR] = "for",   [K_WHILE] = "while",
+    [K_AND] = "and",     [K_OR] = "or",     [K_NOT] = "not",
+    [K_RETURN] = "ret",  [K_IMPORT] = "use"};
 
 static size_t length = LENGTH(keywords);
 

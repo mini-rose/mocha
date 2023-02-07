@@ -1110,10 +1110,13 @@ expr_t *parse(token_list *tokens, const char *module_id)
 				goto err;
 		} else if (current->type == T_NEWLINE) {
 			continue;
+		} else if (TOK_IS(current, T_KEYWORD, "use")) {
+			error("'use' is not allowed yet");
 		} else {
-			error_at(content, current->value,
-				 "only functions are allowed at the "
-				 "top-level");
+			error_at(
+			    content, current->value,
+			    "only functions and imports are allowed at the "
+			    "top-level");
 			goto err;
 		}
 	}
