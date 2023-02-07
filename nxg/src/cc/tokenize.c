@@ -207,10 +207,11 @@ token_list *tokens(file *source)
 				}
 			}
 
-			if (*p == ' ') {
+			while (isspace(*p))
 				p++;
+
+			if (!ispunct(*p))
 				continue;
-			}
 
 			tok = token_new(last = T_PUNCT, p, 1);
 			token_list_append(list, tok);
