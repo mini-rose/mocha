@@ -119,6 +119,13 @@ static LLVMValueRef gen_addr(LLVMBuilderRef builder, fn_context_t *context,
 	return NULL;
 }
 
+static LLVMValueRef gen_deref(LLVMBuilderRef builder, fn_context_t *context,
+			      const char *name, LLVMTypeRef deref_to)
+{
+	LLVMValueRef local = fn_find_local(context, name);
+	return LLVMBuildLoad2(builder, deref_to, local, "");
+}
+
 static LLVMValueRef gen_literal_value(literal_expr_t *lit)
 {
 	if (lit->type->v_plain == PT_I32)
@@ -261,6 +268,13 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 		} else if (call->args[i]->type == VE_PTR) {
 			args[i] =
 			    gen_addr(builder, context, call->args[i]->name);
+		} else if (call->args[i]->type == VE_DEREF) {
+			args[i] =
+			    gen_deref(builder, context, call->args[i]->name,
+				      gen_type(call->args[i]->return_type));
+		} else {
+			error("cannot emit the %d argument to a call to `%s`",
+			      i + 1, call->name);
 		}
 	}
 

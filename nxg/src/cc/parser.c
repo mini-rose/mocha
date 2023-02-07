@@ -444,8 +444,8 @@ static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens,
 	}
 }
 
-static err_t parse_builtin_call(expr_t *parent, expr_t *mod, call_expr_t *data,
-				token_list *tokens, token *tok)
+static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
+				token *tok)
 {
 	/* Built-in calls are not always function calls, they may be
 	   "macro-like" functions which turn into something else. */
@@ -517,7 +517,7 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	token *fn_name_tok;
 
 	if (is_builtin_function(tok))
-		return parse_builtin_call(parent, mod, data, tokens, tok);
+		return parse_builtin_call(parent, mod, tokens, tok);
 
 	data->name = strndup(tok->value, tok->len);
 	fn_name_tok = tok;
@@ -528,7 +528,8 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	/* arguments - currently only support variable names & literals
 	 */
 	while (!TOK_IS(tok, T_PUNCT, ")")) {
-		if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")) {
+		if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")
+		    || TOK_IS(tok, T_OPERATOR, "*")) {
 			arg = call_add_arg(data);
 			arg->type = VE_REF;
 			if (TOK_IS(tok, T_PUNCT, "&")) {
@@ -539,6 +540,17 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 						 tok->value,
 						 "expected variable name after "
 						 "reference marker");
+				}
+			}
+
+			if (TOK_IS(tok, T_OPERATOR, "*")) {
+				arg->type = VE_DEREF;
+				tok = next_tok(tokens);
+				if (tok->type != T_IDENT) {
+					error_at(tokens->source->content,
+						 tok->value,
+						 "expected variable name after "
+						 "dereference marker");
 				}
 			}
 
@@ -557,6 +569,8 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			   type is the pointer type of the value */
 			if (arg->type == VE_PTR)
 				arg->return_type = type_pointer_of(var->type);
+			else if (arg->type == VE_DEREF)
+				arg->return_type = type_copy(var->type->v_base);
 			else
 				arg->return_type = type_copy(var->type);
 
@@ -1209,6 +1223,8 @@ expr_t *parse(token_list *tokens, const char *module_id)
 			continue;
 		} else if (TOK_IS(current, T_KEYWORD, "use")) {
 			error("'use' is not allowed yet");
+		} else if (is_builtin_function(current)) {
+			parse_builtin_call(module, module, tokens, current);
 		} else {
 			error_at(
 			    content, current->value,
