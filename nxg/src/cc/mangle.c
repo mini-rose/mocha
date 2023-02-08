@@ -11,15 +11,14 @@
 
 static char mangled_type_char(plain_type t)
 {
-	/* This table is based on the Itanium C++ ABI, apart from PT_STR which
-	   we use an upper case 'S' for.
+	/* This table is based on the Itanium C++ ABI
 	   https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangle.builtin-type
 	 */
 	static const char type_mangle_ids[] = {
 	    [0] = 'v',      [PT_BOOL] = 'b', [PT_I8] = 'a',   [PT_U8] = 'h',
 	    [PT_I16] = 's', [PT_U16] = 't',  [PT_I32] = 'i',  [PT_U32] = 'j',
 	    [PT_I64] = 'l', [PT_U64] = 'm',  [PT_I128] = 'n', [PT_U128] = 'o',
-	    [PT_F32] = 'f', [PT_F64] = 'd',  [PT_STR] = 'S'};
+	    [PT_F32] = 'f', [PT_F64] = 'd'};
 	static const int n = sizeof(type_mangle_ids);
 
 	if (t >= 0 && t < n)
@@ -35,14 +34,17 @@ char *mangled_type_str(type_t *ty, char *buf)
 		buf = calloc(512, 1);
 
 	if (ty->type == TY_PLAIN) {
-		buf[0] = mangled_type_char(ty->v_plain);
+		if (ty->v_plain == PT_STR)
+			strcpy(buf, "3str");
+		else
+			buf[0] = mangled_type_char(ty->v_plain);
 	} else if (ty->type == TY_POINTER) {
 		buf[0] = 'P';
 		mangled_type_str(ty->v_base, &buf[1]);
 	} else if (ty->type == TY_ARRAY) {
 		buf[0] = 'A';
 		offt = sprintf(&buf[1], "%zu_", ty->len);
-		mangled_type_str(ty->v_base, &buf[2 + offt]);
+		mangled_type_str(ty->v_base, &buf[offt + 1]);
 	} else if (ty->type == TY_OBJECT) {
 		/* parse this as the fully qualified name of the type */
 		sprintf(buf, "%zu%s", strlen(ty->v_object->name),
