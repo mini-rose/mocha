@@ -57,18 +57,26 @@ void token_print(token *tok)
 					"IDENT",    "PUNCT",    "END"};
 
 	if (tok->type == T_NEWLINE)
-		printf(" %s\t\t", tok_str[tok->type]);
+		printf(" \033[37m%s\033[0m ", tok_str[tok->type]);
 	else if (tok->type == T_END)
-		printf(" %s\t\t\t", tok_str[tok->type]);
+		printf(" %s ", tok_str[tok->type]);
+	else if (tok->type == T_KEYWORD)
+		printf(" \033[31m%s\033[0m: \033[32m'%.*s'\033[0m ",
+		       tok_str[tok->type], tok->len, tok->value);
+	else if (tok->type == T_DATATYPE)
+		printf(" \033[34m%s\033[0m: \033[32m'%.*s'\033[0m ",
+		       tok_str[tok->type], tok->len, tok->value);
+	else if (tok->type == T_NUMBER)
+		printf(" \033[33m%s\033[0m: \033[32m'%.*s'\033[0m ",
+		       tok_str[tok->type], tok->len, tok->value);
 	else
-
-	printf(" %s: \t\033[32m'%.*s'\033[0m\t", tok_str[tok->type], tok->len,
-	       tok->value);
+		printf(" %s: \033[32m'%.*s'\033[0m ", tok_str[tok->type],
+		       tok->len, tok->value);
 }
 
 void token_list_print(token_list *list)
 {
-	puts("[");
+	puts("TOKENS: [");
 	for (int i = 0; i < list->length; i++) {
 		fputs("\t{", stdout);
 		token_print(list->tokens[i]);
