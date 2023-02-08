@@ -5,6 +5,7 @@
 #include <nxg/cc/type.h>
 #include <nxg/utils/error.h>
 #include <nxg/utils/file.h>
+#include <nxg/utils/utils.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -195,7 +196,7 @@ token_list *tokens(file *source)
 						    "%",  "/=", "%=", "*"};
 
 			for (int i = 0;
-			     i < sizeof(operators) / sizeof(*operators); i++) {
+			     i < LEN(operators); i++) {
 				if (!strncmp(p, operators[i],
 					     strlen(operators[i]))) {
 					tok = token_new(last = T_OPERATOR, p,
@@ -234,9 +235,7 @@ const char *tokname(token_t toktype)
 	static const char *toknames[] = {"operator",   "datatype",    "newline",
 					 "keyword",    "number",      "string",
 					 "identifier", "punctuation", "end"};
-	static const int siz = sizeof(toknames) / sizeof(*toknames);
-
-	if (toktype < 0 || toktype >= siz)
+	if (toktype < 0 || toktype >= LEN(toknames))
 		return "<tokname() failed>";
 	return toknames[toktype];
 }

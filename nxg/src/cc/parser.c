@@ -4,6 +4,7 @@
 #include <nxg/cc/tokenize.h>
 #include <nxg/cc/type.h>
 #include <nxg/utils/error.h>
+#include <nxg/utils/utils.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -406,9 +407,8 @@ static bool is_builtin_function(token *name)
 {
 	static const char *builtins[] = {"__builtin_decl",
 					 "__builtin_externcall"};
-	static const int n_builtins = sizeof(builtins) / sizeof(*builtins);
 
-	for (int i = 0; i < n_builtins; i++) {
+	for (int i = 0; i < LEN(builtins); i++) {
 		if (!strncmp(builtins[i], name->value, name->len))
 			return true;
 	}
@@ -1261,9 +1261,8 @@ const char *expr_typename(expr_type type)
 {
 	static const char *names[] = {"SKIP",   "MODULE",  "FUNCTION", "CALL",
 				      "RETURN", "VARDECL", "ASSIGN",   "VALUE"};
-	static const int n_names = sizeof(names) / sizeof(*names);
 
-	if (type >= 0 && type < n_names)
+	if (type >= 0 && type < LEN(names))
 		return names[type];
 	return "<EXPR>";
 }
@@ -1464,9 +1463,8 @@ const char *value_expr_type_name(value_expr_type t)
 {
 	static const char *names[] = {"NULL", "REF", "LIT", "CALL", "ADD",
 				      "SUB",  "MUL", "DIV", "PTR",  "DEREF"};
-	static const int n_names = sizeof(names) / sizeof(*names);
 
-	if (t >= 0 && t < n_names)
+	if (t >= 0 && t < LEN(names))
 		return names[t];
 	return "<value expr type>";
 }
@@ -1481,9 +1479,8 @@ value_expr_type value_expr_type_from_op(token *op)
 		const char *val;
 		value_expr_type type;
 	} ops[] = {{"+", VE_ADD}, {"-", VE_SUB}, {"*", VE_MUL}, {"/", VE_DIV}};
-	static const int n_ops = sizeof(ops) / sizeof(*ops);
 
-	for (int i = 0; i < n_ops; i++) {
+	for (int i = 0; i < LEN(ops); i++) {
 		if (!strncmp(op->value, ops[i].val, op->len))
 			return ops[i].type;
 	}

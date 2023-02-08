@@ -1,11 +1,10 @@
 #include <nxg/cc/type.h>
 #include <nxg/utils/error.h>
+#include <nxg/utils/utils.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define LENGTH(array) sizeof(array) / sizeof(*array)
 
 static char *plain_types[] = {
     [0] = "null",       [PT_BOOL] = "bool", [PT_I8] = "i8",
@@ -14,11 +13,9 @@ static char *plain_types[] = {
     [PT_U32] = "u32",   [PT_U64] = "u64",   [PT_U128] = "u128",
     [PT_F32] = "f32",   [PT_F64] = "f64",   [PT_STR] = "str"};
 
-static const size_t n_plain_types = LENGTH(plain_types);
-
 bool is_plain_type(const char *str)
 {
-	for (int i = 0; i < n_plain_types; i++)
+	for (int i = 0; i < LEN(plain_types); i++)
 		if (!strcmp(str, plain_types[i]))
 			return true;
 
@@ -27,7 +24,7 @@ bool is_plain_type(const char *str)
 
 const char *plain_type_name(plain_type t)
 {
-	if (t >= 0 && t < n_plain_types)
+	if (t >= 0 && t < LEN(plain_types))
 		return plain_types[t];
 	return "<non-plain type>";
 }
@@ -49,7 +46,7 @@ type_t *type_from_string(const char *str)
 
 	ty = calloc(1, sizeof(*ty));
 
-	for (size_t i = 0; i < n_plain_types; i++) {
+	for (size_t i = 0; i < LEN(plain_types); i++) {
 		if (strcmp(plain_types[i], str))
 			continue;
 

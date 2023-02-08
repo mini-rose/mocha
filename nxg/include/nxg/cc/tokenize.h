@@ -2,6 +2,7 @@
 
 #include <nxg/utils/file.h>
 
+/* Token type */
 typedef enum
 {
 	T_OPERATOR = 0,
@@ -15,6 +16,7 @@ typedef enum
 	T_END = 8
 } token_t;
 
+/* Token */
 typedef struct
 {
 	token_t type;
@@ -22,6 +24,7 @@ typedef struct
 	int len;
 } token;
 
+/* Dynamically allocated token list */
 typedef struct
 {
 	file *source;
@@ -30,7 +33,14 @@ typedef struct
 	int iter;
 } token_list;
 
+/* Resturns string representation of token type */
 const char *tokname(token_t toktype);
+
+/* Tokenize file */
 token_list *tokens(file *source);
+
+/* Token list free */
 void token_list_destroy(token_list *tok);
+
+/* Prints token list */
 void token_list_print(token_list *list);
