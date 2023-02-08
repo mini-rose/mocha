@@ -56,7 +56,14 @@ void token_print(token *tok)
 					"KEYWORD",  "NUMBER",   "STRING",
 					"IDENT",    "PUNCT",    "END"};
 
-	printf("%s: '%.*s'", tok_str[tok->type], tok->len, tok->value);
+	if (tok->type == T_NEWLINE)
+		printf(" %s\t\t", tok_str[tok->type]);
+	else if (tok->type == T_END)
+		printf(" %s\t\t\t", tok_str[tok->type]);
+	else
+
+	printf(" %s: \t\033[32m'%.*s'\033[0m\t", tok_str[tok->type], tok->len,
+	       tok->value);
 }
 
 void token_list_print(token_list *list)
