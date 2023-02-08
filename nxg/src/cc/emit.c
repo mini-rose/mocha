@@ -178,21 +178,16 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 
 		return new;
 	}
-
-	return NULL;
 }
 
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 {
-	for (int i = 0; i < context->n_locals; i++) {
+	for (int i = 0; i < context->n_locals; i++)
 		if (!strcmp(context->local_names[i], name))
 			return context->locals[i];
-	}
 
 	error("could not find local `%s` in `%s`", name,
 	      E_AS_FN(context->func->data)->name);
-
-	return NULL;
 }
 
 void emit_function_decl(LLVMModuleRef mod, fn_expr_t *fn)
