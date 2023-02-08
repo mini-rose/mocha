@@ -28,5 +28,5 @@ Important note: the first argument to __builtin_decl is a function name,
 which is **not mangled** with the following types. This means that the
 declared function must be marked as no_mangle. If you're trying to call
 C code, you don't have to worry about that as functions are not mangled
-anyway. If you implement the `is_larger_than` function in Coffee, it would
-get mangled as `_C14is_larger_thanii`.
+anyway. If you implement the ``is_larger_than`` function in Coffee, it would
+get mangled as ``_C14is_larger_thanii``.
