@@ -4,14 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-file *file_new(const char *path)
+file_t *file_new(const char *path)
 {
 	char *buf = NULL;
 	size_t size;
-	file *self;
+	file_t *self;
 	FILE *input;
 
-	if ((self = (file *) malloc(sizeof(file))) == NULL)
+	if ((self = (file_t *) malloc(sizeof(file_t))) == NULL)
 		error("Cannot allocate memory.");
 
 	if ((input = fopen(path, "r")) == NULL)
@@ -39,7 +39,7 @@ file *file_new(const char *path)
 	return self;
 }
 
-void file_destroy(file *f)
+void file_destroy(file_t *f)
 {
 	free(f->path);
 	free(f->content);

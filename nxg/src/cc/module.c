@@ -1,8 +1,24 @@
+#include <libgen.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
 #include <nxg/utils/error.h>
+#include <nxg/utils/file.h>
 #include <stdlib.h>
 #include <string.h>
+
+void module_import(expr_t *module_expr, char *file)
+{
+	mod_expr_t *module = module_expr->data;
+	char *working_dir;
+	file_t fil;
+
+	working_dir = strdup(module->source_name);
+	dirname(working_dir);
+
+	warning("%s/%s", working_dir, file);
+
+	free(working_dir);
+}
 
 fn_expr_t *module_add_decl(expr_t *module)
 {

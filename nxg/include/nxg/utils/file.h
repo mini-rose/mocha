@@ -3,7 +3,7 @@
 typedef struct {
 	char *path;
 	char *content;
-} file;
+} file_t;
 
-file *file_new(const char *path);
-void file_destroy(file *f);
+file_t *file_new(const char *path);
+void file_destroy(file_t *f);

@@ -1254,6 +1254,22 @@ static void skip_block(token_list *tokens, token *tok)
 	} while (depth);
 }
 
+static void parse_use(expr_t *module, token_list *tokens, token *tok)
+{
+	char *path;
+
+	tok = next_tok(tokens);
+	if (tok->type != T_STRING) {
+		error_at(tokens->source->content, tok->value,
+			 "expected path to module, got `%s`",
+			 tokname(tok->type));
+	}
+
+	path = strndup(tok->value, tok->len);
+	module_import(module, path);
+	free(path);
+}
+
 expr_t *parse(token_list *tokens, const char *module_id)
 {
 	token *current = next_tok(tokens);
@@ -1297,7 +1313,7 @@ expr_t *parse(token_list *tokens, const char *module_id)
 		} else if (current->type == T_NEWLINE) {
 			continue;
 		} else if (TOK_IS(current, T_KEYWORD, "use")) {
-			error("'use' is not allowed yet");
+			parse_use(module, tokens, current);
 		} else if (is_builtin_function(current)) {
 			parse_builtin_call(module, module, tokens, current);
 		} else {

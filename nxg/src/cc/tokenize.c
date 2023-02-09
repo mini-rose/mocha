@@ -110,11 +110,11 @@ static char *strend(char *p)
 	return p;
 }
 
-token_list *tokens(file *source)
+token_list *tokens(file_t *source)
 {
 	token_t last;
 	token_list *list = token_list_new();
-	file *f = source;
+	file_t *f = source;
 	list->source = source;
 	char *p = f->content;
 

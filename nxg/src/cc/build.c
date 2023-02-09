@@ -1,6 +1,7 @@
 /* nxg/build.c
    Copyright (c) 2023 mini-rose */
 
+#include <libgen.h>
 #include <nxg/cc/emit.h>
 #include <nxg/cc/parser.h>
 #include <nxg/cc/tokenize.h>
@@ -11,35 +12,47 @@
 #include <string.h>
 #include <sys/stat.h>
 
-static char *file_basename(const char *file)
+static void remove_extension(char *file)
 {
-	size_t n;
-	char *name;
-
-	n = strchr(file, '.') - file;
-	name = malloc(n + 1);
-	strncpy(name, file, n);
-	name[n] = 0;
-
-	return name;
+	char *p;
+	if ((p = strrchr(file, '.')))
+		*p = 0;
 }
 
-static void build_and_link(const char *input, const char *output)
+static char *make_modname(char *file)
+{
+	char *start, *modname;
+
+	file = strdup(file);
+	if (!(start = strrchr(file, '/')))
+		start = file;
+	else
+		start++;
+
+	remove_extension(file);
+	modname = strdup(start);
+	free(file);
+
+	return modname;
+}
+
+static void build_and_link(const char *input_, const char *output)
 {
 	char cmd[1024];
-	char *name;
+	char *input;
 	FILE *proc;
 
-	name = file_basename(input);
+	input = strdup(input_);
+	remove_extension(input);
 
 	/* mod.ll -> mod.s */
-	snprintf(cmd, 1024, "/usr/bin/llc -O=2 -o %s.s %s", name, input);
+	snprintf(cmd, 1024, "/usr/bin/llc -O=2 -o %s.s %s", input, input_);
 	proc = popen(cmd, "r");
 
 	pclose(proc);
 
 	/* mod.s -> mod.o */
-	snprintf(cmd, 1024, "/usr/bin/as -o %s.o %s.s", name, name);
+	snprintf(cmd, 1024, "/usr/bin/as -o %s.o %s.s", input, input);
 	proc = popen(cmd, "r");
 	pclose(proc);
 
@@ -47,17 +60,17 @@ static void build_and_link(const char *input, const char *output)
 	snprintf(cmd, 1024,
 		 "/usr/bin/ld -o %s -dynamic-linker /lib/ld-linux-x86-64.so.2 "
 		 "/lib/crt1.o /lib/crti.o %s.o /lib/crtn.o -lc",
-		 output, name);
+		 output, input);
 	proc = popen(cmd, "r");
 	pclose(proc);
 
-	free(name);
+	free(input);
 }
 
 void compile(settings_t *settings)
 {
 	char module_path[512];
-	file *source = file_new(settings->input);
+	file_t *source = file_new(settings->input);
 	token_list *list = tokens(source);
 	char *module_name;
 	expr_t *ast;
@@ -65,7 +78,7 @@ void compile(settings_t *settings)
 	if (settings->show_tokens)
 		token_list_print(list);
 
-	module_name = file_basename(settings->input);
+	module_name = make_modname(settings->input);
 	ast = parse(list, module_name);
 
 	mkdir("/tmp/nxg", 0777);

@@ -66,7 +66,7 @@ void bs_parse(char *key_s, char *key_e, char *val_s, settings_t *settings)
 
 void buildfile(settings_t *settings)
 {
-	file *f = file_new(".coffee");
+	file_t *f = file_new(".coffee");
 	char *p = f->content;
 	char *s = p;
 

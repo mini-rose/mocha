@@ -27,7 +27,7 @@ typedef struct
 /* Dynamically allocated token list */
 typedef struct
 {
-	file *source;
+	file_t *source;
 	token **tokens;
 	int length;
 	int iter;
@@ -37,7 +37,7 @@ typedef struct
 const char *tokname(token_t toktype);
 
 /* Tokenize file */
-token_list *tokens(file *source);
+token_list *tokens(file_t *source);
 
 /* Token list free */
 void token_list_destroy(token_list *tok);

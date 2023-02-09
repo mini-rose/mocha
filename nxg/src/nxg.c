@@ -1,18 +1,11 @@
-#include <fcntl.h>
-#include <jansson.h>
+/* nxg - coffee compiler, build system & package manager
+   Copyright (c) 2023 mini-rose */
+
 #include <nxg/bs/buildfile.h>
-#include <nxg/cc/emit.h>
-#include <nxg/cc/module.h>
-#include <nxg/cc/parser.h>
-#include <nxg/cc/tokenize.h>
-#include <nxg/cc/type.h>
 #include <nxg/nxg.h>
-#include <nxg/utils/error.h>
-#include <nxg/utils/file.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 static inline void help()
@@ -87,6 +80,12 @@ int main(int argc, char **argv)
 			buildfile(&settings);
 			settings.using_bs = true;
 		}
+	}
+
+	if (optind >= argc) {
+		fprintf(stderr,
+			"\e[91merror\e[0m: missing source file argument\n");
+		return 1;
 	}
 
 	if (settings.input == NULL)
