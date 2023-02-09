@@ -190,14 +190,14 @@ static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 	      E_AS_FN(context->func->data)->name);
 }
 
-void emit_function_decl(LLVMModuleRef mod, fn_expr_t *fn)
+void emit_function_decl(LLVMModuleRef mod, fn_expr_t *fn, LLVMLinkage linkage)
 {
 	LLVMValueRef f;
 	char *ident;
 
 	ident = fn->flags & FN_NOMANGLE ? fn->name : nxg_mangle(fn);
 	f = LLVMAddFunction(mod, ident, gen_function_type(fn));
-	LLVMSetLinkage(f, LLVMExternalLinkage);
+	LLVMSetLinkage(f, linkage);
 
 	if (!(fn->flags & FN_NOMANGLE))
 		free(ident);
@@ -316,16 +316,14 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 	}
 }
 
-void emit_function(LLVMModuleRef mod, expr_t *module, expr_t *fn)
+void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 {
-	LLVMTypeRef func_type;
 	LLVMValueRef func;
 	fn_context_t context;
 	char *name;
 
-	func_type = gen_function_type(fn->data);
 	name = nxg_mangle(fn->data);
-	func = LLVMAddFunction(mod, name, func_type);
+	func = LLVMGetNamedFunction(mod, name);
 
 	memset(&context, 0, sizeof(context));
 	context.func = fn;
@@ -407,24 +405,39 @@ void emit_module(expr_t *module, const char *out, bool is_main)
 	LLVMModuleRef mod;
 	mod_expr_t *mod_data;
 	char *err_msg = NULL;
+	expr_t *walker;
 
 	mod_data = E_AS_MOD(module->data);
 	mod = LLVMModuleCreateWithName(mod_data->name);
 	LLVMSetSourceFileName(mod, mod_data->source_name,
 			      strlen(mod_data->source_name));
 
-	/* declare extern */
-	for (int i = 0; i < mod_data->n_decls; i++)
-		emit_function_decl(mod, mod_data->decls[i]);
+	/* Declare extern functions. */
+	for (int i = 0; i < mod_data->n_decls; i++) {
+		emit_function_decl(mod, mod_data->decls[i],
+				   LLVMExternalLinkage);
+	}
 
-	expr_t *walker = module->child;
+	/* For emitting functions we need to make 2 passes. The first time we
+	   declare all functions as private, and only then during the second
+	   pass we may implement the function bodies. */
 
+	walker = module->child;
 	while (walker) {
-		if (walker->type == E_FUNCTION)
-			emit_function(mod, module, walker);
-		else
+		if (walker->type == E_FUNCTION) {
+			emit_function_decl(mod, E_AS_FN(walker->data),
+					   LLVMPrivateLinkage);
+		} else {
 			error("cannot emit anything other than a "
 			      "function");
+		}
+		walker = walker->next;
+	}
+
+	walker = module->child;
+	while (walker) {
+		if (walker->type == E_FUNCTION)
+			emit_function_body(mod, module, walker);
 		walker = walker->next;
 	}
 
@@ -433,7 +446,7 @@ void emit_module(expr_t *module, const char *out, bool is_main)
 		emit_main_function(mod);
 
 	if (LLVMVerifyModule(mod, LLVMPrintMessageAction, &err_msg)) {
-		error("something is wrong with the emitted `%s` module",
+		error("LLVM failed to generate the `%s` module",
 		      mod_data->name);
 	}
 

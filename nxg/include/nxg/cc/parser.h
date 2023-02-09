@@ -39,6 +39,8 @@ typedef struct
 	char *source_name;
 	fn_expr_t **decls;
 	int n_decls;
+	fn_expr_t **local_decls;
+	int n_local_decls;
 } mod_expr_t;
 
 typedef enum
@@ -88,6 +90,7 @@ struct fn_expr
 	int n_locals;
 	type_t *return_type;
 	int flags;
+	bool emitted;
 };
 
 /* variable assignment */
@@ -144,5 +147,6 @@ value_expr_type value_expr_type_from_op(token *op);
 var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len);
 bool node_has_named_local(expr_t *node, const char *name, int len);
 
+bool fn_sigcmp(fn_expr_t *first, fn_expr_t *other);
 void fn_add_param(fn_expr_t *fn, const char *name, int len, type_t *type);
-char *fn_str_signature(fn_expr_t *func);
+char *fn_str_signature(fn_expr_t *func, bool with_colors);

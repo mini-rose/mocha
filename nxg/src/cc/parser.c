@@ -24,10 +24,13 @@ static void mod_expr_free(mod_expr_t *module)
 {
 	free(module->name);
 	free(module->source_name);
+
 	for (int i = 0; i < module->n_decls; i++) {
 		fn_expr_free(module->decls[i]);
 		free(module->decls[i]);
 	}
+
+	free(module->local_decls);
 	free(module->decls);
 }
 
@@ -600,36 +603,49 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		tok = next_tok(tokens);
 	}
 
-	fn_expr_t *target = module_find_fn(mod, data->name);
-	data->func = target;
+	fn_candidates_t *resolved = module_find_fn_candidates(mod, data->name);
 
-	/* TODO: resolve functions after parsing the whole file, so that
-	   functions can be declared anywhere within the file */
-	if (!target) {
+	if (!resolved->n_candidates) {
 		error_at(tokens->source->content, fn_name_tok->value,
-			 "undeclared function name `%s`", data->name);
+			 "no function named `%s` found", data->name);
 	}
 
-	if (target->n_params != data->n_args) {
-		error_at(tokens->source->content, fn_name_tok->value,
-			 "mismatched argument amount: `%s` takes %d "
-			 "arguments",
-			 target->name, target->n_params);
-	}
+	/* Find the matching candidate */
+	for (int i = 0; i < resolved->n_candidates; i++) {
+		fn_expr_t *match = resolved->candidate[i];
 
-	for (int i = 0; i < data->n_args; i++) {
-		/* the result of the expression must match the parameter
-		 */
-		if (type_cmp(data->args[i]->return_type,
-			     target->params[i]->type))
+		if (match->n_params != data->n_args)
 			continue;
 
-		error_at(tokens->source->content, fn_name_tok->value,
-			 "the type of the %d argument should be `%s`, "
-			 "not `%s`",
-			 i + 1, type_name(target->params[i]->type),
-			 type_name(data->args[i]->return_type));
+		/* Check for argument types */
+		for (int j = 0; j < match->n_params; j++) {
+			if (!type_cmp(match->params[j]->type,
+				      data->args[j]->return_type))
+				continue;
+		}
+
+		/* We found a match! */
+		data->func = match;
+
+		free(resolved->candidate);
+		free(resolved);
+		return ERR_OK;
 	}
+
+	fprintf(stderr,
+		"Found \e[92m%d\e[0m potential candidates, but \e[91mnone\e[0m "
+		"of them match:\n",
+		resolved->n_candidates);
+	for (int i = 0; i < resolved->n_candidates; i++) {
+		char *sig = fn_str_signature(resolved->candidate[i], true);
+		fprintf(stderr, "  %s\n", sig);
+		free(sig);
+	}
+
+	fputc('\n', stderr);
+
+	error_at(tokens->source->content, fn_name_tok->value,
+		 "could not find matching overload for `%s`", data->name);
 
 	return ERR_OK;
 }
@@ -1003,22 +1019,17 @@ static bool fn_has_return(expr_t *func)
 	return false;
 }
 
-static err_t parse_fn(token_list *tokens, expr_t *module)
+/**
+ * fn name([arg: type], ...)[: return_type]
+ */
+static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
+				token_list *tokens, token *tok)
 {
-	fn_expr_t *data;
-	expr_t *node;
-	token *tok;
-	token *name;
 	token *return_type_tok;
+	token *name;
 
-	node = expr_add_child(module);
-	data = calloc(sizeof(*data), 1);
-
-	node->type = E_FUNCTION;
-	node->data = data;
-	node->data_free = (expr_free_handle) fn_expr_free;
-	data->n_params = 0;
-	data->return_type = type_new_null();
+	decl->n_params = 0;
+	decl->return_type = type_new_null();
 
 	tok = next_tok(tokens);
 
@@ -1026,11 +1037,10 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 	if (tok->type != T_IDENT) {
 		error_at(tokens->source->content, tok->value,
 			 "expected function name, got %s", tokname(tok->type));
-		return ERR_SYNTAX;
 	}
 
 	name = tok;
-	data->name = strndup(tok->value, tok->len);
+	decl->name = strndup(tok->value, tok->len);
 
 	/* parameters (optional) */
 	tok = next_tok(tokens);
@@ -1082,7 +1092,7 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 				 "comma `,` or a closing parenthesis `)`");
 		}
 
-		fn_add_param(data, name->value, name->len, type);
+		fn_add_param(decl, name->value, name->len, type);
 		type_destroy(type);
 
 		if (TOK_IS(tok, T_PUNCT, ","))
@@ -1091,8 +1101,9 @@ static err_t parse_fn(token_list *tokens, expr_t *module)
 
 	/* return type (optional) */
 	tok = next_tok(tokens);
-params_skip:
 	return_type_tok = NULL;
+
+params_skip:
 	if (TOK_IS(tok, T_PUNCT, ":")) {
 		tok = next_tok(tokens);
 
@@ -1100,16 +1111,52 @@ params_skip:
 			error_at(tokens->source->content, tok->value,
 				 "expected return type, got `%.*s`", tok->len,
 				 tok->value);
-			return ERR_SYNTAX;
 		}
 
-		if (data->return_type)
-			type_destroy(data->return_type);
-		data->return_type =
+		if (decl->return_type)
+			type_destroy(decl->return_type);
+		decl->return_type =
 		    type_from_sized_string(tok->value, tok->len);
 		return_type_tok = tok;
 		tok = next_tok(tokens);
 	}
+
+	if (!strcmp(decl->name, "main")) {
+		if (decl->n_params) {
+			error_at(tokens->source->content, name->value,
+				 "the main function does not take any "
+				 "arguments");
+		}
+
+		if (decl->return_type->type != TY_NULL) {
+			error_at(tokens->source->content,
+				 return_type_tok->value,
+				 "the main function cannot return `%.*s`, as "
+				 "it always returns `null`",
+				 return_type_tok->len, return_type_tok->value);
+		}
+	}
+
+	return NULL;
+}
+
+/**
+ * {
+ *   [expression]...
+ * }
+ */
+static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
+{
+	expr_t *node;
+	token *tok;
+
+	node = expr_add_child(module);
+
+	node->type = E_FUNCTION;
+	node->data = decl;
+	node->data_free = (expr_free_handle) fn_expr_free;
+
+	tok = next_tok(tokens);
 
 	/* opening & closing braces */
 	while (tok->type == T_NEWLINE)
@@ -1117,7 +1164,7 @@ params_skip:
 
 	if (!TOK_IS(tok, T_PUNCT, "{")) {
 		error_at(tokens->source->content, tok->value,
-			 "missing opening brace for `%s`", data->name);
+			 "missing opening brace for `%s`", decl->name);
 		return ERR_SYNTAX;
 	}
 
@@ -1151,9 +1198,9 @@ params_skip:
 		/* statements inside the function */
 
 		if (is_var_assign(tokens, tok))
-			parse_assign(node, module, data, tokens, tok);
+			parse_assign(node, module, decl, tokens, tok);
 		else if (is_var_decl(tokens, tok))
-			parse_var_decl(node, data, tokens, tok);
+			parse_var_decl(node, decl, tokens, tok);
 		else if (is_call(tokens, tok)) {
 			parse_call(node, module, tokens, tok);
 		} else if (TOK_IS(tok, T_KEYWORD, "ret"))
@@ -1165,9 +1212,9 @@ params_skip:
 
 	/* always add a return statement */
 	if (!fn_has_return(node)) {
-		if (data->return_type->type != TY_NULL) {
+		if (decl->return_type->type != TY_NULL) {
 			error_at(tokens->source->content, tok->value,
-				 "missing return statement for %s", data->name);
+				 "missing return statement for %s", decl->name);
 		}
 
 		expr_t *ret_expr = expr_add_child(node);
@@ -1179,23 +1226,32 @@ params_skip:
 		val->type = VE_NULL;
 	}
 
-	if (!strcmp(data->name, "main")) {
-		if (data->n_params) {
-			error_at(tokens->source->content, name->value,
-				 "the main function does not take any "
-				 "arguments");
-		}
-
-		if (data->return_type->type != TY_NULL) {
-			error_at(tokens->source->content,
-				 return_type_tok->value,
-				 "the main function cannot return `%.*s`, as "
-				 "it always returns `null`",
-				 return_type_tok->len, return_type_tok->value);
-		}
-	}
-
 	return 0;
+}
+
+typedef struct
+{
+	int tok_index;
+	fn_expr_t *decl;
+} fn_pos_t;
+
+static fn_pos_t *acquire_fn_pos(fn_pos_t **pos, int *n)
+{
+	*pos = realloc(*pos, sizeof(fn_pos_t) * (*n + 1));
+	return &(*pos)[(*n)++];
+}
+
+static void skip_block(token_list *tokens, token *tok)
+{
+	int depth = 0;
+
+	do {
+		if (TOK_IS(tok, T_PUNCT, "{"))
+			depth++;
+		if (TOK_IS(tok, T_PUNCT, "}"))
+			depth--;
+		tok = next_tok(tokens);
+	} while (depth);
 }
 
 expr_t *parse(token_list *tokens, const char *module_id)
@@ -1205,6 +1261,9 @@ expr_t *parse(token_list *tokens, const char *module_id)
 	mod_expr_t *data;
 	char *content = tokens->source->content;
 
+	fn_pos_t *fn_pos;
+	int n_fn_pos;
+
 	data = calloc(1, sizeof(mod_expr_t));
 	data->name = strdup(module_id);
 	data->source_name = strdup(tokens->source->path);
@@ -1213,12 +1272,28 @@ expr_t *parse(token_list *tokens, const char *module_id)
 	module->data = data;
 	module->data_free = (expr_free_handle) mod_expr_free;
 
+	/*
+	 * In order to support overloading & use-before-declare we need
+	 * to parse the declarations before the contents.
+	 */
+
+	fn_pos = NULL;
+	n_fn_pos = 0;
+
 	while ((current = next_tok(tokens)) && current->type != T_END) {
 		/* top-level: function decl */
-		if (current->type == T_KEYWORD
-		    && !strncmp(current->value, "fn", current->len)) {
-			if (parse_fn(tokens, module))
-				goto err;
+		if (TOK_IS(current, T_KEYWORD, "fn")) {
+
+			/* parse only the fn declaration, leave the rest */
+			fn_pos_t *pos = acquire_fn_pos(&fn_pos, &n_fn_pos);
+			pos->decl = module_add_local_decl(module);
+			parse_fn_decl(module, pos->decl, tokens, current);
+			pos->tok_index = tokens->iter - 1;
+			current = index_tok(tokens, tokens->iter - 1);
+
+			/* skip the function body for now */
+			skip_block(tokens, current);
+
 		} else if (current->type == T_NEWLINE) {
 			continue;
 		} else if (TOK_IS(current, T_KEYWORD, "use")) {
@@ -1233,6 +1308,14 @@ expr_t *parse(token_list *tokens, const char *module_id)
 			goto err;
 		}
 	}
+
+	/* Go back and parse the function contents */
+	for (int i = 0; i < n_fn_pos; i++) {
+		tokens->iter = fn_pos[i].tok_index;
+		parse_fn_body(module, fn_pos[i].decl, tokens);
+	}
+
+	free(fn_pos);
 
 err:
 	return module;
@@ -1267,14 +1350,15 @@ const char *expr_typename(expr_type type)
 	return "<EXPR>";
 }
 
-char *fn_str_signature(fn_expr_t *func)
+char *fn_str_signature(fn_expr_t *func, bool with_colors)
 {
 	char *sig = calloc(1024, 1);
 	char buf[64];
 	char *ty_str;
 	memset(sig, 0, 1024);
 
-	snprintf(sig, 1024, "%s(", func->name);
+	snprintf(sig, 1024, "%s%s%s(", with_colors ? "\e[94m" : "", func->name,
+		 with_colors ? "\e[0m" : "");
 
 	for (int i = 0; i < func->n_params - 1; i++) {
 		ty_str = type_name(func->params[i]->type);
@@ -1311,7 +1395,7 @@ static const char *expr_info(expr_t *expr)
 		snprintf(info, 512, "%s", E_AS_MOD(expr->data)->name);
 		break;
 	case E_FUNCTION:
-		tmp = fn_str_signature(E_AS_FN(expr->data));
+		tmp = fn_str_signature(E_AS_FN(expr->data), true);
 		snprintf(info, 512, "%s", tmp);
 		break;
 	case E_VARDECL:
@@ -1391,7 +1475,8 @@ static void expr_print_level(expr_t *expr, int level, bool with_next)
 	for (int i = 0; i < level; i++)
 		fputs("  ", stdout);
 
-	printf("%s %s\n", expr_typename(expr->type), expr_info(expr));
+	printf("\e[96m%s\e[0m %s\n", expr_typename(expr->type),
+	       expr_info(expr));
 
 	if (expr->type == E_RETURN)
 		expr_print_value_expr(expr->data, level + 1);
