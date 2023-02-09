@@ -22,14 +22,21 @@ static void expr_print_value_expr(value_expr_t *val, int level);
 
 static void mod_expr_free(mod_expr_t *module)
 {
-	free(module->name);
-	free(module->source_name);
-
 	for (int i = 0; i < module->n_decls; i++) {
 		fn_expr_free(module->decls[i]);
 		free(module->decls[i]);
 	}
 
+	for (int i = 0; i < module->n_imported; i++)
+		expr_destroy(module->imported[i]);
+
+	for (int i = 0; i < module->n_imported; i++)
+		free(module->c_objects[i]);
+
+	free(module->c_objects);
+	free(module->imported);
+	free(module->name);
+	free(module->source_name);
 	free(module->local_decls);
 	free(module->decls);
 }

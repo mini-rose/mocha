@@ -21,3 +21,8 @@ typedef struct
 
 /* Compile all input files into a single binary. */
 void compile(settings_t *settings);
+
+/* Compile a C source code file into an object. */
+char *compile_c_object(char *file);
+
+char *make_modname(char *file);

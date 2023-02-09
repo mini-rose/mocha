@@ -19,7 +19,7 @@ static void remove_extension(char *file)
 		*p = 0;
 }
 
-static char *make_modname(char *file)
+char *make_modname(char *file)
 {
 	char *start, *modname;
 
@@ -36,7 +36,8 @@ static char *make_modname(char *file)
 	return modname;
 }
 
-static void build_and_link(const char *input_, const char *output)
+static void build_and_link(const char *input_, const char *output,
+			   char **c_objects, int n_c_objects)
 {
 	char cmd[1024];
 	char *input;
@@ -59,12 +60,32 @@ static void build_and_link(const char *input_, const char *output)
 	/* mod.o -> output */
 	snprintf(cmd, 1024,
 		 "/usr/bin/ld -o %s -dynamic-linker /lib/ld-linux-x86-64.so.2 "
-		 "/lib/crt1.o /lib/crti.o %s.o /lib/crtn.o -lc",
+		 "/lib/crt1.o /lib/crti.o %s.o ",
 		 output, input);
-	proc = popen(cmd, "r");
-	pclose(proc);
+
+	for (int i = 0; i < n_c_objects; i++) {
+		strcat(cmd, c_objects[i]);
+		strcat(cmd, " ");
+	}
+
+	strcat(cmd, "/lib/crtn.o -lc");
+	pclose(popen(cmd, "r"));
 
 	free(input);
+}
+
+char *compile_c_object(char *file)
+{
+	char *output = calloc(512, 1);
+	char cmd[512];
+
+	strcpy(output, file);
+	strcat(output, ".o");
+
+	snprintf(cmd, 512, "/usr/bin/clang -c -o %s %s", output, file);
+	pclose(popen(cmd, "r"));
+
+	return output;
 }
 
 void compile(settings_t *settings)
@@ -89,7 +110,9 @@ void compile(settings_t *settings)
 	snprintf(module_path, 512, "/tmp/nxg/%s.ll", module_name);
 	emit_module(ast, module_path, true);
 
-	build_and_link(module_path, settings->output);
+	build_and_link(module_path, settings->output,
+		       E_AS_MOD(ast->data)->c_objects,
+		       E_AS_MOD(ast->data)->n_c_objects);
 
 	if (settings->using_bs) {
 		free(settings->input);

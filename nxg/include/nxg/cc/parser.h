@@ -41,8 +41,10 @@ typedef struct
 	int n_decls;
 	fn_expr_t **local_decls;
 	int n_local_decls;
-	expr_t *imported;
+	expr_t **imported;
 	int n_imported;
+	char **c_objects;
+	int n_c_objects;
 } mod_expr_t;
 
 typedef enum

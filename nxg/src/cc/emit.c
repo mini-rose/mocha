@@ -400,17 +400,13 @@ void emit_main_function(LLVMModuleRef mod)
 	LLVMDisposeBuilder(builder);
 }
 
-void emit_module(expr_t *module, const char *out, bool is_main)
+static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 {
-	LLVMModuleRef mod;
 	mod_expr_t *mod_data;
 	char *err_msg = NULL;
 	expr_t *walker;
 
 	mod_data = E_AS_MOD(module->data);
-	mod = LLVMModuleCreateWithName(mod_data->name);
-	LLVMSetSourceFileName(mod, mod_data->source_name,
-			      strlen(mod_data->source_name));
 
 	/* Declare extern functions. */
 	for (int i = 0; i < mod_data->n_decls; i++) {
@@ -441,16 +437,31 @@ void emit_module(expr_t *module, const char *out, bool is_main)
 		walker = walker->next;
 	}
 
-	/* if we're in the main module, add a main function */
-	if (is_main)
-		emit_main_function(mod);
-
 	if (LLVMVerifyModule(mod, LLVMPrintMessageAction, &err_msg)) {
 		error("LLVM failed to generate the `%s` module",
 		      mod_data->name);
 	}
 
-	LLVMPrintModuleToFile(mod, out, &err_msg);
 	LLVMDisposeMessage(err_msg);
+	return mod;
+}
+
+void emit_module(expr_t *module, const char *out, bool is_main)
+{
+	LLVMModuleRef mod;
+	mod_expr_t *mod_data;
+
+	mod_data = module->data;
+	mod = LLVMModuleCreateWithName(mod_data->name);
+	LLVMSetSourceFileName(mod, mod_data->source_name,
+			      strlen(mod_data->source_name));
+
+	for (int i = 0; i < mod_data->n_imported; i++)
+		emit_module_contents(mod, mod_data->imported[i]);
+	emit_module_contents(mod, module);
+
+	emit_main_function(mod);
+
+	LLVMPrintModuleToFile(mod, out, NULL);
 	LLVMDisposeModule(mod);
 }
