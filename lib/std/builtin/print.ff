@@ -1,0 +1,7 @@
+/* print.ff - printing utilities
+   Copyright (c) 2023 mini-rose */
+
+fn print(num: i32) {
+	__builtin_decl("cf_print_i32", null, i32)
+	cf_print_i32(num)
+}

@@ -6,11 +6,13 @@
 #include <nxg/cc/parser.h>
 #include <nxg/cc/tokenize.h>
 #include <nxg/nxg.h>
+#include <nxg/utils/error.h>
 #include <nxg/utils/file.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static void remove_extension(char *file)
 {
@@ -68,9 +70,24 @@ static void build_and_link(const char *input_, const char *output,
 		strcat(cmd, " ");
 	}
 
-	strcat(cmd, "/lib/crtn.o -lc");
-	pclose(popen(cmd, "r"));
+	strcat(cmd, "/lib/crtn.o -lc 2>&1");
+	proc = popen(cmd, "r");
 
+	char c;
+	if (read(fileno(proc), &c, 1)) {
+		fputc(c, stdout);
+
+		char line[128];
+		size_t n;
+
+		while ((n = read(fileno(proc), line, 128)))
+			write(STDOUT_FILENO, line, n);
+
+		fflush(stdout);
+		error("linking stage failed");
+	}
+
+	pclose(proc);
 	free(input);
 }
 

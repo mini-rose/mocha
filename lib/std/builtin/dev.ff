@@ -1,8 +1,0 @@
-/* std.builtin.dev - language developer toolkit
-   Copyright (c) 2023 mini-rose */
-
-__builtin_decl("cf_devprintint", null, i32)
-
-fn print_num(num: i32) {
-	cf_devprintint(num)
-}
