@@ -123,8 +123,7 @@ token_list *tokens(file_t *source)
 			char *q = strstr(p + 2, "*/");
 
 			if (!q)
-				error_at(f->content, p,
-					 "Unterminated comment.");
+				error_at(f, p, 1, "Unterminated comment.");
 
 			p += q - p + 2;
 			continue;
@@ -152,7 +151,7 @@ token_list *tokens(file_t *source)
 			char *q = strend(p++);
 
 			if (!q)
-				error_at(f->content, p - 1,
+				error_at(f, p - 1, 1,
 					 "Unterminated quoted string.");
 
 			tok = token_new(last = T_STRING, p, q - p);

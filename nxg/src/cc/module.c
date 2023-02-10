@@ -85,13 +85,13 @@ void add_candidate(fn_candidates_t *resolved, fn_expr_t *ptr)
 {
 	/* Check if it's already in the list */
 	for (int i = 0; i < resolved->n_candidates; i++) {
-		if (resolved->candidate[i] == ptr)
+		if (fn_sigcmp(resolved->candidate[i], ptr))
 			return;
 	}
 
 	resolved->candidate =
 	    realloc(resolved->candidate,
-		    sizeof(fn_expr_t *) + (resolved->n_candidates + 1));
+		    sizeof(fn_expr_t *) * (resolved->n_candidates + 1));
 	resolved->candidate[resolved->n_candidates++] = ptr;
 }
 

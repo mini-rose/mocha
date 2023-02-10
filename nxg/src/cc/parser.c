@@ -154,6 +154,21 @@ static expr_t *expr_add_child(expr_t *parent)
 	return node;
 }
 
+bool fn_sigcmp(fn_expr_t *first, fn_expr_t *other)
+{
+	if (strcmp(first->name, other->name))
+		return false;
+	if (first->n_params != other->n_params)
+		return false;
+
+	for (int i = 0; i < first->n_params; i++) {
+		if (!type_cmp(first->params[i]->type, other->params[i]->type))
+			return false;
+	}
+
+	return true;
+}
+
 void fn_add_param(fn_expr_t *fn, const char *name, int len, type_t *type)
 {
 	fn->params =
@@ -332,7 +347,7 @@ static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 			node->literal->type = type_new_plain(PT_F32);
 			node->literal->v_f32 = strtof(tmp, NULL);
 		} else {
-			error_at(tokens->source->content, tok->value,
+			error_at(tokens->source, tok->value, tok->len,
 				 "cannot parse this number");
 		}
 
@@ -348,7 +363,7 @@ static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 		return;
 	}
 
-	error_at(tokens->source->content, tok->value,
+	error_at(tokens->source, tok->value, tok->len,
 		 "unparsable literal `%.*s`", tok->len, tok->value);
 }
 
@@ -356,9 +371,8 @@ static void parse_reference(value_expr_t *node, expr_t *context,
 			    token_list *tokens, token *tok)
 {
 	if (!node_has_named_local(context, tok->value, tok->len)) {
-		error_at(tokens->source->content, tok->value,
-			 "use of undeclared variable: `%.*s`", tok->len,
-			 tok->value);
+		error_at(tokens->source, tok->value, tok->len,
+			 "use of undeclared variable");
 	}
 
 	node->type = VE_REF;
@@ -382,7 +396,7 @@ static type_t *parse_type(token_list *tokens, token *tok)
 	}
 
 	if (tok->type == T_IDENT) {
-		error_at(tokens->source->content, tok->value,
+		error_at(tokens->source, tok->value, tok->len,
 			 "object types are not yet implemented");
 	}
 
@@ -397,7 +411,7 @@ static type_t *parse_type(token_list *tokens, token *tok)
 		tok = next_tok(tokens);
 
 		if (tok->type != T_NUMBER) {
-			error_at(tokens->source->content, tok->value,
+			error_at(tokens->source, tok->value, tok->len,
 				 "missing array size");
 		}
 
@@ -408,7 +422,7 @@ static type_t *parse_type(token_list *tokens, token *tok)
 
 		tok = next_tok(tokens);
 		if (!TOK_IS(tok, T_PUNCT, "]")) {
-			error_at(tokens->source->content, tok->value,
+			error_at(tokens->source, tok->value, tok->len,
 				 "expected closing bracket `]`");
 		}
 
@@ -458,7 +472,7 @@ static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens)
 			break;
 
 		if (!TOK_IS(arg, T_PUNCT, ",")) {
-			error_at(tokens->source->content, arg->value,
+			error_at(tokens->source, arg->value, arg->len,
 				 "expected comma between arguments, got `%.*s`",
 				 arg->len, arg->value);
 		}
@@ -484,7 +498,7 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 		arg = next_tok(tokens);
 		arg = next_tok(tokens);
 		if (arg->type != T_STRING) {
-			error_at(tokens->source->content, arg->value,
+			error_at(tokens->source, arg->value, arg->len,
 				 "first argument to __builtin_decl must be a "
 				 "string with the function name");
 		}
@@ -493,14 +507,14 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 
 		arg = next_tok(tokens);
 		if (!TOK_IS(arg, T_PUNCT, ",")) {
-			error_at(tokens->source->content, arg->value,
+			error_at(tokens->source, arg->value, arg->len,
 				 "missing return type argument");
 		}
 
 		/* return type */
 		arg = next_tok(tokens);
 		if (arg->type != T_DATATYPE) {
-			error_at(tokens->source->content, arg->value,
+			error_at(tokens->source, arg->value, arg->len,
 				 "second argument to __builtin_decl is "
 				 "expected to be the return type");
 		}
@@ -512,7 +526,7 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 			return ERR_WAS_BUILTIN;
 
 		if (!TOK_IS(arg, T_PUNCT, ",")) {
-			error_at(tokens->source->content, arg->value,
+			error_at(tokens->source, arg->value, arg->len,
 				 "expected comma between arguments, got `%.*s`",
 				 arg->len, arg->value);
 		}
@@ -521,7 +535,7 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 
 		return ERR_WAS_BUILTIN;
 	} else {
-		error_at(tokens->source->content, tok->value,
+		error_at(tokens->source, tok->value, tok->len,
 			 "this builtin call is not yet implemented");
 	}
 
@@ -533,12 +547,16 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 {
 	value_expr_t *arg;
 	token *fn_name_tok;
+	token **arg_tokens;
+	int n_arg_tokens;
 
 	if (is_builtin_function(tok))
 		return parse_builtin_call(parent, mod, tokens, tok);
 
 	data->name = strndup(tok->value, tok->len);
 	fn_name_tok = tok;
+	arg_tokens = NULL;
+	n_arg_tokens = 0;
 
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
@@ -554,8 +572,8 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 				arg->type = VE_PTR;
 				tok = next_tok(tokens);
 				if (tok->type != T_IDENT) {
-					error_at(tokens->source->content,
-						 tok->value,
+					error_at(tokens->source, tok->value,
+						 tok->len,
 						 "expected variable name after "
 						 "reference marker");
 				}
@@ -565,22 +583,24 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 				arg->type = VE_DEREF;
 				tok = next_tok(tokens);
 				if (tok->type != T_IDENT) {
-					error_at(tokens->source->content,
-						 tok->value,
+					error_at(tokens->source, tok->value,
+						 tok->len,
 						 "expected variable name after "
 						 "dereference marker");
 				}
 			}
 
 			arg->name = strndup(tok->value, tok->len);
+			arg_tokens = realloc(
+			    arg_tokens, sizeof(token *) * (n_arg_tokens + 1));
+			arg_tokens[n_arg_tokens++] = tok;
 
 			var_decl_expr_t *var;
 
 			var = node_resolve_local(parent, arg->name, 0);
 			if (!var) {
-				error_at(tokens->source->content, tok->value,
-					 "use of undeclared variable: `%.*s`",
-					 tok->len, tok->value);
+				error_at(tokens->source, tok->value, tok->len,
+					 "use of undeclared variable");
 			}
 
 			/* if we have a reference marker (&x), then the return
@@ -596,7 +616,7 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			arg = call_add_arg(data);
 			parse_literal(arg, tokens, tok);
 		} else {
-			error_at(tokens->source->content, tok->value,
+			error_at(tokens->source, tok->value, tok->len,
 				 "expected value or variable name, got "
 				 "`%.*s`",
 				 tok->len, tok->value);
@@ -608,7 +628,7 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			break;
 
 		if (!TOK_IS(tok, T_PUNCT, ",")) {
-			error_at(tokens->source->content, tok->value,
+			error_at(tokens->source, tok->value, tok->len,
 				 "expected comma seperating the "
 				 "arguments, got "
 				 "`%.*s`",
@@ -621,7 +641,7 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	fn_candidates_t *resolved = module_find_fn_candidates(mod, data->name);
 
 	if (!resolved->n_candidates) {
-		error_at(tokens->source->content, fn_name_tok->value,
+		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
 			 "no function named `%s` found", data->name);
 	}
 
@@ -652,7 +672,7 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 		free(resolved->candidate);
 		free(resolved);
-		return ERR_OK;
+		goto end;
 	}
 
 	fprintf(stderr,
@@ -667,9 +687,43 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 	fputc('\n', stderr);
 
-	error_at(tokens->source->content, fn_name_tok->value,
-		 "could not find matching overload for `%s`", data->name);
+	/* Find if something is supposed to take a reference. */
+	for (int i = 0; i < resolved->n_candidates; i++) {
+		fn_expr_t *match = resolved->candidate[i];
+		if (match->n_params < data->n_args)
+			continue;
 
+		for (int j = 0; j < match->n_params; j++) {
+			if (match->params[j]->type->type != TY_POINTER)
+				continue;
+			if (data->args[j]->type != VE_REF)
+				continue;
+
+			if (!type_cmp(match->params[j]->type->v_base,
+				      data->args[j]->return_type)) {
+				continue;
+			}
+
+			char *fix;
+			fix = calloc(64, 1);
+			snprintf(fix, 64, "&%.*s", arg_tokens[j]->len,
+				 arg_tokens[j]->value);
+
+			error_at_with_fix(tokens->source, arg_tokens[j]->value,
+					  arg_tokens[j]->len, fix,
+					  "%s takes a %s here, did you mean to "
+					  "pass a reference?",
+					  data->name,
+					  type_name(match->params[j]->type),
+					  data->args[j]->name);
+		}
+	}
+
+	error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
+		 "could not find a matching overload");
+
+end:
+	free(arg_tokens);
 	return ERR_OK;
 }
 
@@ -737,12 +791,12 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	after_right = index_tok(tokens, tokens->iter + 2);
 
 	if (op->type != T_OPERATOR) {
-		error_at(tokens->source->content, op->value,
+		error_at(tokens->source, op->value, op->len,
 			 "expected operator, got `%.*s`", op->len, op->value);
 	}
 
 	if (!is_single_value(tokens, right)) {
-		error_at(tokens->source->content, right->value,
+		error_at(tokens->source, right->value, op->len,
 			 "expected some value, got `%.*s`", right->len,
 			 right->value);
 	}
@@ -756,7 +810,7 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 		node->left = calloc(1, sizeof(*node->left));
 		if (parse_single_value(context, mod, node->left, tokens,
 				       left)) {
-			error_at(tokens->source->content, left->value,
+			error_at(tokens->source, left->value, op->len,
 				 "syntax error when parsing value");
 		}
 		next_tok(tokens);
@@ -870,7 +924,7 @@ static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens,
 	expr_t *node;
 
 	if (node_has_named_local(parent, tok->value, tok->len)) {
-		error_at(tokens->source->content, tok->value,
+		error_at(tokens->source, tok->value, tok->len,
 			 "a variable named `%.*s` already has been "
 			 "declared in "
 			 "this scope",
@@ -920,7 +974,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 		parse_var_decl(parent, fn, tokens, tok);
 	} else if (!node_has_named_local(parent, name->value, name->len)) {
 		if (deref) {
-			error_at(tokens->source->content, name->value,
+			error_at(tokens->source, name->value, name->len,
 				 "use of an undeclared variable");
 		}
 		guess_type = true;
@@ -957,7 +1011,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 
 	if (deref) {
 		if (local->type->type != TY_POINTER) {
-			error_at(tokens->source->content, name->value,
+			error_at(tokens->source, name->value, name->len,
 				 "cannot dereference a non-pointer type");
 		}
 
@@ -976,7 +1030,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	}
 
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
-		error_at(tokens->source->content, name->value,
+		error_at(tokens->source, name->value, name->len,
 			 "mismatched types in assignment: left is `%s` and "
 			 "right is `%s`",
 			 type_name(data->to->return_type),
@@ -1011,14 +1065,14 @@ static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 
 	tok = next_tok(tokens);
 	if (tok->type == T_NEWLINE && return_type->type != TY_NULL) {
-		error_at(tokens->source->content, tok->value,
+		error_at(tokens->source, tok->value, tok->len,
 			 "missing return value for function that "
 			 "returns `%s`",
 			 type_name(return_type));
 	}
 
 	if (tok->type != T_NEWLINE && return_type->type == TY_NULL) {
-		error_at(tokens->source->content, tok->value,
+		error_at(tokens->source, tok->value, tok->len,
 			 "cannot return a value from a function "
 			 "returning null");
 	}
@@ -1035,7 +1089,7 @@ static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 	data = node->data;
 
 	if (!type_cmp(data->return_type, E_AS_FN(parent->data)->return_type)) {
-		error_at(tokens->source->content, tok->value,
+		error_at(tokens->source, tok->value, tok->len,
 			 "mismatched return type: expression returns "
 			 "%s, while "
 			 "the function returns %s",
@@ -1078,7 +1132,7 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 
 	/* name */
 	if (tok->type != T_IDENT) {
-		error_at(tokens->source->content, tok->value,
+		error_at(tokens->source, tok->value, tok->len,
 			 "expected function name, got %s", tokname(tok->type));
 	}
 
@@ -1096,18 +1150,46 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 		type_t *type;
 		token *name;
 
-		if (tok->type == T_DATATYPE) {
-			error_at(
-			    tokens->source->content, tok->value,
-			    "the parameter name comes first - the type "
-			    "is located after a colon like this: `%s: %.*s`",
-			    type_example_varname(
-				type_from_sized_string(tok->value, tok->len)),
-			    tok->len, tok->value);
+		if (tok->type == T_DATATYPE || TOK_IS(tok, T_PUNCT, "&")) {
+			char fix[128];
+			int errlen;
+			type = parse_type(tokens, tok);
+			name = index_tok(tokens, tokens->iter);
+			errlen = tok->len;
+
+			snprintf(fix, 128, "%.*s: %s", name->len, name->value,
+				 type_name(type));
+
+			if (name->type != T_IDENT) {
+				snprintf(fix, 128, "%s: %s",
+					 type_example_varname(type),
+					 type_name(type));
+			}
+
+			if (TOK_IS(tok, T_PUNCT, "&"))
+				errlen +=
+				    index_tok(tokens, tokens->iter - 1)->len;
+
+			error_at_with_fix(
+			    tokens->source, tok->value, errlen, fix,
+			    "the parameter name comes first, not the type");
 		}
 
 		if (tok->type != T_IDENT) {
-			error_at(tokens->source->content, tok->value,
+			char fix[128];
+			name = index_tok(tokens, tokens->iter + 1);
+			type = parse_type(tokens, tok);
+
+			snprintf(fix, 128, "%.*s: %s", name->len, name->value,
+				 type_name(type));
+
+			if (TOK_IS(tok, T_PUNCT, "&")) {
+				error_at(tokens->source, tok->value, tok->len,
+					 "the address marker should be next to "
+					 "the type, not the variable name");
+			}
+
+			error_at(tokens->source, tok->value, tok->len,
 				 "missing parameter name");
 		}
 
@@ -1115,11 +1197,12 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 		tok = next_tok(tokens);
 
 		if (!TOK_IS(tok, T_PUNCT, ":")) {
-			error_at(tokens->source->content, name->value,
-				 "the `%.*s` parameter is missing a type, try "
-				 "`%.*s: i32`",
-				 name->len, name->value, name->len,
-				 name->value);
+			char fix[64];
+			snprintf(fix, 64, "%.*s: T", name->len, name->value);
+			error_at_with_fix(
+			    tokens->source, name->value, name->len, fix,
+			    "the `%.*s` parameter is missing a type", name->len,
+			    name->value);
 		}
 
 		tok = next_tok(tokens);
@@ -1130,9 +1213,8 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 		tok = next_tok(tokens);
 
 		if (!TOK_IS(tok, T_PUNCT, ",") && !TOK_IS(tok, T_PUNCT, ")")) {
-			error_at(tokens->source->content, tok->value,
-				 "unexpected token, this should be either a "
-				 "comma `,` or a closing parenthesis `)`");
+			error_at_with_fix(tokens->source, tok->value, tok->len,
+					  ", or )", "unexpected token");
 		}
 
 		fn_add_param(decl, name->value, name->len, type);
@@ -1151,7 +1233,7 @@ params_skip:
 		tok = next_tok(tokens);
 
 		if (tok->type != T_DATATYPE) {
-			error_at(tokens->source->content, tok->value,
+			error_at(tokens->source, tok->value, tok->len,
 				 "expected return type, got `%.*s`", tok->len,
 				 tok->value);
 		}
@@ -1166,14 +1248,14 @@ params_skip:
 
 	if (!strcmp(decl->name, "main")) {
 		if (decl->n_params) {
-			error_at(tokens->source->content, name->value,
+			error_at(tokens->source, name->value, name->len,
 				 "the main function does not take any "
 				 "arguments");
 		}
 
 		if (decl->return_type->type != TY_NULL) {
-			error_at(tokens->source->content,
-				 return_type_tok->value,
+			error_at(tokens->source, return_type_tok->value,
+				 return_type_tok->len,
 				 "the main function cannot return `%.*s`, as "
 				 "it always returns `null`",
 				 return_type_tok->len, return_type_tok->value);
@@ -1206,7 +1288,7 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 		tok = next_tok(tokens);
 
 	if (!TOK_IS(tok, T_PUNCT, "{")) {
-		error_at(tokens->source->content, tok->value,
+		error_at(tokens->source, tok->value, tok->len,
 			 "missing opening brace for `%s`", decl->name);
 		return ERR_SYNTAX;
 	}
@@ -1217,10 +1299,10 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 
 		if (tok->type == T_END) {
 			if (brace_level == 1)
-				error_at(tokens->source->content, tok->value,
+				error_at(tokens->source, tok->value, tok->len,
 					 "missing a closing brace");
 			else
-				error_at(tokens->source->content, tok->value,
+				error_at(tokens->source, tok->value, tok->len,
 					 "missing %d closing braces",
 					 brace_level);
 		}
@@ -1249,14 +1331,14 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 		} else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, module, tokens, tok);
 		else
-			error_at(tokens->source->content, tok->value,
+			error_at(tokens->source, tok->value, tok->len,
 				 "unparsable");
 	}
 
 	/* always add a return statement */
 	if (!fn_has_return(node)) {
 		if (decl->return_type->type != TY_NULL) {
-			error_at(tokens->source->content, tok->value,
+			error_at(tokens->source, tok->value, tok->len,
 				 "missing return statement for %s", decl->name);
 		}
 
@@ -1303,7 +1385,7 @@ static void parse_use(expr_t *module, token_list *tokens, token *tok)
 
 	tok = next_tok(tokens);
 	if (tok->type != T_STRING) {
-		error_at(tokens->source->content, tok->value,
+		error_at(tokens->source, tok->value, tok->len,
 			 "expected path to module, got `%s`",
 			 tokname(tok->type));
 	}
@@ -1318,7 +1400,6 @@ expr_t *parse(token_list *tokens, const char *module_id)
 	token *current = next_tok(tokens);
 	expr_t *module = calloc(sizeof(*module), 1);
 	mod_expr_t *data;
-	char *content = tokens->source->content;
 
 	fn_pos_t *fn_pos;
 	int n_fn_pos;
@@ -1361,7 +1442,7 @@ expr_t *parse(token_list *tokens, const char *module_id)
 			parse_builtin_call(module, module, tokens, current);
 		} else {
 			error_at(
-			    content, current->value,
+			    tokens->source, current->value, current->len,
 			    "only functions and imports are allowed at the "
 			    "top-level");
 			goto err;

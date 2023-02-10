@@ -75,8 +75,7 @@ void buildfile(settings_t *settings)
 			char *q = strstr(p + 2, "*/");
 
 			if (!q)
-				error_at(f->content, p,
-					 "Unterminated comment.");
+				error_at(f, p, 1, "Unterminated comment.");
 
 			p += q - p + 2;
 			continue;
