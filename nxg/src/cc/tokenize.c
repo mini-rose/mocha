@@ -204,9 +204,9 @@ token_list *tokens(file_t *source)
 		if (ispunct(*p)) {
 			token *tok;
 
-			static char *operators[] = {"=",  "==", "!=", "+",  "-",
-						    "--", "++", "-=", "+=", "/",
-						    "%",  "/=", "%=", "*"};
+			static char *operators[] = {
+			    "=", "==", "!=", "+=", "->", "--", "++", "-=",
+			    "+", "/",  "%",  "/=", "%=", "*",  "-"};
 
 			for (int i = 0;
 			     i < LEN(operators); i++) {

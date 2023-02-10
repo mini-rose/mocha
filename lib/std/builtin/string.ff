@@ -10,7 +10,7 @@ __builtin_decl("cf_stralloc", null, &str, &i8, i64)
 __builtin_decl("cf_strcopy", null, &str, &str)
 __builtin_decl("cf_strfree", null, &str)
 
-fn strlen(string: &str): i64 {
+fn strlen(string: &str) -> i64 {
 	__builtin_decl("cf_strlen", i64, &str)
 	ret cf_strlen(string)
 }

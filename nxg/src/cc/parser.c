@@ -610,11 +610,21 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	while (!TOK_IS(tok, T_PUNCT, ")")) {
 		if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")
 		    || TOK_IS(tok, T_OPERATOR, "*")) {
+
 			arg = call_add_arg(data);
 			arg->type = VE_REF;
+
 			if (TOK_IS(tok, T_PUNCT, "&")) {
 				arg->type = VE_PTR;
 				tok = next_tok(tokens);
+
+				if (is_literal(tok)) {
+					error_at(
+					    tokens->source, tok->value,
+					    tok->len,
+					    "cannot take address of literal");
+				}
+
 				if (tok->type != T_IDENT) {
 					error_at(tokens->source, tok->value,
 						 tok->len,
@@ -1235,7 +1245,7 @@ static bool fn_has_return(expr_t *func)
 }
 
 /**
- * fn name([arg: type], ...)[: return_type]
+ * fn name([arg: type], ...)[-> return_type]
  */
 static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 				token_list *tokens, token *tok)
@@ -1347,7 +1357,7 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 	return_type_tok = NULL;
 
 params_skip:
-	if (TOK_IS(tok, T_PUNCT, ":")) {
+	if (TOK_IS(tok, T_OPERATOR, "->")) {
 		tok = next_tok(tokens);
 
 		if (tok->type != T_DATATYPE) {
@@ -1444,10 +1454,13 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 			parse_assign(node, module, decl, tokens, tok);
 		else if (is_var_decl(tokens, tok))
 			parse_var_decl(node, decl, tokens, tok);
-		else if (is_call(tokens, tok)) {
+		else if (is_call(tokens, tok))
 			parse_call(node, module, tokens, tok);
-		} else if (TOK_IS(tok, T_KEYWORD, "ret"))
+		else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, module, tokens, tok);
+		else if (TOK_IS(tok, T_IDENT, "return"))
+			error_at_with_fix(tokens->source, tok->value, tok->len,
+					  "ret", "did you mean `ret`?");
 		else
 			error_at(tokens->source, tok->value, tok->len,
 				 "unparsable");
