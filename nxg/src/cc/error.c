@@ -24,7 +24,7 @@ void error(const char *format, ...)
 	vfprintf(stderr, format, ap);
 	fputc('\n', stderr);
 	va_end(ap);
-	exit(1);
+	exit(0);
 }
 
 static void indent(int tabs, int spaces)
@@ -100,7 +100,7 @@ noreturn static void error_at_impl(file_t *source, const char *pos, int len,
 	fputs("\e[0m\n", stderr);
 
 	va_end(ap);
-	exit(1);
+	exit(0);
 }
 
 noreturn void error_at(file_t *source, const char *pos, int len,

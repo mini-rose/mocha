@@ -264,14 +264,47 @@ static bool is_reference(token *tok)
 	return tok->type == T_IDENT;
 }
 
+/**
+ * dereference ::= *ident
+ */
+static bool is_dereference(token_list *tokens, token *tok)
+{
+	if (!TOK_IS(tok, T_OPERATOR, "*") && !TOK_IS(tok, T_PUNCT, "*"))
+		return false;
+
+	tok = index_tok(tokens, tokens->iter);
+	if (tok->type == T_IDENT)
+		return true;
+
+	return false;
+}
+
+/**
+ * pointer-to ::= &ident
+ */
+static bool is_pointer_to(token_list *tokens, token *tok)
+{
+	if (!TOK_IS(tok, T_PUNCT, "&"))
+		return false;
+
+	tok = index_tok(tokens, tokens->iter);
+	if (tok->type == T_IDENT)
+		return true;
+
+	return false;
+}
+
 /*
  * value ::= literal
  *       ::= ident
  *       ::= call
+ *       ::= dereference
+ *       ::= pointer-to
  */
 static bool is_single_value(token_list *tokens, token *tok)
 {
-	return is_literal(tok) || is_reference(tok) || is_call(tokens, tok);
+	return is_literal(tok) || is_reference(tok) || is_call(tokens, tok)
+	    || is_dereference(tokens, tok) || is_pointer_to(tokens, tok);
 }
 
 static bool is_integer(token *tok)
@@ -472,9 +505,10 @@ static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens)
 			break;
 
 		if (!TOK_IS(arg, T_PUNCT, ",")) {
-			error_at(tokens->source, arg->value, arg->len,
-				 "expected comma between arguments, got `%.*s`",
-				 arg->len, arg->value);
+			error_at_with_fix(tokens->source, arg->value, arg->len,
+					  ",",
+					  "expected comma between arguments",
+					  arg->len, arg->value);
 		}
 	}
 }
@@ -526,9 +560,9 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 			return ERR_WAS_BUILTIN;
 
 		if (!TOK_IS(arg, T_PUNCT, ",")) {
-			error_at(tokens->source, arg->value, arg->len,
-				 "expected comma between arguments, got `%.*s`",
-				 arg->len, arg->value);
+			error_at_with_fix(tokens->source, arg->value, arg->len,
+					  ",",
+					  "expected comma between arguments");
 		}
 
 		collect_builtin_decl_arguments(decl, tokens);
@@ -542,26 +576,36 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 	return ERR_OK;
 }
 
+typedef struct
+{
+	token **tokens;
+	int n_tokens;
+} arg_tokens_t;
+
+static void add_arg_token(arg_tokens_t *tokens, token *tok)
+{
+	tokens->tokens =
+	    realloc(tokens->tokens, sizeof(token *) * (tokens->n_tokens + 1));
+	tokens->tokens[tokens->n_tokens++] = tok;
+}
+
 static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			       token_list *tokens, token *tok)
 {
-	value_expr_t *arg;
+	arg_tokens_t arg_tokens = {0};
 	token *fn_name_tok;
-	token **arg_tokens;
-	int n_arg_tokens;
+	value_expr_t *arg;
 
 	if (is_builtin_function(tok))
 		return parse_builtin_call(parent, mod, tokens, tok);
 
 	data->name = strndup(tok->value, tok->len);
 	fn_name_tok = tok;
-	arg_tokens = NULL;
-	n_arg_tokens = 0;
 
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
 
-	/* arguments - currently only support variable names & literals
+	/* Arguments - currently only support variable names & literals
 	 */
 	while (!TOK_IS(tok, T_PUNCT, ")")) {
 		if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")
@@ -591,9 +635,7 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			}
 
 			arg->name = strndup(tok->value, tok->len);
-			arg_tokens = realloc(
-			    arg_tokens, sizeof(token *) * (n_arg_tokens + 1));
-			arg_tokens[n_arg_tokens++] = tok;
+			add_arg_token(&arg_tokens, tok);
 
 			var_decl_expr_t *var;
 
@@ -614,6 +656,7 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 		} else if (is_literal(tok)) {
 			arg = call_add_arg(data);
+			add_arg_token(&arg_tokens, tok);
 			parse_literal(arg, tokens, tok);
 		} else {
 			error_at(tokens->source, tok->value, tok->len,
@@ -628,11 +671,9 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			break;
 
 		if (!TOK_IS(tok, T_PUNCT, ",")) {
-			error_at(tokens->source, tok->value, tok->len,
-				 "expected comma seperating the "
-				 "arguments, got "
-				 "`%.*s`",
-				 tok->len, tok->value);
+			error_at_with_fix(
+			    tokens->source, tok->value, tok->len, ",",
+			    "expected comma seperating the arguments");
 		}
 
 		tok = next_tok(tokens);
@@ -676,8 +717,8 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	}
 
 	fprintf(stderr,
-		"Found \e[92m%d\e[0m potential candidates, but \e[91mnone\e[0m "
-		"of them match:\n",
+		"\e[1;91moverload mismatch\e[0m, found \e[92m%d\e[0m potential "
+		"candidate(s), but none of them match:\n",
 		resolved->n_candidates);
 	for (int i = 0; i < resolved->n_candidates; i++) {
 		char *sig = fn_str_signature(resolved->candidate[i], true);
@@ -687,13 +728,24 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 	fputc('\n', stderr);
 
+	int max_params, min_params;
+
+	max_params = 0;
+	min_params = 0xffff;
+
 	/* Find if something is supposed to take a reference. */
 	for (int i = 0; i < resolved->n_candidates; i++) {
 		fn_expr_t *match = resolved->candidate[i];
+
+		if (match->n_params > max_params)
+			max_params = match->n_params;
+		if (match->n_params < min_params)
+			min_params = match->n_params;
+
 		if (match->n_params < data->n_args)
 			continue;
 
-		for (int j = 0; j < match->n_params; j++) {
+		for (int j = 0; j < data->n_args; j++) {
 			if (match->params[j]->type->type != TY_POINTER)
 				continue;
 			if (data->args[j]->type != VE_REF)
@@ -706,24 +758,54 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 			char *fix;
 			fix = calloc(64, 1);
-			snprintf(fix, 64, "&%.*s", arg_tokens[j]->len,
-				 arg_tokens[j]->value);
+			snprintf(fix, 64, "&%.*s", arg_tokens.tokens[j]->len,
+				 arg_tokens.tokens[j]->value);
 
-			error_at_with_fix(tokens->source, arg_tokens[j]->value,
-					  arg_tokens[j]->len, fix,
-					  "%s takes a %s here, did you mean to "
-					  "pass a reference?",
-					  data->name,
-					  type_name(match->params[j]->type),
-					  data->args[j]->name);
+			error_at_with_fix(
+			    tokens->source, arg_tokens.tokens[j]->value,
+			    arg_tokens.tokens[j]->len, fix,
+			    "%s takes a `%s` here, did you mean to "
+			    "pass a reference?",
+			    data->name, type_name(match->params[j]->type),
+			    data->args[j]->name);
 		}
 	}
 
+	/* If there is only one candidate, tell the user about matching types */
+	if (resolved->n_candidates == 1) {
+		fn_expr_t *match = resolved->candidate[0];
+		int to_match = data->n_args < match->n_params ? data->n_args
+							      : match->n_params;
+
+		for (int i = 0; i < to_match; i++) {
+			if (type_cmp(match->params[i]->type,
+				     data->args[i]->return_type)) {
+				continue;
+			}
+
+			error_at(tokens->source, arg_tokens.tokens[i]->value,
+				 arg_tokens.tokens[i]->len,
+				 "mismatched type, expected `%s` but got `%s`",
+				 type_name(match->params[i]->type),
+				 type_name(data->args[i]->return_type));
+		}
+	}
+
+	char more_info[128] = "";
+
+	if (max_params < data->n_args) {
+		snprintf(more_info, 128, ", `%s` takes at most %d parameters",
+			 data->name, max_params);
+	} else if (min_params > data->n_args) {
+		snprintf(more_info, 128, ", `%s` takes at least %d parameters",
+			 data->name, min_params);
+	}
+
 	error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
-		 "could not find a matching overload");
+		 "could not find a matching overload%s", more_info);
 
 end:
-	free(arg_tokens);
+	free(arg_tokens.tokens);
 	return ERR_OK;
 }
 
@@ -755,6 +837,8 @@ static err_t parse_single_value(expr_t *context, expr_t *mod,
 				value_expr_t *node, token_list *tokens,
 				token *tok)
 {
+	type_t *temp_type;
+
 	/* literal */
 	if (is_literal(tok)) {
 		parse_literal(node, tokens, tok);
@@ -776,7 +860,38 @@ static err_t parse_single_value(expr_t *context, expr_t *mod,
 		return ERR_OK;
 	}
 
+	/* dereference */
+	if (is_dereference(tokens, tok)) {
+		tok = next_tok(tokens);
+		parse_reference(node, context, tokens, tok);
+		node->type = VE_DEREF;
+		temp_type = node->return_type;
+		node->return_type = type_copy(node->return_type->v_base);
+		type_destroy(temp_type);
+		return ERR_OK;
+	}
+
+	/* pointer-to */
+	if (is_pointer_to(tokens, tok)) {
+		tok = next_tok(tokens);
+		parse_reference(node, context, tokens, tok);
+		node->type = VE_PTR;
+		temp_type = node->return_type;
+		node->return_type = type_pointer_of(node->return_type);
+		type_destroy(temp_type);
+		return ERR_OK;
+	}
+
 	return ERR_SYNTAX;
+}
+
+static int twoside_find_op(token_list *tokens, token *tok)
+{
+	int offset = 0;
+
+	while (tok->type != T_OPERATOR)
+		tok = index_tok(tokens, tokens->iter + offset++);
+	return tokens->iter + (offset - 1);
 }
 
 static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
@@ -786,8 +901,8 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	token *left, *op, *right, *after_right;
 
 	left = tok;
-	op = index_tok(tokens, tokens->iter);
-	right = index_tok(tokens, tokens->iter + 1);
+	op = index_tok(tokens, twoside_find_op(tokens, tok));
+	right = index_tok(tokens, twoside_find_op(tokens, tok) + 1);
 	after_right = index_tok(tokens, tokens->iter + 2);
 
 	if (op->type != T_OPERATOR) {
@@ -847,6 +962,8 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
  * value     ::= literal
  *           ::= reference
  *           ::= call
+ *           ::= dereference
+ *           ::= pointer-to
  *           ::= value op value
  *           ::= op value
  *
@@ -856,8 +973,9 @@ static value_expr_t *parse_value_expr(expr_t *context, expr_t *mod,
 				      value_expr_t *node, token_list *tokens,
 				      token *tok)
 {
-	/* literal | reference | call */
-	if (((is_literal(tok) || is_reference(tok))
+	/* literal | reference | call | dereference | pointer-to */
+	if (((is_literal(tok) || is_reference(tok) || is_pointer_to(tokens, tok)
+	      || is_dereference(tokens, tok))
 	     && index_tok(tokens, tokens->iter)->type == T_NEWLINE)
 	    || is_call(tokens, tok)) {
 		parse_single_value(context, mod, node, tokens, tok);
@@ -872,7 +990,7 @@ static value_expr_t *parse_value_expr(expr_t *context, expr_t *mod,
 						tok);
 	}
 
-	/* TODO: op value */
+	error_at(tokens->source, tok->value, tok->len, "failed to parse value");
 	return node;
 }
 
@@ -1073,8 +1191,8 @@ static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 
 	if (tok->type != T_NEWLINE && return_type->type == TY_NULL) {
 		error_at(tokens->source, tok->value, tok->len,
-			 "cannot return a value from a function "
-			 "returning null");
+			 "cannot return value, because `%s` returns null",
+			 E_AS_FN(parent->data)->name);
 	}
 
 	/* return without a value */

@@ -136,6 +136,7 @@ static LLVMValueRef gen_addr(LLVMBuilderRef builder, fn_context_t *context,
 	LLVMValueRef local = fn_find_local(context, name);
 	if (LLVMIsAAllocaInst(local))
 		return local;
+	error("emit: gen_addr for non-alloca var");
 	return NULL;
 }
 
@@ -143,6 +144,19 @@ static LLVMValueRef gen_deref(LLVMBuilderRef builder, fn_context_t *context,
 			      const char *name, LLVMTypeRef deref_to)
 {
 	LLVMValueRef local = fn_find_local(context, name);
+
+	/* If local is a pointer, we need to dereference it twice, because we
+	   alloca the pointer too. */
+	var_decl_expr_t *var = node_resolve_local(context->func, name, 0);
+	if (var->type->type == TY_POINTER) {
+		return LLVMBuildLoad2(
+		    builder, deref_to,
+		    LLVMBuildLoad2(builder,
+				   gen_type(context->llvm_mod, var->type),
+				   local, ""),
+		    "");
+	}
+
 	return LLVMBuildLoad2(builder, deref_to, local, "");
 }
 
@@ -213,10 +227,14 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 		return gen_literal_value(builder, context, value->literal);
 	} else if (value->type == VE_CALL) {
 		return emit_call_node(builder, context, value->call);
+	} else if (value->type == VE_DEREF) {
+		return gen_deref(
+		    builder, context, value->name,
+		    gen_type(context->llvm_mod, value->return_type));
 	} else {
 		if (!value->left || !value->right) {
-			error("undefined value: two-side op with only one side "
-			      "defined");
+			error("emit: undefined value: two-side op with only "
+			      "one side defined");
 		}
 
 		LLVMValueRef new, left, right;
@@ -329,6 +347,19 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		      data->to->name);
 	}
 
+	/* If we assign to a dereference, we first need to get the value under
+	   the alloca. */
+	if (data->to->type == VE_DEREF) {
+		type_t *ptr_type = type_pointer_of(data->to->return_type);
+		LLVMValueRef ptr = LLVMBuildLoad2(
+		    builder, gen_type(context->llvm_mod, ptr_type),
+		    gen_addr(builder, context, data->to->name), "");
+		LLVMBuildStore(
+		    builder, gen_new_value(builder, context, data->value), ptr);
+		type_destroy(ptr_type);
+		return;
+	}
+
 	/* Make a temporary for the object we want to store. */
 	LLVMBuildStore(builder, gen_new_value(builder, context, data->value),
 		       gen_addr(builder, context, data->to->name));
@@ -429,13 +460,13 @@ void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 	context.llvm_func = func;
 	context.llvm_mod = mod;
 
-	LLVMBasicBlockRef start_block;
+	LLVMBasicBlockRef args_block, code_block;
 	LLVMBuilderRef builder;
 	expr_t *walker;
 
-	start_block = LLVMAppendBasicBlock(func, "start");
+	args_block = LLVMAppendBasicBlock(func, "args");
 	builder = LLVMCreateBuilder();
-	LLVMPositionBuilderAtEnd(builder, start_block);
+	LLVMPositionBuilderAtEnd(builder, args_block);
 
 	/* We want to move all arguments into alloca values.  */
 	fn_expr_t *data = fn->data;
@@ -446,11 +477,19 @@ void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 		fn_context_add_local(&context, arg, data->params[i]->name);
 	}
 
+	code_block = LLVMAppendBasicBlock(func, "code");
+	LLVMBuildBr(builder, code_block);
+
+	LLVMPositionBuilderAtEnd(builder, code_block);
+
 	walker = fn->child;
 	while (walker) {
 		emit_node(builder, &context, walker);
 		walker = walker->next;
 	}
+
+	if (!data->n_params)
+		LLVMDeleteBasicBlock(args_block);
 
 	if (LLVMVerifyFunction(func, LLVMPrintMessageAction)) {
 		error("something is wrong with the emitted `%s` function",
