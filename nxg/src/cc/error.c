@@ -52,10 +52,14 @@ void error_at(const char *content, const char *pos, const char *format, ...)
 	while (*end && *end != '\n')
 		end++;
 
-	fprintf(stderr, "%i\t%.*s\n \t%*c%*c\e[33m^ \e[31m", line,
-		(int) (end - start), start, tabs, '\t',
-		(int) (pos - start) - tabs, ' ');
+	fprintf(stderr, "%i\t%.*s\n\t", line, (int) (end - start), start);
 
+	for (int i = 0; i < tabs; i++)
+		fputc('\t', stderr);
+	for (int i = 0; i < (pos - start - tabs); i++)
+		fputc(' ', stderr);
+
+	fprintf(stderr, "\e[33m^ \e[31m");
 	vfprintf(stderr, format, ap);
 	fputs("\e[0m\n", stderr);
 
