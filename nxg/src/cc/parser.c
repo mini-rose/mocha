@@ -904,6 +904,8 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	expr_t *node;
 	token *name;
 	bool deref = false;
+	bool guess_type = false;
+	expr_t *guess_decl;
 
 	name = tok;
 
@@ -917,9 +919,20 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	if (is_var_decl(tokens, tok)) {
 		parse_var_decl(parent, fn, tokens, tok);
 	} else if (!node_has_named_local(parent, name->value, name->len)) {
-		error_at(tokens->source->content, name->value,
-			 "use of undeclared variable: `%.*s`", name->len,
-			 name->value);
+		if (deref) {
+			error_at(tokens->source->content, name->value,
+				 "use of an undeclared variable");
+		}
+		guess_type = true;
+	}
+
+	if (guess_type) {
+		guess_decl = expr_add_child(parent);
+		guess_decl->type = E_VARDECL;
+		guess_decl->data = calloc(1, sizeof(*guess_decl->data));
+		guess_decl->data_free = (expr_free_handle) var_decl_expr_free;
+		E_AS_VDECL(guess_decl->data)->name =
+		    strndup(name->value, name->len);
 	}
 
 	node = expr_add_child(parent);
@@ -932,28 +945,35 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	node->data = data;
 	node->data_free = (expr_free_handle) assign_expr_free;
 
-	var_decl_expr_t *local;
-
-	local = node_resolve_local(parent, data->to->name, 0);
-
-	if (deref) {
-		data->to->type = VE_DEREF;
-		if (local->type->type != TY_POINTER) {
-			error_at(tokens->source->content, name->value,
-				 "cannot dereference a non-pointer type");
-		}
-
-		data->to->return_type = type_copy(local->type->v_base);
-	} else {
-		data->to->return_type = type_copy(local->type);
-	}
-
 	/* parse value */
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
 
 	data->value = calloc(1, sizeof(*data->value));
 	data->value = parse_value_expr(parent, mod, data->value, tokens, tok);
+
+	var_decl_expr_t *local;
+	local = node_resolve_local(parent, data->to->name, 0);
+
+	if (deref) {
+		if (local->type->type != TY_POINTER) {
+			error_at(tokens->source->content, name->value,
+				 "cannot dereference a non-pointer type");
+		}
+
+		data->to->return_type = type_copy(local->type->v_base);
+	} else if (guess_type) {
+		data->to->return_type = type_copy(data->value->return_type);
+	} else {
+		data->to->return_type = type_copy(local->type);
+	}
+
+	if (guess_type) {
+		/* If we guessed the var type, declare a new variable. */
+		E_AS_VDECL(guess_decl->data)->type =
+		    type_copy(data->to->return_type);
+		fn_add_local_var(fn, guess_decl->data);
+	}
 
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
 		error_at(tokens->source->content, name->value,
@@ -1444,9 +1464,16 @@ static const char *expr_info(expr_t *expr)
 	case E_ASSIGN:
 		var = E_AS_ASS(expr->data);
 		tmp = type_name(var->value->return_type);
-		value_expr_type_name(var->value->type);
-		marker = var->to->type == VE_LIT ? ' ' : '&';
-		marker = var->to->type == VE_DEREF ? '*' : marker;
+
+		if (var->to->type == VE_LIT || var->to->type == VE_REF)
+			marker = ' ';
+		else if (var->to->type == VE_PTR)
+			marker = '&';
+		else if (var->to->type == VE_DEREF)
+			marker = '*';
+		else
+			marker = '?';
+
 		snprintf(info, 512, "%c%s = (%s) %s", marker, var->to->name,
 			 tmp, value_expr_type_name(var->value->type));
 		break;
