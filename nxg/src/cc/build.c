@@ -48,16 +48,17 @@ static void build_and_link(const char *input_, const char *output,
 	input = strdup(input_);
 	remove_extension(input);
 
-	/* mod.ll -> mod.s */
-	snprintf(cmd, 1024, "/usr/bin/llc -O=2 -o %s.s %s", input, input_);
-	proc = popen(cmd, "r");
+	/* mod.ll -> mod.bc */
+	snprintf(cmd, 1024, "/usr/bin/opt -O3 %s > %s.bc", input_, input);
+	pclose(popen(cmd, "r"));
 
-	pclose(proc);
+	/* mod.bc -> mod.s */
+	snprintf(cmd, 1024, "/usr/bin/llc -o %s.s %s.bc", input, input);
+	pclose(popen(cmd, "r"));
 
 	/* mod.s -> mod.o */
 	snprintf(cmd, 1024, "/usr/bin/as -o %s.o %s.s", input, input);
-	proc = popen(cmd, "r");
-	pclose(proc);
+	pclose(popen(cmd, "r"));
 
 	/* mod.o -> output */
 	snprintf(cmd, 1024,
@@ -99,7 +100,7 @@ char *compile_c_object(char *file)
 	strcpy(output, file);
 	strcat(output, ".o");
 
-	snprintf(cmd, 512, "/usr/bin/clang -c -o %s %s", output, file);
+	snprintf(cmd, 512, "/usr/bin/clang -c -O2 -o %s %s", output, file);
 	pclose(popen(cmd, "r"));
 
 	return output;
