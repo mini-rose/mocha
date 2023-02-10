@@ -32,13 +32,33 @@ static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
 
 static void fn_context_destroy(fn_context_t *context)
 {
-	free(context->locals);
+	for (int i = 0; i < context->n_free_rules; i++) {
+		free(context->free_rules[i]->free_name);
+		free(context->free_rules[i]);
+	}
+
 	for (int i = 0; i < context->n_locals; i++)
 		free(context->local_names[i]);
+
+	free(context->locals);
 	free(context->local_names);
+	free(context->free_rules);
 }
 
-static LLVMTypeRef gen_plain_type(plain_type t)
+static void fn_add_free_rule(fn_context_t *context, free_rule_t *rule)
+{
+	context->free_rules =
+	    realloc(context->free_rules,
+		    sizeof(free_rule_t *) * (context->n_free_rules + 1));
+	context->free_rules[context->n_free_rules++] = rule;
+}
+
+static LLVMTypeRef gen_str_type(LLVMModuleRef mod)
+{
+	return LLVMGetTypeByName2(LLVMGetModuleContext(mod), "str");
+}
+
+static LLVMTypeRef gen_plain_type(LLVMModuleRef mod, plain_type t)
 {
 	switch (t) {
 	case PT_U8:
@@ -63,26 +83,26 @@ static LLVMTypeRef gen_plain_type(plain_type t)
 	case PT_BOOL:
 		return LLVMInt1Type();
 	case PT_STR:
-		error("LLVM str type is not yet implemented");
+		return gen_str_type(mod);
 	default:
 		return LLVMVoidType();
 	}
 }
 
-LLVMTypeRef gen_type(type_t *ty)
+LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty)
 {
 	if (ty->type == TY_PLAIN)
-		return gen_plain_type(ty->v_plain);
+		return gen_plain_type(mod, ty->v_plain);
 	if (ty->type == TY_POINTER)
-		return LLVMPointerType(gen_type(ty->v_base), 0);
+		return LLVMPointerType(gen_type(mod, ty->v_base), 0);
 	if (ty->type == TY_ARRAY)
-		return LLVMArrayType(gen_type(ty->v_base), ty->len);
+		return LLVMArrayType(gen_type(mod, ty->v_base), ty->len);
 	if (ty->type == TY_OBJECT)
 		error("LLVM object type is not yet implemented");
 	return LLVMVoidType();
 }
 
-LLVMTypeRef gen_function_type(fn_expr_t *func)
+LLVMTypeRef gen_function_type(LLVMModuleRef mod, fn_expr_t *func)
 {
 	LLVMTypeRef *param_types;
 	LLVMTypeRef func_type;
@@ -90,10 +110,10 @@ LLVMTypeRef gen_function_type(fn_expr_t *func)
 	param_types = calloc(func->n_params, sizeof(LLVMTypeRef));
 
 	for (int i = 0; i < func->n_params; i++)
-		param_types[i] = gen_type(func->params[i]->type);
+		param_types[i] = gen_type(mod, func->params[i]->type);
 
-	func_type = LLVMFunctionType(gen_type(func->return_type), param_types,
-				     func->n_params, 0);
+	func_type = LLVMFunctionType(gen_type(mod, func->return_type),
+				     param_types, func->n_params, 0);
 	free(param_types);
 
 	return func_type;
@@ -126,11 +146,54 @@ static LLVMValueRef gen_deref(LLVMBuilderRef builder, fn_context_t *context,
 	return LLVMBuildLoad2(builder, deref_to, local, "");
 }
 
-static LLVMValueRef gen_literal_value(literal_expr_t *lit)
+static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
+				      fn_context_t *context,
+				      literal_expr_t *lit)
 {
 	if (lit->type->v_plain == PT_I32)
 		return LLVMConstInt(LLVMInt32Type(), lit->v_i32, false);
 
+	/* cf_stralloc */
+	if (lit->type->v_plain == PT_STR) {
+		LLVMValueRef str;
+		LLVMValueRef func;
+
+		str = LLVMBuildAlloca(builder, gen_str_type(context->llvm_mod),
+				      "");
+		func = LLVMGetNamedFunction(context->llvm_mod, "cf_stralloc");
+		if (!func)
+			error("emit: missing `cf_stralloc` builtin function");
+
+		LLVMValueRef args[3];
+
+		args[0] = str;
+		args[1] = LLVMBuildGlobalStringPtr(builder, lit->v_str.ptr, "");
+		args[2] = LLVMConstInt(LLVMInt64Type(), lit->v_str.len, false);
+
+		fn_candidates_t *results =
+		    module_find_fn_candidates(context->module, "cf_stralloc");
+		if (!results->n_candidates)
+			error("emit: missing `cf_stralloc` builtin function");
+
+		LLVMBuildCall2(
+		    builder,
+		    gen_function_type(context->llvm_mod, results->candidate[0]),
+		    func, args, 3, "");
+
+		free(results->candidate);
+		free(results);
+
+		free_rule_t *rule = calloc(1, sizeof(*rule));
+		rule->free_name = strdup("cf_strfree");
+		rule->value = str;
+
+		fn_add_free_rule(context, rule);
+
+		return LLVMBuildLoad2(builder, gen_str_type(context->llvm_mod),
+				      str, "");
+	}
+
+	error("emit: could not generate literal");
 	return NULL;
 }
 
@@ -147,7 +210,7 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 	} else if (value->type == VE_REF) {
 		return gen_local_value(builder, context, value->name);
 	} else if (value->type == VE_LIT) {
-		return gen_literal_value(value->literal);
+		return gen_literal_value(builder, context, value->literal);
 	} else if (value->type == VE_CALL) {
 		return emit_call_node(builder, context, value->call);
 	} else {
@@ -196,11 +259,37 @@ void emit_function_decl(LLVMModuleRef mod, fn_expr_t *fn, LLVMLinkage linkage)
 	char *ident;
 
 	ident = fn->flags & FN_NOMANGLE ? fn->name : nxg_mangle(fn);
-	f = LLVMAddFunction(mod, ident, gen_function_type(fn));
+	f = LLVMAddFunction(mod, ident, gen_function_type(mod, fn));
 	LLVMSetLinkage(f, linkage);
 
 	if (!(fn->flags & FN_NOMANGLE))
 		free(ident);
+}
+
+void emit_free_call(LLVMBuilderRef builder, fn_context_t *context,
+		    free_rule_t *rule)
+{
+	LLVMValueRef func;
+
+	func = LLVMGetNamedFunction(context->llvm_mod, rule->free_name);
+	if (!func)
+		error("emit: missing `%s` free builtin function",
+		      rule->free_name);
+
+	LLVMValueRef arg = rule->value;
+
+	fn_candidates_t *results =
+	    module_find_fn_candidates(context->module, rule->free_name);
+	if (!results->n_candidates)
+		error("emit: missing `%s` free function", rule->free_name);
+
+	LLVMBuildCall2(
+	    builder,
+	    gen_function_type(context->llvm_mod, results->candidate[0]), func,
+	    &arg, 1, "");
+
+	free(results->candidate);
+	free(results);
 }
 
 void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
@@ -210,6 +299,10 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 	value_expr_t *value;
 
 	value = node->data;
+
+	/* Free allocated resources */
+	for (int i = 0; i < context->n_free_rules; i++)
+		emit_free_call(builder, context, context->free_rules[i]);
 
 	if (value->type == VE_NULL) {
 		LLVMBuildRetVoid(builder);
@@ -256,7 +349,8 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 	for (int i = 0; i < n_args; i++) {
 		/* literal argument */
 		if (call->args[i]->type == VE_LIT) {
-			args[i] = gen_literal_value(call->args[i]->literal);
+			args[i] = gen_literal_value(builder, context,
+						    call->args[i]->literal);
 		} else if (call->args[i]->type == VE_REF) {
 			args[i] = gen_local_value(builder, context,
 						  call->args[i]->name);
@@ -266,7 +360,8 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 		} else if (call->args[i]->type == VE_DEREF) {
 			args[i] =
 			    gen_deref(builder, context, call->args[i]->name,
-				      gen_type(call->args[i]->return_type));
+				      gen_type(context->llvm_mod,
+					       call->args[i]->return_type));
 		} else {
 			error("cannot emit the %d argument to a call to `%s`",
 			      i + 1, call->name);
@@ -279,8 +374,9 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 	func = LLVMGetNamedFunction(context->llvm_mod, name);
 	if (!func)
 		error("missing named func %s", name);
-	ret = LLVMBuildCall2(builder, gen_function_type(call->func), func, args,
-			     n_args, "");
+	ret = LLVMBuildCall2(builder,
+			     gen_function_type(context->llvm_mod, call->func),
+			     func, args, n_args, "");
 
 	free(args);
 
@@ -297,7 +393,9 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 		fn_context_add_local(
 		    context,
 		    LLVMBuildAlloca(builder,
-				    gen_type(E_AS_VDECL(node->data)->type), ""),
+				    gen_type(context->llvm_mod,
+					     E_AS_VDECL(node->data)->type),
+				    ""),
 		    E_AS_VDECL(node->data)->name);
 		break;
 	case E_RETURN:
@@ -343,7 +441,7 @@ void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 	fn_expr_t *data = fn->data;
 	for (int i = 0; i < data->n_params; i++) {
 		LLVMValueRef arg = LLVMBuildAlloca(
-		    builder, gen_type(data->params[i]->type), "");
+		    builder, gen_type(mod, data->params[i]->type), "");
 		LLVMBuildStore(builder, LLVMGetParam(func, i), arg);
 		fn_context_add_local(&context, arg, data->params[i]->name);
 	}
@@ -422,7 +520,7 @@ static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 	while (walker) {
 		if (walker->type == E_FUNCTION) {
 			emit_function_decl(mod, E_AS_FN(walker->data),
-					   LLVMPrivateLinkage);
+					   LLVMInternalLinkage);
 		} else {
 			error("cannot emit anything other than a "
 			      "function");
@@ -446,6 +544,18 @@ static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 	return mod;
 }
 
+static void add_builtin_types(LLVMModuleRef module)
+{
+	LLVMTypeRef str;
+	LLVMTypeRef fields[2];
+
+	fields[0] = LLVMInt64Type();
+	fields[1] = LLVMPointerType(LLVMInt8Type(), 0);
+
+	str = LLVMStructCreateNamed(LLVMGetModuleContext(module), "str");
+	LLVMStructSetBody(str, fields, 2, false);
+}
+
 void emit_module(expr_t *module, const char *out, bool is_main)
 {
 	LLVMModuleRef mod;
@@ -455,6 +565,8 @@ void emit_module(expr_t *module, const char *out, bool is_main)
 	mod = LLVMModuleCreateWithName(mod_data->name);
 	LLVMSetSourceFileName(mod, mod_data->source_name,
 			      strlen(mod_data->source_name));
+
+	add_builtin_types(mod);
 
 	for (int i = 0; i < mod_data->n_imported; i++)
 		emit_module_contents(mod, mod_data->imported[i]);

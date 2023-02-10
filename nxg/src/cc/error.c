@@ -52,9 +52,9 @@ void error_at(const char *content, const char *pos, const char *format, ...)
 	while (*end && *end != '\n')
 		end++;
 
-	fprintf(stderr, "%i\t%.*s\n \t%*c%*s\e[33m^ \e[31m", line,
+	fprintf(stderr, "%i\t%.*s\n \t%*c%*c\e[33m^ \e[31m", line,
 		(int) (end - start), start, tabs, '\t',
-		(int) (pos - start - tabs), "");
+		(int) (pos - start) - tabs, ' ');
 
 	vfprintf(stderr, format, ap);
 	fputs("\e[0m\n", stderr);

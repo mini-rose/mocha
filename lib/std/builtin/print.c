@@ -7,5 +7,10 @@
 
 cf_null cf_print_i32(cf_i32 num)
 {
-	printf("%d", num);
+	printf("%d\n", num);
+}
+
+cf_null cf_print_str(struct cf_str *string)
+{
+	printf("%.*s\n", (int) string->len, string->ptr);
 }

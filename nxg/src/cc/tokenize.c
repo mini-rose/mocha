@@ -225,7 +225,7 @@ token_list *tokens(file_t *source)
 			while (isspace(*p))
 				p++;
 
-			if (!ispunct(*p))
+			if (!ispunct(*p) || *p == '"')
 				continue;
 
 			tok = token_new(last = T_PUNCT, p, 1);

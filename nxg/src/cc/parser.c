@@ -288,6 +288,24 @@ static bool is_float(token *tok)
 	return true;
 }
 
+static void parse_string_literal(sized_string_t *val, token *tok)
+{
+	char *buf = calloc(tok->len + 1, 1);
+	int j = 0;
+
+	for (int i = 0; i < tok->len; i++) {
+		if (!strncmp(&tok->value[i], "\\n", 2)) {
+			buf[j++] = '\n';
+			i++;
+		} else {
+			buf[j++] = tok->value[i];
+		}
+	}
+
+	val->len = j;
+	val->ptr = buf;
+}
+
 static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 {
 	node->type = VE_LIT;
@@ -297,8 +315,7 @@ static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 		node->literal = calloc(1, sizeof(*node->literal));
 		node->return_type = type_new_plain(PT_STR);
 		node->literal->type = type_new_plain(PT_STR);
-		node->literal->v_str.ptr = strndup(tok->value, tok->len);
-		node->literal->v_str.len = tok->len;
+		parse_string_literal(&node->literal->v_str, tok);
 		return;
 	}
 
@@ -426,23 +443,17 @@ static bool is_builtin_function(token *name)
 	return false;
 }
 
-static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens,
-					   int arg_pos)
+static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens)
+
 {
 	token *arg;
 
-	while ((arg = index_tok(tokens, arg_pos++))->type != T_NEWLINE) {
-		if (arg->type != T_DATATYPE) {
-			error_at(tokens->source->content, arg->value,
-				 "expected function parameter type, got `%.*s`",
-				 arg->len, arg->value);
-		}
-
-		type_t *ty = type_from_sized_string(arg->value, arg->len);
+	while ((arg = next_tok(tokens))->type != T_NEWLINE) {
+		type_t *ty = parse_type(tokens, arg);
 		fn_add_param(decl, "_", 1, ty);
 		type_destroy(ty);
 
-		arg = index_tok(tokens, arg_pos++);
+		arg = next_tok(tokens);
 		if (TOK_IS(arg, T_PUNCT, ")"))
 			break;
 
@@ -460,12 +471,9 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 	/* Built-in calls are not always function calls, they may be
 	   "macro-like" functions which turn into something else. */
 
-	int arg_pos = tokens->iter + 1;
 	token *name, *arg;
 
 	name = tok;
-	while (!TOK_IS(tok, T_PUNCT, ")"))
-		tok = next_tok(tokens);
 
 	if (!strncmp("__builtin_decl", name->value, name->len)) {
 		fn_expr_t *decl = module_add_decl(mod);
@@ -473,7 +481,8 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 		decl->flags = FN_NOMANGLE;
 
 		/* function name */
-		arg = index_tok(tokens, arg_pos++);
+		arg = next_tok(tokens);
+		arg = next_tok(tokens);
 		if (arg->type != T_STRING) {
 			error_at(tokens->source->content, arg->value,
 				 "first argument to __builtin_decl must be a "
@@ -482,24 +491,23 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 
 		decl->name = strndup(arg->value, arg->len);
 
-		arg = index_tok(tokens, arg_pos++);
+		arg = next_tok(tokens);
 		if (!TOK_IS(arg, T_PUNCT, ",")) {
 			error_at(tokens->source->content, arg->value,
 				 "missing return type argument");
 		}
 
 		/* return type */
-		arg = index_tok(tokens, arg_pos++);
+		arg = next_tok(tokens);
 		if (arg->type != T_DATATYPE) {
 			error_at(tokens->source->content, arg->value,
 				 "second argument to __builtin_decl is "
 				 "expected to be the return type");
 		}
 
-		decl->return_type =
-		    type_from_sized_string(arg->value, arg->len);
+		decl->return_type = parse_type(tokens, arg);
 
-		arg = index_tok(tokens, arg_pos++);
+		arg = next_tok(tokens);
 		if (TOK_IS(arg, T_PUNCT, ")"))
 			return ERR_WAS_BUILTIN;
 
@@ -509,7 +517,7 @@ static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 				 arg->len, arg->value);
 		}
 
-		collect_builtin_decl_arguments(decl, tokens, arg_pos);
+		collect_builtin_decl_arguments(decl, tokens);
 
 		return ERR_WAS_BUILTIN;
 	} else {
@@ -617,9 +625,12 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			 "no function named `%s` found", data->name);
 	}
 
+	bool try_next;
+
 	/* Find the matching candidate */
 	for (int i = 0; i < resolved->n_candidates; i++) {
 		fn_expr_t *match = resolved->candidate[i];
+		try_next = false;
 
 		if (match->n_params != data->n_args)
 			continue;
@@ -627,9 +638,14 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		/* Check for argument types */
 		for (int j = 0; j < match->n_params; j++) {
 			if (!type_cmp(match->params[j]->type,
-				      data->args[j]->return_type))
-				continue;
+				      data->args[j]->return_type)) {
+				try_next = true;
+				break;
+			}
 		}
+
+		if (try_next)
+			continue;
 
 		/* We found a match! */
 		data->func = match;
