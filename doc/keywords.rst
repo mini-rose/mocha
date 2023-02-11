@@ -1,10 +1,18 @@
-KEYWORDS
---------
+========
+Keywords
+========
 
-fn - used in function declaration/definition
-ret - used to return value in functions
+* ``fn`` declare a function
+* ``ret`` return a value from a function
+* ``use`` include/import another module
+* ``if``
+* ``elif``
+* ``else``
+* ``while``
+* ``for``
 
-conditions example:
+Conditions example::
+
 	if (something) {
 
 	} elif (something else) {
@@ -16,7 +24,7 @@ conditions example:
 	bit operators: and, or, not
 	null equals to false in conditions
 
-loops examples:
+Loop examples::
 
 	n: i32 = 5
 	for (i: i32 = 0; i < 5; i++)

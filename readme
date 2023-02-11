@@ -5,18 +5,25 @@ This is the main repository for the coffee project, and it contains the
 nxg compiler/build system, the Coffee standard library along with some other tools
 for operating on the language.
 
-syntax
-------
-Coffee synax excels at being simple, legible, and fast to type. 
-An example function that adds two 32-bit integers:
 
-   function name
-   ˅
-fn add(a: i32, b: i32) {
-       ˄ 
+Syntax
+------
+Coffee syntax excels at being simple, legible, and fast to type. An example
+function that adds two 32-bit integers:
+
+   function name          return type
+   ˅                      v
+fn add(a: i32, b: i32) -> i32 {
+       ˄
        32-bit integer argument
-  
-  return expression
-  ˅
-  ret a + b
+
+    ret a + b
 }
+
+
+Documentaion
+------------
+
+You can read the documentation here on GitHub in the doc/ directory, or you can
+generate a HTML page by running ./generate-html.py in the doc/ directory, which
+will create an index.html with all the links.
