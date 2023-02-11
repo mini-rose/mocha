@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/cdefs.h>
 
 static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 				   fn_context_t *context, call_expr_t *call);
@@ -45,7 +46,7 @@ static void fn_context_destroy(fn_context_t *context)
 	free(context->free_rules);
 }
 
-static void fn_add_free_rule(fn_context_t *context, free_rule_t *rule)
+static void __unused fn_add_free_rule(fn_context_t *context, free_rule_t *rule)
 {
 	context->free_rules =
 	    realloc(context->free_rules,
@@ -169,16 +170,23 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 	if (lit->type->v_plain == PT_I64)
 		return LLVMConstInt(LLVMInt64Type(), lit->v_i64, false);
 
-	/* cf_stralloc */
+	/* cf_strset */
 	if (lit->type->v_plain == PT_STR) {
 		LLVMValueRef str;
 		LLVMValueRef func;
+		LLVMValueRef init;
 
 		str = LLVMBuildAlloca(builder, gen_str_type(context->llvm_mod),
 				      "");
-		func = LLVMGetNamedFunction(context->llvm_mod, "cf_stralloc");
+
+		init = LLVMBuildInsertValue(
+		    builder, LLVMGetUndef(gen_str_type(context->llvm_mod)),
+		    LLVMConstInt(LLVMInt32Type(), 0, false), 2, "");
+		LLVMBuildStore(builder, init, str);
+
+		func = LLVMGetNamedFunction(context->llvm_mod, "cf_strset");
 		if (!func)
-			error("emit: missing `cf_stralloc` builtin function");
+			error("emit: missing `cf_strset` builtin function");
 
 		LLVMValueRef args[3];
 
@@ -187,9 +195,9 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 		args[2] = LLVMConstInt(LLVMInt64Type(), lit->v_str.len, false);
 
 		fn_candidates_t *results =
-		    module_find_fn_candidates(context->module, "cf_stralloc");
+		    module_find_fn_candidates(context->module, "cf_strset");
 		if (!results->n_candidates)
-			error("emit: missing `cf_stralloc` builtin function");
+			error("emit: missing `cf_strset` builtin function");
 
 		LLVMBuildCall2(
 		    builder,
@@ -198,12 +206,6 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 
 		free(results->candidate);
 		free(results);
-
-		free_rule_t *rule = calloc(1, sizeof(*rule));
-		rule->free_name = strdup("cf_strfree");
-		rule->value = str;
-
-		fn_add_free_rule(context, rule);
 
 		return LLVMBuildLoad2(builder, gen_str_type(context->llvm_mod),
 				      str, "");
@@ -265,9 +267,10 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 {
-	for (int i = 0; i < context->n_locals; i++)
+	for (int i = 0; i < context->n_locals; i++) {
 		if (!strcmp(context->local_names[i], name))
 			return context->locals[i];
+	}
 
 	error("could not find local `%s` in `%s`", name,
 	      E_AS_FN(context->func->data)->name);
@@ -353,10 +356,19 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 	/* If we assign to a dereference, we first need to get the value under
 	   the alloca. */
 	if (data->to->type == VE_DEREF) {
+		LLVMValueRef local;
+		LLVMValueRef ptr;
 		type_t *ptr_type = type_pointer_of(data->to->return_type);
-		LLVMValueRef ptr = LLVMBuildLoad2(
-		    builder, gen_type(context->llvm_mod, ptr_type),
-		    gen_addr(builder, context, data->to->name), "");
+
+		local = fn_find_local(context, data->to->name);
+		if (LLVMIsAAllocaInst(local)) {
+			ptr = LLVMBuildLoad2(
+			    builder, gen_type(context->llvm_mod, ptr_type),
+			    gen_addr(builder, context, data->to->name), "");
+		} else {
+			ptr = local;
+		}
+
 		LLVMBuildStore(
 		    builder, gen_new_value(builder, context, data->value), ptr);
 		type_destroy(ptr_type);
@@ -423,17 +435,22 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 	return ret;
 }
 
+void emit_var_decl(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
+{
+	LLVMValueRef alloca;
+
+	alloca = LLVMBuildAlloca(
+	    builder, gen_type(context->llvm_mod, E_AS_VDECL(node->data)->type),
+	    "");
+
+	fn_context_add_local(context, alloca, E_AS_VDECL(node->data)->name);
+}
+
 void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 {
 	switch (node->type) {
 	case E_VARDECL:
-		fn_context_add_local(
-		    context,
-		    LLVMBuildAlloca(builder,
-				    gen_type(context->llvm_mod,
-					     E_AS_VDECL(node->data)->type),
-				    ""),
-		    E_AS_VDECL(node->data)->name);
+		emit_var_decl(builder, context, node);
 		break;
 	case E_RETURN:
 		emit_return_node(builder, context, node);
@@ -474,12 +491,19 @@ void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 	builder = LLVMCreateBuilder();
 	LLVMPositionBuilderAtEnd(builder, args_block);
 
-	/* We want to move all arguments into alloca values.  */
+	/* We want to move all copied arguments into alloca values.  */
 	fn_expr_t *data = fn->data;
 	for (int i = 0; i < data->n_params; i++) {
-		LLVMValueRef arg = LLVMBuildAlloca(
-		    builder, gen_type(mod, data->params[i]->type), "");
-		LLVMBuildStore(builder, LLVMGetParam(func, i), arg);
+		LLVMValueRef arg;
+
+		if (data->params[i]->type->type == TY_POINTER) {
+			arg = LLVMGetParam(func, i);
+		} else {
+			arg = LLVMBuildAlloca(
+			    builder, gen_type(mod, data->params[i]->type), "");
+			LLVMBuildStore(builder, LLVMGetParam(func, i), arg);
+		}
+
 		fn_context_add_local(&context, arg, data->params[i]->name);
 	}
 
@@ -593,13 +617,14 @@ static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 static void add_builtin_types(LLVMModuleRef module)
 {
 	LLVMTypeRef str;
-	LLVMTypeRef fields[2];
+	LLVMTypeRef fields[3];
 
 	fields[0] = LLVMInt64Type();
 	fields[1] = LLVMPointerType(LLVMInt8Type(), 0);
+	fields[2] = LLVMInt32Type();
 
 	str = LLVMStructCreateNamed(LLVMGetModuleContext(module), "str");
-	LLVMStructSetBody(str, fields, 2, false);
+	LLVMStructSetBody(str, fields, 3, false);
 }
 
 void emit_module(expr_t *module, const char *out, bool is_main)

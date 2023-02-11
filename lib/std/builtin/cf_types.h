@@ -17,4 +17,5 @@ struct cf_str
 {
 	cf_i64 len;
 	cf_i8 *ptr;
+	cf_i32 ref;
 };
