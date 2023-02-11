@@ -166,6 +166,8 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 {
 	if (lit->type->v_plain == PT_I32)
 		return LLVMConstInt(LLVMInt32Type(), lit->v_i32, false);
+	if (lit->type->v_plain == PT_I64)
+		return LLVMConstInt(LLVMInt64Type(), lit->v_i64, false);
 
 	/* cf_stralloc */
 	if (lit->type->v_plain == PT_STR) {
@@ -394,6 +396,9 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 			    gen_deref(builder, context, call->args[i]->name,
 				      gen_type(context->llvm_mod,
 					       call->args[i]->return_type));
+		} else if (call->args[i]->type == VE_CALL) {
+			args[i] = emit_call_node(builder, context,
+						 call->args[i]->call);
 		} else {
 			error("cannot emit the %d argument to a call to `%s`",
 			      i + 1, call->name);

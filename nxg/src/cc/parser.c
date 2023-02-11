@@ -620,8 +620,19 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	/* Arguments - currently only support variable names & literals
 	 */
 	while (!TOK_IS(tok, T_PUNCT, ")")) {
-		if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")
-		    || TOK_IS(tok, T_OPERATOR, "*")) {
+		if (is_call(tokens, tok)) {
+			arg = call_add_arg(data);
+			add_arg_token(&arg_tokens, tok);
+
+			arg->type = VE_CALL;
+			arg->call = calloc(1, sizeof(*arg->call));
+			parse_inline_call(parent, mod, arg->call, tokens, tok);
+
+			arg->return_type =
+			    type_copy(arg->call->func->return_type);
+
+		} else if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")
+			   || TOK_IS(tok, T_OPERATOR, "*")) {
 
 			arg = call_add_arg(data);
 			arg->type = VE_REF;
@@ -768,8 +779,16 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		for (int j = 0; j < data->n_args; j++) {
 			if (match->params[j]->type->type != TY_POINTER)
 				continue;
-			if (data->args[j]->type != VE_REF)
+
+			if (data->args[j]->type != VE_REF) {
+				error_at(
+				    tokens->source, arg_tokens.tokens[j]->value,
+				    arg_tokens.tokens[j]->len,
+				    "%s takes a reference to `%s` here",
+				    match->name,
+				    type_name(match->params[j]->type->v_base));
 				continue;
+			}
 
 			if (!type_cmp(match->params[j]->type->v_base,
 				      data->args[j]->return_type)) {
@@ -788,26 +807,6 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			    "pass a reference?",
 			    data->name, type_name(match->params[j]->type),
 			    data->args[j]->name);
-		}
-	}
-
-	/* If there is only one candidate, tell the user about matching types */
-	if (resolved->n_candidates == 1) {
-		fn_expr_t *match = resolved->candidate[0];
-		int to_match = data->n_args < match->n_params ? data->n_args
-							      : match->n_params;
-
-		for (int i = 0; i < to_match; i++) {
-			if (type_cmp(match->params[i]->type,
-				     data->args[i]->return_type)) {
-				continue;
-			}
-
-			error_at(tokens->source, arg_tokens.tokens[i]->value,
-				 arg_tokens.tokens[i]->len,
-				 "mismatched type, expected `%s` but got `%s`",
-				 type_name(match->params[i]->type),
-				 type_name(data->args[i]->return_type));
 		}
 	}
 
@@ -1176,6 +1175,18 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	}
 
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
+		if (data->to->return_type->type == TY_POINTER) {
+			if (type_cmp(data->to->return_type->v_base,
+				     data->value->return_type)) {
+				char fix[128];
+				snprintf(fix, 128, "*%s", data->to->name);
+				error_at_with_fix(
+				    tokens->source, name->value, name->len, fix,
+				    "mismatched types in assignment: did you "
+				    "mean to dereference the pointer?");
+			}
+		}
+
 		error_at(tokens->source, name->value, name->len,
 			 "mismatched types in assignment: left is `%s` and "
 			 "right is `%s`",
@@ -1225,7 +1236,7 @@ static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 
 	/* return without a value */
 	if (return_type->type == TY_NULL) {
-		data->return_type = type_new_null();
+		type_destroy(return_type);
 		data->type = VE_NULL;
 		return ERR_OK;
 	}
@@ -1629,16 +1640,15 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 	free(path);
 }
 
-expr_t *parse(settings_t *settings, token_list *tokens, const char *module_id)
+expr_t *parse(expr_t *module, settings_t *settings, token_list *tokens,
+	      const char *module_id)
 {
 	token *current = next_tok(tokens);
-	expr_t *module = calloc(sizeof(*module), 1);
-	mod_expr_t *data;
+	mod_expr_t *data = module->data;
 
 	fn_pos_t *fn_pos;
 	int n_fn_pos;
 
-	data = calloc(1, sizeof(mod_expr_t));
 	data->name = strdup(module_id);
 	data->source_name = strdup(tokens->source->path);
 
@@ -1910,6 +1920,12 @@ char *stringify_literal(literal_expr_t *literal)
 	if (literal->type->v_plain == PT_I32) {
 		char *buf = malloc(16);
 		snprintf(buf, 16, "%d", literal->v_i32);
+		return buf;
+	}
+
+	if (literal->type->v_plain == PT_I64) {
+		char *buf = malloc(32);
+		snprintf(buf, 32, "%ld", literal->v_i64);
 		return buf;
 	}
 

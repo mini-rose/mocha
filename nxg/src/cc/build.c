@@ -1,6 +1,8 @@
 /* nxg/build.c
    Copyright (c) 2023 mini-rose */
 
+#include "nxg/cc/module.h"
+
 #include <libgen.h>
 #include <nxg/cc/emit.h>
 #include <nxg/cc/parser.h>
@@ -85,7 +87,7 @@ static void build_and_link(const char *input_, const char *output,
 			write(STDOUT_FILENO, line, n);
 
 		fflush(stdout);
-		error("linking stage failed");
+		error("link stage failed");
 	}
 
 	pclose(proc);
@@ -106,6 +108,11 @@ char *compile_c_object(char *file)
 	return output;
 }
 
+static void import_builtins(settings_t *settings, expr_t *module)
+{
+	module_std_import(settings, module, "/builtin/string");
+}
+
 void compile(settings_t *settings)
 {
 	char module_path[512];
@@ -118,7 +125,12 @@ void compile(settings_t *settings)
 		token_list_print(list);
 
 	module_name = make_modname(settings->input);
-	ast = parse(settings, list, module_name);
+
+	ast = calloc(1, sizeof(*ast));
+	ast->data = calloc(1, sizeof(mod_expr_t));
+	import_builtins(settings, ast);
+
+	ast = parse(ast, settings, list, module_name);
 
 	mkdir("/tmp/nxg", 0777);
 

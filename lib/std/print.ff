@@ -6,6 +6,11 @@ fn print(num: i32) {
 	cf_print_i32(num)
 }
 
+fn print(num: i64) {
+	__builtin_decl("cf_print_i64", null, i64)
+	cf_print_i64(num)
+}
+
 fn print(string: &str) {
 	__builtin_decl("cf_print_str", null, &str)
 	cf_print_str(string)

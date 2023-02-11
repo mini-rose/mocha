@@ -34,12 +34,16 @@ mod_expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 	expr_t *parsed;
 	file_t *fil;
 
-	working_dir = strdup(module->source_name);
-	if (!strchr(working_dir, '/')) {
-		free(working_dir);
-		working_dir = strdup(".");
+	if (module->source_name) {
+		working_dir = strdup(module->source_name);
+		if (!strchr(working_dir, '/')) {
+			free(working_dir);
+			working_dir = strdup(".");
+		} else {
+			dirname(working_dir);
+		}
 	} else {
-		dirname(working_dir);
+		working_dir = strdup(".");
 	}
 
 	snprintf(pathbuf, 512, "%s.ff", file);
@@ -50,7 +54,9 @@ mod_expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 
 	parsed_tokens = tokens(fil);
 	modname = make_modname(pathbuf);
-	parsed = parse(settings, parsed_tokens, modname);
+	parsed = calloc(1, sizeof(*parsed));
+	parsed->data = calloc(1, sizeof(mod_expr_t));
+	parsed = parse(parsed, settings, parsed_tokens, modname);
 	add_module_import(module, parsed);
 
 	/* Apart from the regular coffee source code, if there is a C file with

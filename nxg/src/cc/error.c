@@ -24,7 +24,7 @@ void error(const char *format, ...)
 	vfprintf(stderr, format, ap);
 	fputc('\n', stderr);
 	va_end(ap);
-	exit(0);
+	exit(1);
 }
 
 static void indent(int tabs, int spaces)
@@ -121,7 +121,7 @@ noreturn void error_at(file_t *source, const char *pos, int len,
 	va_start(ap, format);
 
 	error_at_impl(source, &settings, pos, len, NULL, format, ap);
-	exit(0);
+	exit(1);
 }
 
 noreturn void error_at_with_fix(file_t *source, const char *pos, int len,
@@ -134,7 +134,7 @@ noreturn void error_at_with_fix(file_t *source, const char *pos, int len,
 	va_list ap;
 	va_start(ap, format);
 	error_at_impl(source, &settings, pos, len, fix, format, ap);
-	exit(0);
+	exit(1);
 }
 
 void warning_at(file_t *source, const char *pos, int len, const char *format,
