@@ -7,6 +7,9 @@
 
 typedef enum
 {
+	// Undefined type
+	PT_NULL = 0,
+
 	// Integers
 	PT_BOOL = 1,
 	PT_I8 = 2,
@@ -26,8 +29,8 @@ typedef enum
 	PT_F32 = 12,
 	PT_F64 = 13,
 
-	// String is a plain type from the language perspective, and a complex
-	// struct type in the compiler itself.
+	// String is a plain type from the language perspective, and a struct
+	// type when compiling.
 	PT_STR = 14,
 } plain_type;
 
@@ -46,6 +49,7 @@ typedef struct
 {
 	char *name;
 	type_t **fields;
+	char **field_names;
 	int n_fields;
 } object_type_t;
 
