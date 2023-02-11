@@ -1559,12 +1559,27 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 		      token *tok)
 {
 	token *tmp_tok;
+	token *start, *end;
 	char *path;
 
 	tok = next_tok(tokens);
+	start = tok;
+
+	int offset = 0;
+	while ((end = index_tok(tokens, tokens->iter + offset))->type
+	       != T_NEWLINE) {
+		offset++;
+	}
+
+	int n = end->value - start->value;
+
 	if (tok->type == T_STRING) {
 		path = strndup(tok->value, tok->len);
-		module_import(settings, module, path);
+		if (!module_import(settings, module, path)) {
+			error_at(tokens->source, start->value - 1, n + 1,
+				 "cannot find module");
+		}
+
 		free(path);
 		return;
 	}
@@ -1606,7 +1621,11 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 
 	} while ((tok = next_tok(tokens))->type != T_NEWLINE);
 
-	module_std_import(settings, module, path);
+	if (!module_std_import(settings, module, path)) {
+		error_at(tokens->source, start->value, n,
+			 "cannot find module in standard library");
+	}
+
 	free(path);
 }
 

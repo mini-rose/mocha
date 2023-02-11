@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-file_t *file_new(const char *path)
+file_t *file_new_null(const char *path)
 {
 	char *buf = NULL;
 	size_t size;
@@ -15,7 +15,7 @@ file_t *file_new(const char *path)
 		error("Cannot allocate memory.");
 
 	if ((input = fopen(path, "r")) == NULL)
-		error("Cannot open file - \'%s\'", path);
+		return NULL;
 
 	fseek(input, 0L, SEEK_END);
 	size = ftell(input);
@@ -37,6 +37,14 @@ file_t *file_new(const char *path)
 	self->content = buf;
 
 	return self;
+}
+
+file_t *file_new(const char *path)
+{
+	file_t *f = file_new_null(path);
+	if (!f)
+		error("Cannot open file - \'%s\'", path);
+	return f;
 }
 
 void file_destroy(file_t *f)

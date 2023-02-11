@@ -44,7 +44,10 @@ mod_expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 
 	snprintf(pathbuf, 512, "%s.ff", file);
 
-	fil = file_new(pathbuf);
+	fil = file_new_null(pathbuf);
+	if (!fil)
+		return NULL;
+
 	parsed_tokens = tokens(fil);
 	modname = make_modname(pathbuf);
 	parsed = parse(settings, parsed_tokens, modname);
@@ -65,7 +68,7 @@ mod_expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 	return parsed->data;
 }
 
-void module_std_import(settings_t *settings, expr_t *module, char *file)
+mod_expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 {
 	char *path = calloc(512, 1);
 	char *modname = strdup(file + 1);
@@ -74,6 +77,9 @@ void module_std_import(settings_t *settings, expr_t *module, char *file)
 
 	snprintf(path, 512, "%s%s", settings->stdpath, file);
 	mod = module_import(settings, module, path);
+
+	if (!mod)
+		return NULL;
 
 	n = strlen(modname);
 	for (int i = 0; i < n; i++) {
