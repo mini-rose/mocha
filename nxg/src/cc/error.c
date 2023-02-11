@@ -35,9 +35,17 @@ static void indent(int tabs, int spaces)
 		fputc(' ', stderr);
 }
 
-noreturn static void error_at_impl(file_t *source, const char *pos, int len,
-				   const char *fix, const char *format,
-				   va_list ap)
+typedef struct
+{
+	const char *title;
+	const char *title_color;
+	const char *highlight_color;
+	const char *message_color;
+} err_settings_t;
+
+static void error_at_impl(file_t *source, err_settings_t *settings,
+			  const char *pos, int len, const char *fix,
+			  const char *format, va_list ap)
 {
 	const char *start = pos;
 	const char *end = pos;
@@ -62,8 +70,8 @@ noreturn static void error_at_impl(file_t *source, const char *pos, int len,
 	while (*end && *end != '\n')
 		end++;
 
-	fprintf(stderr, "\e[1;91merror\e[0m in \e[1;98m%s\e[0m:\n\n",
-		source->path);
+	fprintf(stderr, "\n%s%s\e[0m in \e[1;98m%s\e[0m:\n\n",
+		settings->title_color, settings->title, source->path);
 
 	if (fix) {
 		fprintf(stderr, "\t\e[96m");
@@ -81,7 +89,7 @@ noreturn static void error_at_impl(file_t *source, const char *pos, int len,
 	ptr = start;
 	while (ptr != end) {
 		if (ptr == pos)
-			fprintf(stderr, "\e[1;91m");
+			fprintf(stderr, "%s", settings->highlight_color);
 		if (ptr == (pos + len))
 			fprintf(stderr, "\e[0m");
 		fputc(*ptr, stderr);
@@ -95,26 +103,48 @@ noreturn static void error_at_impl(file_t *source, const char *pos, int len,
 	for (int i = 0; i < len - 1; i++)
 		fputc('~', stderr);
 
-	fprintf(stderr, " \e[31m");
+	fprintf(stderr, " %s", settings->message_color);
 	vfprintf(stderr, format, ap);
 	fputs("\e[0m\n", stderr);
 
 	va_end(ap);
-	exit(0);
 }
 
 noreturn void error_at(file_t *source, const char *pos, int len,
 		       const char *format, ...)
 {
+	err_settings_t settings = {.title = "error",
+				   .title_color = "\e[91m",
+				   .highlight_color = "\e[1;91m",
+				   .message_color = "\e[91m"};
 	va_list ap;
 	va_start(ap, format);
-	error_at_impl(source, pos, len, NULL, format, ap);
+
+	error_at_impl(source, &settings, pos, len, NULL, format, ap);
+	exit(0);
 }
 
 noreturn void error_at_with_fix(file_t *source, const char *pos, int len,
 				const char *fix, const char *format, ...)
 {
+	err_settings_t settings = {.title = "error",
+				   .title_color = "\e[91m",
+				   .highlight_color = "\e[1;91m",
+				   .message_color = "\e[91m"};
 	va_list ap;
 	va_start(ap, format);
-	error_at_impl(source, pos, len, fix, format, ap);
+	error_at_impl(source, &settings, pos, len, fix, format, ap);
+	exit(0);
+}
+
+void warning_at(file_t *source, const char *pos, int len, const char *format,
+		...)
+{
+	err_settings_t settings = {.title = "warning",
+				   .title_color = "\e[35m",
+				   .highlight_color = "\e[1;36m",
+				   .message_color = "\e[36m"};
+	va_list ap;
+	va_start(ap, format);
+	error_at_impl(source, &settings, pos, len, NULL, format, ap);
 }

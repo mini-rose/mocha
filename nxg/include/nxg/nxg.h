@@ -17,6 +17,7 @@ typedef struct
 	bool using_bs;
 	char *output;
 	char *input;
+	char *stdpath;
 } settings_t;
 
 /* Compile all input files into a single binary. */

@@ -178,7 +178,8 @@ void fn_add_param(fn_expr_t *fn, const char *name, int len, type_t *type)
 	fn->params[fn->n_params - 1]->type = type_copy(type);
 }
 
-var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len)
+var_decl_expr_t *node_resolve_local_touch(expr_t *node, const char *name,
+					  int len, bool touch)
 {
 	if (len == 0)
 		len = strlen(name);
@@ -190,21 +191,32 @@ var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len)
 	fn_expr_t *fn = node->data;
 
 	for (int i = 0; i < fn->n_params; i++) {
-		if (!strncmp(fn->params[i]->name, name, len))
+		if (!strncmp(fn->params[i]->name, name, len)) {
+			if (touch)
+				fn->params[i]->used = true;
 			return fn->params[i];
+		}
 	}
 
 	for (int i = 0; i < fn->n_locals; i++) {
-		if (!strncmp(fn->locals[i]->name, name, len))
+		if (!strncmp(fn->locals[i]->name, name, len)) {
+			if (touch)
+				fn->locals[i]->used = true;
 			return fn->locals[i];
+		}
 	}
 
 	return NULL;
 }
 
+var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len)
+{
+	return node_resolve_local_touch(node, name, len, true);
+}
+
 bool node_has_named_local(expr_t *node, const char *name, int len)
 {
-	return node_resolve_local(node, name, len) != NULL;
+	return node_resolve_local_touch(node, name, len, false) != NULL;
 }
 
 /**
@@ -736,8 +748,6 @@ static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		free(sig);
 	}
 
-	fputc('\n', stderr);
-
 	int max_params, min_params;
 
 	max_params = 0;
@@ -1061,6 +1071,7 @@ static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens,
 
 	data = calloc(sizeof(*data), 1);
 	data->name = strndup(tok->value, tok->len);
+	data->decl_location = tok;
 
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
@@ -1111,7 +1122,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	if (guess_type) {
 		guess_decl = expr_add_child(parent);
 		guess_decl->type = E_VARDECL;
-		guess_decl->data = calloc(1, sizeof(*guess_decl->data));
+		guess_decl->data = calloc(1, sizeof(var_decl_expr_t));
 		guess_decl->data_free = (expr_free_handle) var_decl_expr_free;
 		E_AS_VDECL(guess_decl->data)->name =
 		    strndup(name->value, name->len);
@@ -1134,27 +1145,34 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	data->value = calloc(1, sizeof(*data->value));
 	data->value = parse_value_expr(parent, mod, data->value, tokens, tok);
 
-	var_decl_expr_t *local;
-	local = node_resolve_local(parent, data->to->name, 0);
-
-	if (deref) {
-		if (local->type->type != TY_POINTER) {
-			error_at(tokens->source, name->value, name->len,
-				 "cannot dereference a non-pointer type");
-		}
-
-		data->to->return_type = type_copy(local->type->v_base);
-	} else if (guess_type) {
-		data->to->return_type = type_copy(data->value->return_type);
-	} else {
-		data->to->return_type = type_copy(local->type);
-	}
-
 	if (guess_type) {
+		data->to->return_type = type_copy(data->value->return_type);
+
 		/* If we guessed the var type, declare a new variable. */
 		E_AS_VDECL(guess_decl->data)->type =
 		    type_copy(data->to->return_type);
 		fn_add_local_var(fn, guess_decl->data);
+	} else {
+		/* We are assigning to a regular var. Note that we are not
+		   touching the resolved local, so that we can later check if it
+		   has been used. */
+		var_decl_expr_t *local =
+		    node_resolve_local_touch(parent, data->to->name, 0, false);
+
+		if (!local)
+			error("parser: failed to find local var decl of deref");
+
+		if (deref) {
+			if (local->type->type != TY_POINTER) {
+				error_at(
+				    tokens->source, name->value, name->len,
+				    "cannot dereference a non-pointer type");
+			}
+
+			data->to->return_type = type_copy(local->type->v_base);
+		} else {
+			data->to->return_type = type_copy(local->type);
+		}
 	}
 
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
@@ -1510,23 +1528,62 @@ static void skip_block(token_list *tokens, token *tok)
 	} while (depth);
 }
 
-static void parse_use(expr_t *module, token_list *tokens, token *tok)
+static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
+		      token *tok)
 {
+	token *tmp_tok;
 	char *path;
 
 	tok = next_tok(tokens);
-	if (tok->type != T_STRING) {
-		error_at(tokens->source, tok->value, tok->len,
-			 "expected path to module, got `%s`",
-			 tokname(tok->type));
+	if (tok->type == T_STRING) {
+		path = strndup(tok->value, tok->len);
+		module_import(settings, module, path);
+		free(path);
+		return;
 	}
 
-	path = strndup(tok->value, tok->len);
-	module_import(module, path);
+	if (tok->type != T_IDENT) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "expected module name or path");
+	}
+
+	/* Collect path */
+	path = calloc(512, 1);
+	do {
+		if (tok->type != T_IDENT) {
+			error_at(tokens->source, tok->value, tok->len,
+				 "expected module name");
+		}
+
+		strcat(path, "/");
+		strncat(path, tok->value, tok->len);
+
+		tok = next_tok(tokens);
+
+		if (tok->type == T_NEWLINE)
+			break;
+
+		if (!TOK_IS(tok, T_PUNCT, ".")) {
+			error_at_with_fix(
+			    tokens->source, tok->value, tok->len, ".",
+			    "expected dot seperator after module name");
+		}
+
+		/* Warn the user about dots at the end. */
+		tmp_tok = index_tok(tokens, tokens->iter);
+		if (tmp_tok->type == T_NEWLINE) {
+			warning_at(tokens->source, tmp_tok->value - 1,
+				   tmp_tok->len,
+				   "unnecessary dot, you can remove it");
+		}
+
+	} while ((tok = next_tok(tokens))->type != T_NEWLINE);
+
+	module_std_import(settings, module, path);
 	free(path);
 }
 
-expr_t *parse(token_list *tokens, const char *module_id)
+expr_t *parse(settings_t *settings, token_list *tokens, const char *module_id)
 {
 	token *current = next_tok(tokens);
 	expr_t *module = calloc(sizeof(*module), 1);
@@ -1568,7 +1625,7 @@ expr_t *parse(token_list *tokens, const char *module_id)
 		} else if (current->type == T_NEWLINE) {
 			continue;
 		} else if (TOK_IS(current, T_KEYWORD, "use")) {
-			parse_use(module, tokens, current);
+			parse_use(settings, module, tokens, current);
 		} else if (is_builtin_function(current)) {
 			parse_builtin_call(module, module, tokens, current);
 		} else {

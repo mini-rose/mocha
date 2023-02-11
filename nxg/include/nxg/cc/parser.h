@@ -1,6 +1,7 @@
 #pragma once
 #include <nxg/cc/tokenize.h>
 #include <nxg/cc/type.h>
+#include <nxg/nxg.h>
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -32,11 +33,18 @@ struct expr
 	void *data;
 };
 
+typedef enum
+{
+	MO_LOCAL,
+	MO_STD
+} mod_origin;
+
 /* top-level module */
 typedef struct
 {
 	char *name;
 	char *source_name;
+	mod_origin origin;
 	fn_expr_t **decls;
 	int n_decls;
 	fn_expr_t **local_decls;
@@ -80,6 +88,8 @@ typedef struct
 {
 	type_t *type;
 	char *name;
+	bool used;
+	token *decl_location;
 } var_decl_expr_t;
 
 #define FN_NOMANGLE 1
@@ -137,7 +147,7 @@ struct literal_expr
 #define E_AS_VAL(DATAPTR)   ((value_expr_t *) DATAPTR)
 #define E_AS_CALL(DATAPTR)  ((call_expr_t *) DATAPTR)
 
-expr_t *parse(token_list *list, const char *module_id);
+expr_t *parse(settings_t *settings, token_list *list, const char *module_id);
 void expr_destroy(expr_t *expr);
 void expr_print(expr_t *expr);
 const char *expr_typename(expr_type type);

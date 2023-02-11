@@ -20,7 +20,9 @@ static inline void full_help()
 	     "executable.\n\n"
 	     "  -h, --help      show this page\n"
 	     "  -v, --version   show the compiler version\n"
-	     "  -o <path>       output binary file name\n"
+	     "  -o <path>       output binary file name (default: a.out)\n"
+	     "  -s <path>       standard library path (default: "
+	     "/usr/lib/coffee/std)\n"
 	     "  -t              show generated tokens\n"
 	     "  -p              show generated AST");
 	exit(0);
@@ -35,6 +37,7 @@ static inline void version()
 int main(int argc, char **argv)
 {
 	settings_t settings = {0};
+	settings.stdpath = strdup("/usr/lib/coffee/std");
 	settings.output = "a.out";
 	settings.global = false;
 	settings.input = NULL;
@@ -50,10 +53,14 @@ int main(int argc, char **argv)
 	/* NOTE: for our uses, we might want to use a custom argument parser to
 	   allow for more complex combinations (along with long options). */
 
-	while ((opt = getopt(argc, argv, "o:hvpt")) != -1) {
+	while ((opt = getopt(argc, argv, "o:s:hvpt")) != -1) {
 		switch (opt) {
 		case 'o':
 			settings.output = optarg;
+			break;
+		case 's':
+			free(settings.stdpath);
+			settings.stdpath = strdup(optarg);
 			break;
 		case 'h':
 			full_help();
@@ -91,7 +98,12 @@ int main(int argc, char **argv)
 	if (settings.input == NULL)
 		settings.input = argv[optind];
 
+	int n = strlen(settings.stdpath);
+	if (settings.stdpath[n - 1] == '/')
+		settings.stdpath[n - 1] = 0;
+
 	compile(&settings);
 
+	free(settings.stdpath);
 	return 0;
 }

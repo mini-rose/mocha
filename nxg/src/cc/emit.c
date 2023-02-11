@@ -271,7 +271,8 @@ static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 	      E_AS_FN(context->func->data)->name);
 }
 
-void emit_function_decl(LLVMModuleRef mod, fn_expr_t *fn, LLVMLinkage linkage)
+void emit_function_decl(LLVMModuleRef mod, mod_expr_t *module, fn_expr_t *fn,
+			LLVMLinkage linkage)
 {
 	LLVMValueRef f;
 	char *ident;
@@ -547,7 +548,7 @@ static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 
 	/* Declare extern functions. */
 	for (int i = 0; i < mod_data->n_decls; i++) {
-		emit_function_decl(mod, mod_data->decls[i],
+		emit_function_decl(mod, module->data, mod_data->decls[i],
 				   LLVMExternalLinkage);
 	}
 
@@ -558,7 +559,8 @@ static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 	walker = module->child;
 	while (walker) {
 		if (walker->type == E_FUNCTION) {
-			emit_function_decl(mod, E_AS_FN(walker->data),
+			emit_function_decl(mod, module->data,
+					   E_AS_FN(walker->data),
 					   LLVMInternalLinkage);
 		} else {
 			error("cannot emit anything other than a "

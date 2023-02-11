@@ -118,7 +118,7 @@ void compile(settings_t *settings)
 		token_list_print(list);
 
 	module_name = make_modname(settings->input);
-	ast = parse(list, module_name);
+	ast = parse(settings, list, module_name);
 
 	mkdir("/tmp/nxg", 0777);
 
