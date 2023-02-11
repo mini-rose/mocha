@@ -1411,6 +1411,31 @@ params_skip:
 	return NULL;
 }
 
+static void fn_warn_unused(file_t *source, expr_t *fn)
+{
+	var_decl_expr_t *decl;
+	expr_t *walker;
+
+	walker = fn->child;
+	do {
+		if (walker->type != E_VARDECL)
+			continue;
+
+		decl = walker->data;
+		if (decl->used)
+			continue;
+
+		/* We found an unused variable. */
+		if (!decl->decl_location) {
+			warning("unused variable %s", decl->name);
+		} else {
+			warning_at(source, decl->decl_location->value,
+				   decl->decl_location->len, "unused variable");
+		}
+
+	} while ((walker = walker->next));
+}
+
 /**
  * {
  *   [expression]...
@@ -1499,6 +1524,8 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 		ret_expr->data = val;
 		val->type = VE_NULL;
 	}
+
+	fn_warn_unused(tokens->source, node);
 
 	return 0;
 }
