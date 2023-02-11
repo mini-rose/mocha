@@ -92,6 +92,8 @@ mod_expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 
 	mod->name = modname;
 	mod->origin = MO_STD;
+
+	return mod;
 }
 
 fn_expr_t *module_add_decl(expr_t *module)
