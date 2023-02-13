@@ -111,6 +111,7 @@ char *compile_c_object(char *file)
 static void import_builtins(settings_t *settings, expr_t *module)
 {
 	module_std_import(settings, module, "/builtin/string");
+	module_std_import(settings, module, "/builtin/print");
 }
 
 void compile(settings_t *settings)

@@ -1,7 +1,7 @@
 /* print.c - implementation of print routines
    Copyright (c) 2023 mini-rose */
 
-#include "builtin/cf_types.h"
+#include "cf_types.h"
 
 #include <stdio.h>
 

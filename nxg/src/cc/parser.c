@@ -12,114 +12,7 @@
 #include <string.h>
 #include <strings.h>
 
-#define TOK_IS(TOK, TYPE, VALUE)                                               \
- (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
-
-static void fn_expr_free(fn_expr_t *function);
-static void value_expr_free(value_expr_t *value);
-static void call_expr_free(call_expr_t *call);
-static void expr_print_value_expr(value_expr_t *val, int level);
-
-static void mod_expr_free(mod_expr_t *module)
-{
-	for (int i = 0; i < module->n_decls; i++) {
-		fn_expr_free(module->decls[i]);
-		free(module->decls[i]);
-	}
-
-	for (int i = 0; i < module->n_imported; i++)
-		expr_destroy(module->imported[i]);
-
-	for (int i = 0; i < module->n_imported; i++)
-		free(module->c_objects[i]);
-
-	free(module->c_objects);
-	free(module->imported);
-	free(module->name);
-	free(module->source_name);
-	free(module->local_decls);
-	free(module->decls);
-}
-
-static void fn_expr_free(fn_expr_t *function)
-{
-	int i;
-
-	free(function->name);
-
-	for (i = 0; i < function->n_params; i++) {
-		type_destroy(function->params[i]->type);
-		free(function->params[i]->name);
-		free(function->params[i]);
-	}
-
-	type_destroy(function->return_type);
-	free(function->locals);
-	free(function->params);
-}
-
-static void literal_expr_free(literal_expr_t *lit)
-{
-	if (lit->type->type != TY_PLAIN)
-		error("a literal cannot be a non-plain type");
-
-	if (lit->type->v_plain == PT_STR)
-		free(lit->v_str.ptr);
-
-	type_destroy(lit->type);
-}
-
-static void value_expr_free(value_expr_t *value)
-{
-	if (!value)
-		return;
-
-	if (value->type == VE_NULL)
-		return;
-	else if (value->type == VE_REF || value->type == VE_PTR
-		 || value->type == VE_DEREF) {
-		free(value->name);
-	} else if (value->type == VE_LIT) {
-		literal_expr_free(value->literal);
-		free(value->literal);
-	} else if (value->type == VE_CALL) {
-		call_expr_free(value->call);
-		free(value->call);
-	} else {
-		value_expr_free(value->left);
-		free(value->left);
-		value_expr_free(value->right);
-		free(value->right);
-	}
-
-	type_destroy(value->return_type);
-}
-
-static void call_expr_free(call_expr_t *call)
-{
-	free(call->name);
-	for (int i = 0; i < call->n_args; i++) {
-		value_expr_free(call->args[i]);
-		free(call->args[i]);
-	}
-	free(call->args);
-}
-
-static void assign_expr_free(assign_expr_t *assign)
-{
-	value_expr_free(assign->value);
-	value_expr_free(assign->to);
-	free(assign->to);
-	free(assign->value);
-}
-
-static void var_decl_expr_free(var_decl_expr_t *variable)
-{
-	type_destroy(variable->type);
-	free(variable->name);
-}
-
-static token *index_tok(token_list *list, int index)
+token *index_tok(token_list *list, int index)
 {
 	static token end_token = {.type = T_END, .value = "", .len = 0};
 
@@ -128,7 +21,7 @@ static token *index_tok(token_list *list, int index)
 	return list->tokens[index - 1];
 }
 
-static token *next_tok(token_list *list)
+token *next_tok(token_list *list)
 {
 	return index_tok(list, list->iter++);
 }
@@ -144,7 +37,7 @@ static expr_t *expr_add_next(expr_t *expr)
 	return node;
 }
 
-static expr_t *expr_add_child(expr_t *parent)
+expr_t *expr_add_child(expr_t *parent)
 {
 	if (parent->child)
 		return expr_add_next(parent->child);
@@ -152,30 +45,6 @@ static expr_t *expr_add_child(expr_t *parent)
 	expr_t *node = calloc(sizeof(*node), 1);
 	parent->child = node;
 	return node;
-}
-
-bool fn_sigcmp(fn_expr_t *first, fn_expr_t *other)
-{
-	if (strcmp(first->name, other->name))
-		return false;
-	if (first->n_params != other->n_params)
-		return false;
-
-	for (int i = 0; i < first->n_params; i++) {
-		if (!type_cmp(first->params[i]->type, other->params[i]->type))
-			return false;
-	}
-
-	return true;
-}
-
-void fn_add_param(fn_expr_t *fn, const char *name, int len, type_t *type)
-{
-	fn->params =
-	    realloc(fn->params, sizeof(var_decl_expr_t) * ++fn->n_params);
-	fn->params[fn->n_params - 1] = malloc(sizeof(var_decl_expr_t));
-	fn->params[fn->n_params - 1]->name = strndup(name, len);
-	fn->params[fn->n_params - 1]->type = type_copy(type);
 }
 
 var_decl_expr_t *node_resolve_local_touch(expr_t *node, const char *name,
@@ -219,135 +88,6 @@ bool node_has_named_local(expr_t *node, const char *name, int len)
 	return node_resolve_local_touch(node, name, len, false) != NULL;
 }
 
-/**
- * name: type
- */
-static bool is_var_decl(token_list *tokens, token *tok)
-{
-	if (tok->type != T_IDENT)
-		return false;
-
-	tok = index_tok(tokens, tokens->iter);
-	if (!TOK_IS(tok, T_PUNCT, ":"))
-		return false;
-
-	tok = index_tok(tokens, tokens->iter + 1);
-	if (tok->type != T_DATATYPE)
-		return false;
-
-	return true;
-}
-
-/**
- * ident([arg, ...])
- */
-static bool is_call(token_list *tokens, token *tok)
-{
-	int index = tokens->iter;
-
-	if (tok->type != T_IDENT)
-		return false;
-
-	tok = index_tok(tokens, index);
-	if (!TOK_IS(tok, T_PUNCT, "("))
-		return false;
-
-	/* find the closing brace */
-	do {
-		tok = index_tok(tokens, ++index);
-		if (TOK_IS(tok, T_PUNCT, ")"))
-			return true;
-	} while (tok->type != T_END && tok->type != T_NEWLINE);
-
-	return false;
-}
-
-/**
- * literal ::= string | integer | float | "null"
- */
-static bool is_literal(token *tok)
-{
-	return tok->type == T_NUMBER || tok->type == T_STRING
-	    || TOK_IS(tok, T_DATATYPE, "null");
-}
-
-static bool is_reference(token *tok)
-{
-	return tok->type == T_IDENT;
-}
-
-/**
- * dereference ::= *ident
- */
-static bool is_dereference(token_list *tokens, token *tok)
-{
-	if (!TOK_IS(tok, T_OPERATOR, "*") && !TOK_IS(tok, T_PUNCT, "*"))
-		return false;
-
-	tok = index_tok(tokens, tokens->iter);
-	if (tok->type == T_IDENT)
-		return true;
-
-	return false;
-}
-
-/**
- * pointer-to ::= &ident
- */
-static bool is_pointer_to(token_list *tokens, token *tok)
-{
-	if (!TOK_IS(tok, T_PUNCT, "&"))
-		return false;
-
-	tok = index_tok(tokens, tokens->iter);
-	if (tok->type == T_IDENT)
-		return true;
-
-	return false;
-}
-
-/*
- * value ::= literal
- *       ::= ident
- *       ::= call
- *       ::= dereference
- *       ::= pointer-to
- */
-static bool is_single_value(token_list *tokens, token *tok)
-{
-	return is_literal(tok) || is_reference(tok) || is_call(tokens, tok)
-	    || is_dereference(tokens, tok) || is_pointer_to(tokens, tok);
-}
-
-static bool is_integer(token *tok)
-{
-	for (int i = 0; i < tok->len; i++) {
-		if (!isdigit(tok->value[i]))
-			return false;
-	}
-
-	return true;
-}
-
-static bool is_float(token *tok)
-{
-	bool found_dot = false;
-	for (int i = 0; i < tok->len; i++) {
-		if (tok->value[i] == '.') {
-			if (!found_dot)
-				found_dot = true;
-			else
-				return false;
-			continue;
-		}
-
-		if (!isdigit(tok->value[i]))
-			return false;
-	}
-
-	return true;
-}
-
 static void parse_string_literal(sized_string_t *val, token *tok)
 {
 	char *buf = calloc(tok->len + 1, 1);
@@ -366,15 +106,15 @@ static void parse_string_literal(sized_string_t *val, token *tok)
 	val->ptr = buf;
 }
 
-static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
+void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 {
 	node->type = VE_LIT;
 
 	/* string */
 	if (tok->type == T_STRING) {
 		node->literal = calloc(1, sizeof(*node->literal));
-		node->return_type = type_new_plain(PT_STR);
-		node->literal->type = type_new_plain(PT_STR);
+		node->return_type = type_build_str();
+		node->literal->type = type_build_str();
 		parse_string_literal(&node->literal->v_str, tok);
 		return;
 	}
@@ -412,35 +152,23 @@ static void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 		 "unparsable literal `%.*s`", tok->len, tok->value);
 }
 
-static void parse_reference(value_expr_t *node, expr_t *context,
-			    token_list *tokens, token *tok)
-{
-	if (!node_has_named_local(context, tok->value, tok->len)) {
-		error_at(tokens->source, tok->value, tok->len,
-			 "use of undeclared variable");
-	}
-
-	node->type = VE_REF;
-	node->name = strndup(tok->value, tok->len);
-
-	var_decl_expr_t *var =
-	    node_resolve_local(context, tok->value, tok->len);
-	node->return_type = type_copy(var->type);
-}
-
-static type_t *parse_type(token_list *tokens, token *tok)
+type_t *parse_type(token_list *tokens, token *tok)
 {
 	type_t *ty;
 
 	if (TOK_IS(tok, T_PUNCT, "&")) {
 		tok = next_tok(tokens);
 		ty = type_new_null();
-		ty->type = TY_POINTER;
+		ty->kind = TY_POINTER;
 		ty->v_base = parse_type(tokens, tok);
 		return ty;
 	}
 
 	if (tok->type == T_IDENT) {
+		/* Our special case: the string */
+		if (!strncmp(tok->value, "str", tok->len))
+			return type_build_str();
+
 		error_at(tokens->source, tok->value, tok->len,
 			 "object types are not yet implemented");
 	}
@@ -461,7 +189,7 @@ static type_t *parse_type(token_list *tokens, token *tok)
 		}
 
 		type_t *array_ty = type_new_null();
-		array_ty->type = TY_ARRAY;
+		array_ty->kind = TY_ARRAY;
 		array_ty->len = strtol(tok->value, NULL, 10);
 		array_ty->v_base = ty;
 
@@ -478,539 +206,6 @@ static type_t *parse_type(token_list *tokens, token *tok)
 	}
 
 	return type_new_null();
-}
-
-static value_expr_t *call_add_arg(call_expr_t *call)
-{
-	value_expr_t *node = calloc(1, sizeof(*node));
-	call->args =
-	    realloc(call->args, sizeof(value_expr_t *) * (call->n_args + 1));
-	call->args[call->n_args++] = node;
-	return node;
-}
-
-static bool is_builtin_function(token *name)
-{
-	static const char *builtins[] = {"__builtin_decl",
-					 "__builtin_externcall"};
-
-	for (int i = 0; i < LEN(builtins); i++) {
-		if (!strncmp(builtins[i], name->value, name->len))
-			return true;
-	}
-
-	return false;
-}
-
-static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens)
-
-{
-	token *arg;
-
-	while ((arg = next_tok(tokens))->type != T_NEWLINE) {
-		type_t *ty = parse_type(tokens, arg);
-		fn_add_param(decl, "_", 1, ty);
-		type_destroy(ty);
-
-		arg = next_tok(tokens);
-		if (TOK_IS(arg, T_PUNCT, ")"))
-			break;
-
-		if (!TOK_IS(arg, T_PUNCT, ",")) {
-			error_at_with_fix(tokens->source, arg->value, arg->len,
-					  ",",
-					  "expected comma between arguments",
-					  arg->len, arg->value);
-		}
-	}
-}
-
-static err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
-				token *tok)
-{
-	/* Built-in calls are not always function calls, they may be
-	   "macro-like" functions which turn into something else. */
-
-	token *name, *arg;
-
-	name = tok;
-
-	if (!strncmp("__builtin_decl", name->value, name->len)) {
-		fn_expr_t *decl = module_add_decl(mod);
-
-		decl->flags = FN_NOMANGLE;
-
-		/* function name */
-		arg = next_tok(tokens);
-		arg = next_tok(tokens);
-		if (arg->type != T_STRING) {
-			error_at(tokens->source, arg->value, arg->len,
-				 "first argument to __builtin_decl must be a "
-				 "string with the function name");
-		}
-
-		decl->name = strndup(arg->value, arg->len);
-
-		arg = next_tok(tokens);
-		if (!TOK_IS(arg, T_PUNCT, ",")) {
-			error_at(tokens->source, arg->value, arg->len,
-				 "missing return type argument");
-		}
-
-		/* return type */
-		arg = next_tok(tokens);
-		if (arg->type != T_DATATYPE) {
-			error_at(tokens->source, arg->value, arg->len,
-				 "second argument to __builtin_decl is "
-				 "expected to be the return type");
-		}
-
-		decl->return_type = parse_type(tokens, arg);
-
-		arg = next_tok(tokens);
-		if (TOK_IS(arg, T_PUNCT, ")"))
-			return ERR_WAS_BUILTIN;
-
-		if (!TOK_IS(arg, T_PUNCT, ",")) {
-			error_at_with_fix(tokens->source, arg->value, arg->len,
-					  ",",
-					  "expected comma between arguments");
-		}
-
-		collect_builtin_decl_arguments(decl, tokens);
-
-		return ERR_WAS_BUILTIN;
-	} else {
-		error_at(tokens->source, tok->value, tok->len,
-			 "this builtin call is not yet implemented");
-	}
-
-	return ERR_OK;
-}
-
-typedef struct
-{
-	token **tokens;
-	int n_tokens;
-} arg_tokens_t;
-
-static void add_arg_token(arg_tokens_t *tokens, token *tok)
-{
-	tokens->tokens =
-	    realloc(tokens->tokens, sizeof(token *) * (tokens->n_tokens + 1));
-	tokens->tokens[tokens->n_tokens++] = tok;
-}
-
-static err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
-			       token_list *tokens, token *tok)
-{
-	arg_tokens_t arg_tokens = {0};
-	token *fn_name_tok;
-	value_expr_t *arg;
-
-	if (is_builtin_function(tok))
-		return parse_builtin_call(parent, mod, tokens, tok);
-
-	data->name = strndup(tok->value, tok->len);
-	fn_name_tok = tok;
-
-	tok = next_tok(tokens);
-	tok = next_tok(tokens);
-
-	/* Arguments - currently only support variable names & literals
-	 */
-	while (!TOK_IS(tok, T_PUNCT, ")")) {
-		if (is_call(tokens, tok)) {
-			arg = call_add_arg(data);
-			add_arg_token(&arg_tokens, tok);
-
-			arg->type = VE_CALL;
-			arg->call = calloc(1, sizeof(*arg->call));
-			parse_inline_call(parent, mod, arg->call, tokens, tok);
-
-			arg->return_type =
-			    type_copy(arg->call->func->return_type);
-
-		} else if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")
-			   || TOK_IS(tok, T_OPERATOR, "*")) {
-
-			arg = call_add_arg(data);
-			arg->type = VE_REF;
-
-			if (TOK_IS(tok, T_PUNCT, "&")) {
-				arg->type = VE_PTR;
-				tok = next_tok(tokens);
-
-				if (is_literal(tok)) {
-					error_at(
-					    tokens->source, tok->value,
-					    tok->len,
-					    "cannot take address of literal");
-				}
-
-				if (tok->type != T_IDENT) {
-					error_at(tokens->source, tok->value,
-						 tok->len,
-						 "expected variable name after "
-						 "reference marker");
-				}
-			}
-
-			if (TOK_IS(tok, T_OPERATOR, "*")) {
-				arg->type = VE_DEREF;
-				tok = next_tok(tokens);
-				if (tok->type != T_IDENT) {
-					error_at(tokens->source, tok->value,
-						 tok->len,
-						 "expected variable name after "
-						 "dereference marker");
-				}
-			}
-
-			arg->name = strndup(tok->value, tok->len);
-			add_arg_token(&arg_tokens, tok);
-
-			var_decl_expr_t *var;
-
-			var = node_resolve_local(parent, arg->name, 0);
-			if (!var) {
-				error_at(tokens->source, tok->value, tok->len,
-					 "use of undeclared variable");
-			}
-
-			/* if we have a reference marker (&x), then the return
-			   type is the pointer type of the value */
-			if (arg->type == VE_PTR)
-				arg->return_type = type_pointer_of(var->type);
-			else if (arg->type == VE_DEREF)
-				arg->return_type = type_copy(var->type->v_base);
-			else
-				arg->return_type = type_copy(var->type);
-
-		} else if (is_literal(tok)) {
-			arg = call_add_arg(data);
-			add_arg_token(&arg_tokens, tok);
-			parse_literal(arg, tokens, tok);
-		} else {
-			error_at(tokens->source, tok->value, tok->len,
-				 "expected value or variable name, got "
-				 "`%.*s`",
-				 tok->len, tok->value);
-		}
-
-		tok = next_tok(tokens);
-
-		if (TOK_IS(tok, T_PUNCT, ")"))
-			break;
-
-		if (!TOK_IS(tok, T_PUNCT, ",")) {
-			error_at_with_fix(
-			    tokens->source, tok->value, tok->len, ",",
-			    "expected comma seperating the arguments");
-		}
-
-		tok = next_tok(tokens);
-	}
-
-	fn_candidates_t *resolved = module_find_fn_candidates(mod, data->name);
-
-	if (!resolved->n_candidates) {
-		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
-			 "no function named `%s` found", data->name);
-	}
-
-	bool try_next;
-
-	/* Find the matching candidate */
-	for (int i = 0; i < resolved->n_candidates; i++) {
-		fn_expr_t *match = resolved->candidate[i];
-		try_next = false;
-
-		if (match->n_params != data->n_args)
-			continue;
-
-		/* Check for argument types */
-		for (int j = 0; j < match->n_params; j++) {
-			if (!type_cmp(match->params[j]->type,
-				      data->args[j]->return_type)) {
-				try_next = true;
-				break;
-			}
-		}
-
-		if (try_next)
-			continue;
-
-		/* We found a match! */
-		data->func = match;
-
-		free(resolved->candidate);
-		free(resolved);
-		goto end;
-	}
-
-	fprintf(stderr,
-		"\e[1;91moverload mismatch\e[0m, found \e[92m%d\e[0m potential "
-		"candidate(s), but none of them match:\n",
-		resolved->n_candidates);
-	for (int i = 0; i < resolved->n_candidates; i++) {
-		char *sig = fn_str_signature(resolved->candidate[i], true);
-		fprintf(stderr, "  %s\n", sig);
-		free(sig);
-	}
-
-	int max_params, min_params;
-
-	max_params = 0;
-	min_params = 0xffff;
-
-	/* Find if something is supposed to take a reference. */
-	for (int i = 0; i < resolved->n_candidates; i++) {
-		fn_expr_t *match = resolved->candidate[i];
-
-		if (match->n_params > max_params)
-			max_params = match->n_params;
-		if (match->n_params < min_params)
-			min_params = match->n_params;
-
-		if (match->n_params < data->n_args)
-			continue;
-
-		for (int j = 0; j < data->n_args; j++) {
-			if (match->params[j]->type->type != TY_POINTER)
-				continue;
-
-			if (data->args[j]->type != VE_REF) {
-				error_at(
-				    tokens->source, arg_tokens.tokens[j]->value,
-				    arg_tokens.tokens[j]->len,
-				    "%s takes a reference to `%s` here",
-				    match->name,
-				    type_name(match->params[j]->type->v_base));
-				continue;
-			}
-
-			if (!type_cmp(match->params[j]->type->v_base,
-				      data->args[j]->return_type)) {
-				continue;
-			}
-
-			char *fix;
-			fix = calloc(64, 1);
-			snprintf(fix, 64, "&%.*s", arg_tokens.tokens[j]->len,
-				 arg_tokens.tokens[j]->value);
-
-			error_at_with_fix(
-			    tokens->source, arg_tokens.tokens[j]->value,
-			    arg_tokens.tokens[j]->len, fix,
-			    "%s takes a `%s` here, did you mean to "
-			    "pass a reference?",
-			    data->name, type_name(match->params[j]->type),
-			    data->args[j]->name);
-		}
-	}
-
-	char more_info[128] = "";
-
-	if (max_params < data->n_args) {
-		snprintf(more_info, 128, ", `%s` takes at most %d parameters",
-			 data->name, max_params);
-	} else if (min_params > data->n_args) {
-		snprintf(more_info, 128, ", `%s` takes at least %d parameters",
-			 data->name, min_params);
-	}
-
-	error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
-		 "could not find a matching overload%s", more_info);
-
-end:
-	free(arg_tokens.tokens);
-	return ERR_OK;
-}
-
-/**
- * ident([arg, ...])
- */
-static void parse_call(expr_t *parent, expr_t *mod, token_list *tokens,
-		       token *tok)
-{
-	expr_t *node;
-	call_expr_t *data;
-
-	data = calloc(1, sizeof(*data));
-
-	node = expr_add_child(parent);
-	node->type = E_CALL;
-	node->data = data;
-	node->data_free = (expr_free_handle) call_expr_free;
-
-	if (parse_inline_call(parent, mod, data, tokens, tok)
-	    == ERR_WAS_BUILTIN) {
-		free(data);
-		memset(node, 0, sizeof(*node));
-		node->type = E_SKIP;
-	}
-}
-
-static err_t parse_single_value(expr_t *context, expr_t *mod,
-				value_expr_t *node, token_list *tokens,
-				token *tok)
-{
-	type_t *temp_type;
-
-	/* literal */
-	if (is_literal(tok)) {
-		parse_literal(node, tokens, tok);
-		return ERR_OK;
-	}
-
-	/* call */
-	if (is_call(tokens, tok)) {
-		node->type = VE_CALL;
-		node->call = calloc(1, sizeof(*node->call));
-		parse_inline_call(context, mod, node->call, tokens, tok);
-		node->return_type = type_copy(node->call->func->return_type);
-		return ERR_OK;
-	}
-
-	/* reference */
-	if (is_reference(tok)) {
-		parse_reference(node, context, tokens, tok);
-		return ERR_OK;
-	}
-
-	/* dereference */
-	if (is_dereference(tokens, tok)) {
-		tok = next_tok(tokens);
-		parse_reference(node, context, tokens, tok);
-		node->type = VE_DEREF;
-		temp_type = node->return_type;
-		node->return_type = type_copy(node->return_type->v_base);
-		type_destroy(temp_type);
-		return ERR_OK;
-	}
-
-	/* pointer-to */
-	if (is_pointer_to(tokens, tok)) {
-		tok = next_tok(tokens);
-		parse_reference(node, context, tokens, tok);
-		node->type = VE_PTR;
-		temp_type = node->return_type;
-		node->return_type = type_pointer_of(node->return_type);
-		type_destroy(temp_type);
-		return ERR_OK;
-	}
-
-	return ERR_SYNTAX;
-}
-
-static int twoside_find_op(token_list *tokens, token *tok)
-{
-	int offset = 0;
-
-	while (tok->type != T_OPERATOR)
-		tok = index_tok(tokens, tokens->iter + offset++);
-	return tokens->iter + (offset - 1);
-}
-
-static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
-					      value_expr_t *node,
-					      token_list *tokens, token *tok)
-{
-	token *left, *op, *right, *after_right;
-
-	left = tok;
-	op = index_tok(tokens, twoside_find_op(tokens, tok));
-	right = index_tok(tokens, twoside_find_op(tokens, tok) + 1);
-	after_right = index_tok(tokens, tokens->iter + 2);
-
-	if (op->type != T_OPERATOR) {
-		error_at(tokens->source, op->value, op->len,
-			 "expected operator, got `%.*s`", op->len, op->value);
-	}
-
-	if (!is_single_value(tokens, right)) {
-		error_at(tokens->source, right->value, op->len,
-			 "expected some value, got `%.*s`", right->len,
-			 right->value);
-	}
-
-	/* we have a two-sided value with an operator */
-	node->type = value_expr_type_from_op(op);
-
-	/* if there is a left node defined, it means that is already has been
-	   parsed and we only want to parse the right hand side */
-	if (!node->left) {
-		node->left = calloc(1, sizeof(*node->left));
-		if (parse_single_value(context, mod, node->left, tokens,
-				       left)) {
-			error_at(tokens->source, left->value, op->len,
-				 "syntax error when parsing value");
-		}
-		next_tok(tokens);
-	}
-
-	/* right hand side */
-	node->right = calloc(1, sizeof(*node->right));
-	parse_single_value(context, mod, node->right, tokens, right);
-	next_tok(tokens);
-
-	/* resolve the return type of the expression; for now, just
-	   assume that it's the same of whateever the return type of the
-	   left operand is */
-	node->return_type = type_copy(node->left->return_type);
-
-	/* if the is an operator after this expression, set this whole
-	   expression to the left-hand side, and pass it again to a
-	   parse_twoside */
-	if (after_right->type == T_OPERATOR) {
-		value_expr_t *new_node;
-		new_node = calloc(1, sizeof(*new_node));
-		new_node->left = node;
-		node = parse_twoside_value_expr(context, mod, new_node, tokens,
-						right);
-		next_tok(tokens);
-	}
-
-	return node;
-}
-
-/**
- * literal   ::= string | integer | float | "null"
- * reference ::= identifier
- * value     ::= literal
- *           ::= reference
- *           ::= call
- *           ::= dereference
- *           ::= pointer-to
- *           ::= value op value
- *           ::= op value
- *
- * value
- */
-static value_expr_t *parse_value_expr(expr_t *context, expr_t *mod,
-				      value_expr_t *node, token_list *tokens,
-				      token *tok)
-{
-	/* literal | reference | call | dereference | pointer-to */
-	if (((is_literal(tok) || is_reference(tok) || is_pointer_to(tokens, tok)
-	      || is_dereference(tokens, tok))
-	     && index_tok(tokens, tokens->iter)->type == T_NEWLINE)
-	    || is_call(tokens, tok)) {
-		parse_single_value(context, mod, node, tokens, tok);
-		return node;
-	}
-
-	/* value op value */
-	if (is_single_value(tokens, tok)) {
-		/* TODO: this operator parser can only do single chain of
-		   values, without any parenthesis or operator precendence */
-		return parse_twoside_value_expr(context, mod, node, tokens,
-						tok);
-	}
-
-	error_at(tokens->source, tok->value, tok->len, "failed to parse value");
-	return node;
 }
 
 /**
@@ -1032,7 +227,7 @@ static bool is_var_assign(token_list *tokens, token *tok)
 	if (TOK_IS(tok, T_PUNCT, ":")) {
 		offset++;
 		tok = index_tok(tokens, tokens->iter + offset);
-		if (tok->type != T_DATATYPE)
+		if (tok->type != T_DATATYPE && tok->type != T_IDENT)
 			return false;
 		offset++;
 	}
@@ -1074,7 +269,7 @@ static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens,
 
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
-	data->type = type_from_sized_string(tok->value, tok->len);
+	data->type = parse_type(tokens, tok);
 
 	node = expr_add_child(parent);
 	node->type = E_VARDECL;
@@ -1162,7 +357,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 			error("parser: failed to find local var decl of deref");
 
 		if (deref) {
-			if (local->type->type != TY_POINTER) {
+			if (local->type->kind != TY_POINTER) {
 				error_at(
 				    tokens->source, name->value, name->len,
 				    "cannot dereference a non-pointer type");
@@ -1175,7 +370,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	}
 
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
-		if (data->to->return_type->type == TY_POINTER) {
+		if (data->to->return_type->kind == TY_POINTER) {
 			if (type_cmp(data->to->return_type->v_base,
 				     data->value->return_type)) {
 				char fix[128];
@@ -1221,21 +416,21 @@ static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 	}
 
 	tok = next_tok(tokens);
-	if (tok->type == T_NEWLINE && return_type->type != TY_NULL) {
+	if (tok->type == T_NEWLINE && return_type->kind != TY_NULL) {
 		error_at(tokens->source, tok->value, tok->len,
 			 "missing return value for function that "
 			 "returns `%s`",
 			 type_name(return_type));
 	}
 
-	if (tok->type != T_NEWLINE && return_type->type == TY_NULL) {
+	if (tok->type != T_NEWLINE && return_type->kind == TY_NULL) {
 		error_at(tokens->source, tok->value, tok->len,
 			 "cannot return value, because `%s` returns null",
 			 E_AS_FN(parent->data)->name);
 	}
 
 	/* return without a value */
-	if (return_type->type == TY_NULL) {
+	if (return_type->kind == TY_NULL) {
 		type_destroy(return_type);
 		data->type = VE_NULL;
 		return ERR_OK;
@@ -1410,7 +605,7 @@ params_skip:
 				 "arguments");
 		}
 
-		if (decl->return_type->type != TY_NULL) {
+		if (decl->return_type->kind != TY_NULL) {
 			error_at(tokens->source, return_type_tok->value,
 				 return_type_tok->len,
 				 "the main function cannot return `%.*s`, as "
@@ -1522,7 +717,7 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 
 	/* always add a return statement */
 	if (!fn_has_return(node)) {
-		if (decl->return_type->type != TY_NULL) {
+		if (decl->return_type->kind != TY_NULL) {
 			error_at(tokens->source, tok->value, tok->len,
 				 "missing return statement for %s", decl->name);
 		}
@@ -1746,15 +941,19 @@ char *fn_str_signature(fn_expr_t *func, bool with_colors)
 
 	for (int i = 0; i < func->n_params - 1; i++) {
 		ty_str = type_name(func->params[i]->type);
-		snprintf(buf, 64, "%s: %s, ", func->params[i]->name, ty_str);
+		snprintf(buf, 64, "%s: %s%s%s, ", func->params[i]->name,
+			 with_colors ? "\e[33m" : "", ty_str,
+			 with_colors ? "\e[0m" : "");
 		strcat(sig, buf);
 		free(ty_str);
 	}
 
 	if (func->n_params > 0) {
 		ty_str = type_name(func->params[func->n_params - 1]->type);
-		snprintf(buf, 64, "%s: %s",
-			 func->params[func->n_params - 1]->name, ty_str);
+		snprintf(buf, 64, "%s: %s%s%s",
+			 func->params[func->n_params - 1]->name,
+			 with_colors ? "\e[33m" : "", ty_str,
+			 with_colors ? "\e[0m" : "");
 		strcat(sig, buf);
 		free(ty_str);
 	}
@@ -1784,7 +983,8 @@ static const char *expr_info(expr_t *expr)
 		break;
 	case E_VARDECL:
 		tmp = type_name(E_AS_VDECL(expr->data)->type);
-		snprintf(info, 512, "%s %s", tmp, E_AS_VDECL(expr->data)->name);
+		snprintf(info, 512, "\e[33m%s\e[0m %s", tmp,
+			 E_AS_VDECL(expr->data)->name);
 		break;
 	case E_ASSIGN:
 		var = E_AS_ASS(expr->data);
@@ -1799,16 +999,17 @@ static const char *expr_info(expr_t *expr)
 		else
 			marker = '?';
 
-		snprintf(info, 512, "%c%s = (%s) %s", marker, var->to->name,
-			 tmp, value_expr_type_name(var->value->type));
+		snprintf(info, 512, "%c%s = (\e[33m%s\e[0m) %s", marker,
+			 var->to->name, tmp,
+			 value_expr_type_name(var->value->type));
 		break;
 	case E_RETURN:
 		tmp = type_name(E_AS_VAL(expr->data)->return_type);
-		snprintf(info, 512, "%s %s", tmp,
+		snprintf(info, 512, "\e[33m%s\e[0m %s", tmp,
 			 value_expr_type_name(E_AS_VAL(expr->data)->type));
 		break;
 	case E_CALL:
-		snprintf(info, 512, "`%s` n_args=%d",
+		snprintf(info, 512, "\e[34m%s\e[0m \e[97mn_args=\e[0m%d",
 			 E_AS_CALL(expr->data)->name,
 			 E_AS_CALL(expr->data)->n_args);
 		break;
@@ -1831,13 +1032,13 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 		fputs("  ", stdout);
 
 	if (val->type == VE_NULL) {
-		printf("literal: null\n");
+		printf("literal: \e[33mnull\e[0m\n");
 	} else if (val->type == VE_REF) {
 		printf("ref: `%s`\n", val->name);
 	} else if (val->type == VE_LIT) {
 		lit_str = stringify_literal(val->literal);
 		tmp = type_name(val->literal->type);
-		printf("literal: %s %s\n", tmp, lit_str);
+		printf("literal: \e[33m%s\e[0m %s\n", tmp, lit_str);
 		free(lit_str);
 	} else if (val->type == VE_CALL) {
 		printf("call: `%s` n_args=%d\n", val->call->name,
@@ -1900,21 +1101,16 @@ void expr_print(expr_t *expr)
 void literal_default(literal_expr_t *literal)
 {
 	type_t *t = literal->type;
-
-	switch (literal->type->v_plain) {
-	case PT_STR:
-		literal->v_str.len = 0;
-		literal->v_str.ptr = "";
-		break;
-	default:
-		memset(literal, 0, sizeof(*literal));
-		literal->type = t;
-	}
+	memset(literal, 0, sizeof(*literal));
+	literal->type = t;
 }
 
 char *stringify_literal(literal_expr_t *literal)
 {
-	if (literal->type->type != TY_PLAIN)
+	if (is_str_type(literal->type))
+		return strndup(literal->v_str.ptr, literal->v_str.len);
+
+	if (literal->type->kind != TY_PLAIN)
 		error("literal cannot be of non-plain type");
 
 	if (literal->type->v_plain == PT_I32) {
@@ -1928,9 +1124,6 @@ char *stringify_literal(literal_expr_t *literal)
 		snprintf(buf, 32, "%ld", literal->v_i64);
 		return buf;
 	}
-
-	if (literal->type->v_plain == PT_STR)
-		return strndup(literal->v_str.ptr, literal->v_str.len);
 
 	if (literal->type == TY_NULL) {
 		char *buf = malloc(5);

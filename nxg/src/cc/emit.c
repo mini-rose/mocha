@@ -1,7 +1,6 @@
 #include <llvm-c/Analysis.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/Types.h>
-#include <llvm-c/blake3.h>
 #include <nxg/cc/emit.h>
 #include <nxg/cc/mangle.h>
 #include <nxg/cc/module.h>
@@ -46,7 +45,7 @@ static void fn_context_destroy(fn_context_t *context)
 	free(context->free_rules);
 }
 
-static void __unused fn_add_free_rule(fn_context_t *context, free_rule_t *rule)
+static void fn_add_free_rule(fn_context_t *context, free_rule_t *rule)
 {
 	context->free_rules =
 	    realloc(context->free_rules,
@@ -83,8 +82,6 @@ static LLVMTypeRef gen_plain_type(LLVMModuleRef mod, plain_type t)
 		return LLVMDoubleType();
 	case PT_BOOL:
 		return LLVMInt1Type();
-	case PT_STR:
-		return gen_str_type(mod);
 	default:
 		return LLVMVoidType();
 	}
@@ -92,14 +89,16 @@ static LLVMTypeRef gen_plain_type(LLVMModuleRef mod, plain_type t)
 
 LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty)
 {
-	if (ty->type == TY_PLAIN)
+	if (ty->kind == TY_PLAIN)
 		return gen_plain_type(mod, ty->v_plain);
-	if (ty->type == TY_POINTER)
+	if (ty->kind == TY_POINTER)
 		return LLVMPointerType(gen_type(mod, ty->v_base), 0);
-	if (ty->type == TY_ARRAY)
+	if (ty->kind == TY_ARRAY)
 		return LLVMArrayType(gen_type(mod, ty->v_base), ty->len);
-	if (ty->type == TY_OBJECT)
-		error("LLVM object type is not yet implemented");
+	if (is_str_type(ty))
+		return gen_str_type(mod);
+	if (ty->kind == TY_OBJECT)
+		error("emit: LLVM object type is not yet implemented");
 	return LLVMVoidType();
 }
 
@@ -149,7 +148,7 @@ static LLVMValueRef gen_deref(LLVMBuilderRef builder, fn_context_t *context,
 	/* If local is a pointer, we need to dereference it twice, because we
 	   alloca the pointer too. */
 	var_decl_expr_t *var = node_resolve_local(context->func, name, 0);
-	if (var->type->type == TY_POINTER) {
+	if (var->type->kind == TY_POINTER) {
 		return LLVMBuildLoad2(
 		    builder, deref_to,
 		    LLVMBuildLoad2(builder,
@@ -170,45 +169,25 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 	if (lit->type->v_plain == PT_I64)
 		return LLVMConstInt(LLVMInt64Type(), lit->v_i64, false);
 
-	/* cf_strset */
-	if (lit->type->v_plain == PT_STR) {
-		LLVMValueRef str;
-		LLVMValueRef func;
-		LLVMValueRef init;
+	/* Return a str struct. */
+	if (is_str_type(lit->type)) {
+		LLVMValueRef values[3];
 
-		str = LLVMBuildAlloca(builder, gen_str_type(context->llvm_mod),
-				      "");
+		values[0] =
+		    LLVMConstInt(LLVMInt64Type(), lit->v_str.len, false);
+		values[1] =
+		    LLVMBuildGlobalStringPtr(builder, lit->v_str.ptr, "");
 
-		init = LLVMBuildInsertValue(
-		    builder, LLVMGetUndef(gen_str_type(context->llvm_mod)),
-		    LLVMConstInt(LLVMInt32Type(), 0, false), 2, "");
-		LLVMBuildStore(builder, init, str);
+		/*
+		 * We mark the function as initially having an additional
+		 * reference, to trick strdrop() into thinking someone still is
+		 * using the pointer, so that the global string doesn't get
+		 * accidentally free'd.
+		 */
+		values[2] = LLVMConstInt(LLVMInt32Type(), 2, false);
 
-		func = LLVMGetNamedFunction(context->llvm_mod, "cf_strset");
-		if (!func)
-			error("emit: missing `cf_strset` builtin function");
-
-		LLVMValueRef args[3];
-
-		args[0] = str;
-		args[1] = LLVMBuildGlobalStringPtr(builder, lit->v_str.ptr, "");
-		args[2] = LLVMConstInt(LLVMInt64Type(), lit->v_str.len, false);
-
-		fn_candidates_t *results =
-		    module_find_fn_candidates(context->module, "cf_strset");
-		if (!results->n_candidates)
-			error("emit: missing `cf_strset` builtin function");
-
-		LLVMBuildCall2(
-		    builder,
-		    gen_function_type(context->llvm_mod, results->candidate[0]),
-		    func, args, 3, "");
-
-		free(results->candidate);
-		free(results);
-
-		return LLVMBuildLoad2(builder, gen_str_type(context->llvm_mod),
-				      str, "");
+		return LLVMConstNamedStruct(gen_str_type(context->llvm_mod),
+					    values, 3);
 	}
 
 	error("emit: could not generate literal");
@@ -223,19 +202,21 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 				  value_expr_t *value)
 {
-	if (value->type == VE_NULL) {
-		error("tried to generate a null value");
-	} else if (value->type == VE_REF) {
+	switch (value->type) {
+	case VE_NULL:
+		error("emit: tried to generate a null value");
+		break;
+	case VE_REF:
 		return gen_local_value(builder, context, value->name);
-	} else if (value->type == VE_LIT) {
+	case VE_LIT:
 		return gen_literal_value(builder, context, value->literal);
-	} else if (value->type == VE_CALL) {
+	case VE_CALL:
 		return emit_call_node(builder, context, value->call);
-	} else if (value->type == VE_DEREF) {
+	case VE_DEREF:
 		return gen_deref(
 		    builder, context, value->name,
 		    gen_type(context->llvm_mod, value->return_type));
-	} else {
+	default:
 		if (!value->left || !value->right) {
 			error("emit: undefined value: two-side op with only "
 			      "one side defined");
@@ -258,7 +239,8 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 			new = LLVMBuildMul(builder, left, right, "");
 			break;
 		default:
-			error("unknown operation: %s", value_expr_type_name(value->type));
+			error("emit: unknown operation: %s",
+			      value_expr_type_name(value->type));
 		}
 
 		return new;
@@ -268,11 +250,14 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 {
 	for (int i = 0; i < context->n_locals; i++) {
-		if (!strcmp(context->local_names[i], name))
+		if (!strcmp(context->local_names[i], name)) {
+			node_resolve_local(context->func, name, 0)
+			    ->used_by_emit = true;
 			return context->locals[i];
+		}
 	}
 
-	error("could not find local `%s` in `%s`", name,
+	error("emit: could not find local `%s` in `%s`", name,
 	      E_AS_FN(context->func->data)->name);
 }
 
@@ -333,7 +318,7 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 	} else {
 		ret = gen_new_value(builder, context, node->data);
 		if (!ret)
-			error("could not generate return value for %s",
+			error("emit: could not generate return value for %s",
 			      E_AS_FN(context->func->data)->name);
 		LLVMBuildRet(builder, ret);
 	}
@@ -342,22 +327,34 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 			     expr_t *node)
 {
+	LLVMValueRef value;
+	LLVMValueRef to;
 	assign_expr_t *data;
+	var_decl_expr_t *decl;
+	bool used;
 
 	data = node->data;
 
 	/* Check for matching types on left & right side. */
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
-		error("mismatched types on left and right side of assignment "
+		error("emit: mismatched types on left and right side of "
+		      "assignment "
 		      "to %s",
 		      data->to->name);
 	}
+
+	/* Important order: node_resolve before gen_new_value */
+	decl = node_resolve_local(context->func, data->to->name, 0);
+	used = decl->used_by_emit;
+
+	value = gen_new_value(builder, context, data->value);
 
 	/* If we assign to a dereference, we first need to get the value under
 	   the alloca. */
 	if (data->to->type == VE_DEREF) {
 		LLVMValueRef local;
 		LLVMValueRef ptr;
+
 		type_t *ptr_type = type_pointer_of(data->to->return_type);
 
 		local = fn_find_local(context, data->to->name);
@@ -369,15 +366,22 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 			ptr = local;
 		}
 
-		LLVMBuildStore(
-		    builder, gen_new_value(builder, context, data->value), ptr);
+		to = ptr;
+
 		type_destroy(ptr_type);
-		return;
+	} else {
+		to = gen_addr(builder, context, data->to->name);
+	}
+
+	if (is_str_type(data->to->return_type) && used) {
+		/* Before we assign to a string, we need to drop the previous
+		   one. */
+		free_rule_t rule = {.free_name = "cf_strdrop", .value = to};
+		emit_free_call(builder, context, &rule);
 	}
 
 	/* Make a temporary for the object we want to store. */
-	LLVMBuildStore(builder, gen_new_value(builder, context, data->value),
-		       gen_addr(builder, context, data->to->name));
+	LLVMBuildStore(builder, value, to);
 }
 
 static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
@@ -394,25 +398,32 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 
 	for (int i = 0; i < n_args; i++) {
 		/* literal argument */
-		if (call->args[i]->type == VE_LIT) {
+		switch (call->args[i]->type) {
+		case VE_LIT:
 			args[i] = gen_literal_value(builder, context,
 						    call->args[i]->literal);
-		} else if (call->args[i]->type == VE_REF) {
+			break;
+		case VE_REF:
 			args[i] = gen_local_value(builder, context,
 						  call->args[i]->name);
-		} else if (call->args[i]->type == VE_PTR) {
+			break;
+		case VE_PTR:
 			args[i] =
 			    gen_addr(builder, context, call->args[i]->name);
-		} else if (call->args[i]->type == VE_DEREF) {
+			break;
+		case VE_DEREF:
 			args[i] =
 			    gen_deref(builder, context, call->args[i]->name,
 				      gen_type(context->llvm_mod,
 					       call->args[i]->return_type));
-		} else if (call->args[i]->type == VE_CALL) {
+			break;
+		case VE_CALL:
 			args[i] = emit_call_node(builder, context,
 						 call->args[i]->call);
-		} else {
-			error("cannot emit the %d argument to a call to `%s`",
+			break;
+		default:
+			error("emit: cannot emit the %d argument to a call to "
+			      "`%s`",
 			      i + 1, call->name);
 		}
 	}
@@ -422,7 +433,7 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 		name = nxg_mangle(call->func);
 	func = LLVMGetNamedFunction(context->llvm_mod, name);
 	if (!func)
-		error("missing named func %s", name);
+		error("emit: missing named func %s", name);
 	ret = LLVMBuildCall2(builder,
 			     gen_function_type(context->llvm_mod, call->func),
 			     func, args, n_args, "");
@@ -435,15 +446,52 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 	return ret;
 }
 
+static LLVMValueRef __unused gen_default_value_for(LLVMBuilderRef builder,
+						   LLVMModuleRef mod,
+						   type_t *ty)
+{
+	if (ty->kind == TY_PLAIN) {
+		return LLVMConstInt(gen_type(mod, ty), 0, false);
+	} else if (ty->kind == TY_OBJECT) {
+		object_type_t *o = ty->v_object;
+		LLVMValueRef object;
+		LLVMValueRef *init_values =
+		    calloc(o->n_fields, sizeof(LLVMValueRef));
+
+		for (int i = 0; i < o->n_fields; i++) {
+			init_values[i] =
+			    gen_default_value_for(builder, mod, o->fields[i]);
+		}
+
+		object = LLVMConstStruct(init_values, 3, false);
+		free(init_values);
+		return object;
+	} else if (ty->kind == TY_POINTER) {
+		return LLVMConstPointerNull(gen_type(mod, ty));
+	} else {
+		error("emit: no idea how to emit default value for %s",
+		      type_name(ty));
+	}
+}
+
 void emit_var_decl(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 {
 	LLVMValueRef alloca;
+	var_decl_expr_t *decl;
+	free_rule_t *rule;
 
+	decl = node->data;
 	alloca = LLVMBuildAlloca(
-	    builder, gen_type(context->llvm_mod, E_AS_VDECL(node->data)->type),
-	    "");
+	    builder, gen_type(context->llvm_mod, decl->type), decl->name);
 
-	fn_context_add_local(context, alloca, E_AS_VDECL(node->data)->name);
+	if (is_str_type(decl->type)) {
+		rule = calloc(1, sizeof(*rule));
+		rule->free_name = strdup("cf_strdrop");
+		rule->value = alloca;
+		fn_add_free_rule(context, rule);
+	}
+
+	fn_context_add_local(context, alloca, decl->name);
 }
 
 void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
@@ -496,7 +544,7 @@ void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 	for (int i = 0; i < data->n_params; i++) {
 		LLVMValueRef arg;
 
-		if (data->params[i]->type->type == TY_POINTER) {
+		if (data->params[i]->type->kind == TY_POINTER) {
 			arg = LLVMGetParam(func, i);
 		} else {
 			arg = LLVMBuildAlloca(
@@ -522,7 +570,7 @@ void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 		LLVMDeleteBasicBlock(args_block);
 
 	if (LLVMVerifyFunction(func, LLVMPrintMessageAction)) {
-		error("something is wrong with the emitted `%s` function",
+		error("emit: something is wrong with the emitted `%s` function",
 		      name);
 	}
 
@@ -592,7 +640,7 @@ static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 					   E_AS_FN(walker->data),
 					   LLVMInternalLinkage);
 		} else {
-			error("cannot emit anything other than a "
+			error("emit: cannot emit anything other than a "
 			      "function");
 		}
 		walker = walker->next;
@@ -606,7 +654,7 @@ static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 	}
 
 	if (LLVMVerifyModule(mod, LLVMPrintMessageAction, &err_msg)) {
-		error("LLVM failed to generate the `%s` module",
+		error("emit: LLVM failed to generate the `%s` module",
 		      mod_data->name);
 	}
 

@@ -2,6 +2,7 @@
 #include <nxg/cc/tokenize.h>
 #include <nxg/cc/type.h>
 #include <nxg/nxg.h>
+#include <nxg/utils/error.h>
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -89,6 +90,7 @@ typedef struct
 	type_t *type;
 	char *name;
 	bool used;
+	bool used_by_emit;
 	token *decl_location;
 } var_decl_expr_t;
 
@@ -166,3 +168,39 @@ bool node_has_named_local(expr_t *node, const char *name, int len);
 bool fn_sigcmp(fn_expr_t *first, fn_expr_t *other);
 void fn_add_param(fn_expr_t *fn, const char *name, int len, type_t *type);
 char *fn_str_signature(fn_expr_t *func, bool with_colors);
+
+void mod_expr_free(mod_expr_t *module);
+void fn_expr_free(fn_expr_t *fn);
+void value_expr_free(value_expr_t *value);
+void call_expr_free(call_expr_t *call);
+void assign_expr_free(assign_expr_t *assign);
+void var_decl_expr_free(var_decl_expr_t *variable);
+
+token *index_tok(token_list *list, int index);
+token *next_tok(token_list *list);
+
+bool is_var_decl(token_list *tokens, token *tok);
+bool is_type(token_list *tokens, token *tok);
+bool is_call(token_list *tokens, token *tok);
+bool is_literal(token *tok);
+bool is_reference(token *tok);
+bool is_dereference(token_list *tokens, token *tok);
+bool is_pointer_to(token_list *tokens, token *tok);
+bool is_single_value(token_list *tokens, token *tok);
+bool is_builtin_function(token *name);
+bool is_integer(token *tok);
+bool is_float(token *tok);
+
+err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
+			 token *tok);
+err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
+			token_list *tokens, token *tok);
+value_expr_t *parse_value_expr(expr_t *context, expr_t *mod, value_expr_t *node,
+			       token_list *tokens, token *tok);
+void parse_call(expr_t *parent, expr_t *mod, token_list *tokens, token *tok);
+type_t *parse_type(token_list *tokens, token *tok);
+void parse_literal(value_expr_t *node, token_list *tokens, token *tok);
+expr_t *expr_add_child(expr_t *parent);
+
+#define TOK_IS(TOK, TYPE, VALUE)                                               \
+ (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))

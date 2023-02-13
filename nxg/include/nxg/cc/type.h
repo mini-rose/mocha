@@ -28,10 +28,6 @@ typedef enum
 	// Floating point numbers
 	PT_F32 = 12,
 	PT_F64 = 13,
-
-	// String is a plain type from the language perspective, and a struct
-	// type when compiling.
-	PT_STR = 14,
 } plain_type;
 
 typedef struct type type_t;
@@ -43,7 +39,7 @@ typedef enum
 	TY_POINTER, /* &T */
 	TY_ARRAY,   /* T[] */
 	TY_OBJECT,  /* obj T {} */
-} type_type;
+} type_kind;
 
 typedef struct
 {
@@ -55,7 +51,7 @@ typedef struct
 
 struct type
 {
-	type_type type;
+	type_kind kind;
 	size_t len; /* in case of array type */
 	union
 	{
@@ -65,10 +61,8 @@ struct type
 	};
 };
 
-/**
- * Checks is string a type
- */
 bool is_plain_type(const char *str);
+bool is_str_type(type_t *ty);
 
 const char *plain_type_example_varname(plain_type t);
 const char *plain_type_name(plain_type t);
@@ -78,9 +72,11 @@ type_t *type_from_sized_string(const char *str, int len);
 type_t *type_new();
 type_t *type_new_null();
 type_t *type_new_plain(plain_type t);
+type_t *type_build_str();
 type_t *type_copy(type_t *ty);
 type_t *type_pointer_of(type_t *ty);
 bool type_cmp(type_t *left, type_t *right);
 char *type_name(type_t *ty);
 void type_destroy(type_t *ty);
+void type_object_destroy(object_type_t *obj);
 const char *type_example_varname(type_t *ty);

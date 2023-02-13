@@ -1,6 +1,8 @@
 /* nxg/mangle.c
    Copyright (c) 2023 mini-rose */
 
+#include "nxg/cc/type.h"
+
 #include <nxg/cc/mangle.h>
 #include <nxg/utils/error.h>
 #include <stdio.h>
@@ -31,19 +33,16 @@ char *mangled_type_str(type_t *ty, char *buf)
 	if (!buf)
 		buf = calloc(512, 1);
 
-	if (ty->type == TY_PLAIN) {
-		if (ty->v_plain == PT_STR)
-			strcpy(buf, "3str");
-		else
-			buf[0] = mangled_type_char(ty->v_plain);
-	} else if (ty->type == TY_POINTER) {
+	if (ty->kind == TY_PLAIN) {
+		buf[0] = mangled_type_char(ty->v_plain);
+	} else if (ty->kind == TY_POINTER) {
 		buf[0] = 'P';
 		mangled_type_str(ty->v_base, &buf[1]);
-	} else if (ty->type == TY_ARRAY) {
+	} else if (ty->kind == TY_ARRAY) {
 		buf[0] = 'A';
 		offt = sprintf(&buf[1], "%zu_", ty->len);
 		mangled_type_str(ty->v_base, &buf[offt + 1]);
-	} else if (ty->type == TY_OBJECT) {
+	} else if (ty->kind == TY_OBJECT) {
 		/* parse this as the fully qualified name of the type */
 		sprintf(buf, "%zu%s", strlen(ty->v_object->name),
 			ty->v_object->name);
