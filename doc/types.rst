@@ -40,7 +40,8 @@ The assignment will then make a copy of the object on the right::
           ^
           which will then get copied into the `x` value
 
-This is roughly should look like in LLVM IR::
+This is roughly how it should look like in LLVM IR, in reality there would more
+metadata about the variables itself, like the alignment::
 
         ; Allocate space for the str instance
         %x = alloca %str
@@ -53,4 +54,39 @@ This is roughly should look like in LLVM IR::
         store %str { i64 4, ptr @0, i32 0 }, ptr %l
 
         ; Copy the temporary string into the actual variable
-        call void @cf_strcopy(ptr %x, ptr %l)
+        call void @_C4copyP3strP3str(ptr %x, ptr %l)
+
+If the string goes out of scope, the matching drop function will get emitted.
+The compiler depends on the std.builtin.string module to provide these
+functions which it can then emit calls to.
+
+
+Object
+------
+
+Similar to other programming languages, Coffee offers an object type, which is
+basically the same as the C struct. You can create an object using the ``obj``
+keyword::
+
+        obj User {
+                str name
+                i32 id
+        }
+
+This object has two fields, a name and id, which can both be accessed by anyone,
+as there isn't any notion of private/protected fields. In LLVM IR, this would be
+represented as::
+
+        %User = type { %str, i32 }
+
+Objects have special semantic rules emitted by the compiler. For example,
+passing a raw object to a function (not a reference to it) will generate a copy
+call before passing the value. This will require a function defined for that
+operation. Here is a list of functions that shall be implemented for an object::
+
+        fn copy<T>(self: &T, from: &T) -> null
+        fn drop<T>(self: &T) -> null
+
+Note that if the compiler does not find a matching copy or drop function, it
+will try to generate one on its own. Objects with plain types will not get
+a drop function, because they don't allocate any memory.

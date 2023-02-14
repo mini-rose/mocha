@@ -62,7 +62,7 @@ mod_expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 	/* Apart from the regular coffee source code, if there is a C file with
 	   the same name as the imported module, compile it & link against it
 	   in the final stage. */
-	snprintf(pathbuf, 512, "%s/%s.c", working_dir, file);
+	snprintf(pathbuf, 512, "%s.c", file);
 	if (!access(pathbuf, F_OK))
 		add_module_c_object(module, compile_c_object(pathbuf));
 

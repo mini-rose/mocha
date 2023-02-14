@@ -7,25 +7,22 @@
 #include <stdlib.h>
 #include <string.h>
 
-cf_null cf_strdrop(struct cf_str *string)
+/* drop(&str) -> null */
+cf_null _C4dropP3str(struct cf_str *self)
 {
-	if (!string->ref)
+	if (!self->ref)
 		return;
 
-	string->ref--;
-	if (!string->ref)
-		free(string->ptr);
+	self->ref--;
+	if (!self->ref)
+		free(self->ptr);
 }
 
-/**
- * @function cf_strcopy
- * Copy a new string into this string. If this string already has a value,
- * drop a reference to it first.
- */
-cf_null cf_strcopy(struct cf_str *self, struct cf_str *from)
+/* copy(&str, &str) -> null */
+cf_null _C4copyP3strP3str(struct cf_str *self, struct cf_str *from)
 {
 	if (self->ref)
-		cf_strdrop(self);
+		_C4dropP3str(self);
 
 	self->ref = 1;
 	self->len = from->len;
@@ -33,7 +30,8 @@ cf_null cf_strcopy(struct cf_str *self, struct cf_str *from)
 	memcpy(self->ptr, from->ptr, self->len);
 }
 
-cf_i64 cf_strlen(struct cf_str *self)
+/* len(&str) -> i64 */
+cf_i64 _C3lenP3str(struct cf_str *self)
 {
 	return self->len;
 }

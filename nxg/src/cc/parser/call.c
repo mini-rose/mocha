@@ -16,8 +16,9 @@ static value_expr_t *call_add_arg(call_expr_t *call)
 
 bool is_builtin_function(token *name)
 {
-	static const char *builtins[] = {"__builtin_decl"};
-	static const int n = 1;
+	static const char *builtins[] = {"__builtin_decl",
+					 "__builtin_decl_mangled"};
+	static const int n = sizeof(builtins) / sizeof(*builtins);
 
 	for (int i = 0; i < n; i++) {
 		if (!strncmp(builtins[i], name->value, name->len))
@@ -73,17 +74,21 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 
 	name = tok;
 
-	if (!strncmp("__builtin_decl", name->value, name->len)) {
+	/* Parse __builtin_decl & __builtin_decl_mangled the same way, just set
+	   a different flag for the mangled version. */
+	if (!strncmp("__builtin_decl", name->value, name->len)
+	    || !strncmp("__builtin_decl_mangled", name->value, name->len)) {
 		fn_expr_t *decl = module_add_decl(mod);
 
-		decl->flags = FN_NOMANGLE;
+		if (!strncmp("__builtin_decl", name->value, name->len))
+			decl->flags = FN_NOMANGLE;
 
 		/* function name */
 		arg = next_tok(tokens);
 		arg = next_tok(tokens);
 		if (arg->type != T_STRING) {
 			error_at(tokens->source, arg->value, arg->len,
-				 "first argument to __builtin_decl must be a "
+				 "first argument to this builtin must be a "
 				 "string with the function name");
 		}
 
@@ -99,7 +104,7 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 		arg = next_tok(tokens);
 		if (!is_type(tokens, arg)) {
 			error_at(tokens->source, arg->value, arg->len,
-				 "second argument to __builtin_decl is "
+				 "second argument to this builtin is "
 				 "expected to be the return type");
 		}
 

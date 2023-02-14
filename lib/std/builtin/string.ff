@@ -6,10 +6,6 @@
  * operations. For user-side string manipulation, see std.string instead.
  */
 
-__builtin_decl("cf_strcopy", null, &str, &str)
-__builtin_decl("cf_strdrop", null, &str)
-
-fn len(string: &str) -> i64 {
-	__builtin_decl("cf_strlen", i64, &str)
-	ret cf_strlen(string)
-}
+__builtin_decl_mangled("copy", null, &str, &str)
+__builtin_decl_mangled("drop", null, &str)
+__builtin_decl_mangled("len", i64, &str)

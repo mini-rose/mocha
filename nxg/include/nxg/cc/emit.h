@@ -8,7 +8,6 @@ typedef struct
 {
 	LLVMValueRef value;
 	type_t *type;
-	char *drop;
 } auto_drop_rule_t;
 
 typedef struct

@@ -30,3 +30,10 @@ declared function must be marked as no_mangle. If you're trying to call
 C code, you don't have to worry about that as functions are not mangled
 anyway. If you implement the ``is_larger_than`` function in Coffee, it would
 get mangled as ``_C14is_larger_thanii``.
+
+
+__builtin_decl_mangled
+----------------------
+
+Same as ``__builtin_decl``, but the function name gets mangled depending
+on the passed parameter types.
