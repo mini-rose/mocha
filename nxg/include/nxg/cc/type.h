@@ -47,6 +47,8 @@ typedef struct
 	type_t **fields;
 	char **field_names;
 	int n_fields;
+	char *m_drop; /* drop function */
+	char *m_copy; /* copy function */
 } object_type_t;
 
 struct type

@@ -13,30 +13,27 @@ cf_null cf_strdrop(struct cf_str *string)
 		return;
 
 	string->ref--;
-	if (!string->ref) {
+	if (!string->ref)
 		free(string->ptr);
-	}
 }
 
-cf_null cf_strset(struct cf_str *string, cf_i8 *rawptr, cf_i64 len)
+/**
+ * @function cf_strcopy
+ * Copy a new string into this string. If this string already has a value,
+ * drop a reference to it first.
+ */
+cf_null cf_strcopy(struct cf_str *self, struct cf_str *from)
 {
-	if (string->ref)
-		cf_strdrop(string);
+	if (self->ref)
+		cf_strdrop(self);
 
-	string->ptr = malloc(len);
-	memcpy(string->ptr, rawptr, len);
-	string->len = len;
-	string->ref++;
+	self->ref = 1;
+	self->len = from->len;
+	self->ptr = malloc(self->len);
+	memcpy(self->ptr, from->ptr, self->len);
 }
 
-cf_null cf_strcopy(struct cf_str *source, struct cf_str *dest)
+cf_i64 cf_strlen(struct cf_str *self)
 {
-	dest->len = source->len;
-	dest->ptr = malloc(source->len);
-	memcpy(dest->ptr, source->ptr, source->len);
-}
-
-cf_i64 cf_strlen(struct cf_str *string)
-{
-	return string->len;
+	return self->len;
 }

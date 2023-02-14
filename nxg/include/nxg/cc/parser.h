@@ -190,6 +190,7 @@ bool is_single_value(token_list *tokens, token *tok);
 bool is_builtin_function(token *name);
 bool is_integer(token *tok);
 bool is_float(token *tok);
+bool is_var_assign(token_list *tokens, token *tok);
 
 err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 			 token *tok);

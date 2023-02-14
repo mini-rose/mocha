@@ -143,3 +143,34 @@ bool is_float(token *tok)
 
 	return true;
 }
+
+/**
+ * name[: type] = value
+ */
+bool is_var_assign(token_list *tokens, token *tok)
+{
+	int offset = 0;
+
+	if (!strncmp(tok->value, "*", tok->len)) {
+		tok = index_tok(tokens, tokens->iter);
+		offset++;
+	}
+
+	if (tok->type != T_IDENT)
+		return false;
+
+	tok = index_tok(tokens, tokens->iter + offset);
+	if (TOK_IS(tok, T_PUNCT, ":")) {
+		offset++;
+		tok = index_tok(tokens, tokens->iter + offset);
+		if (tok->type != T_DATATYPE && tok->type != T_IDENT)
+			return false;
+		offset++;
+	}
+
+	tok = index_tok(tokens, tokens->iter + offset);
+	if (!TOK_IS(tok, T_OPERATOR, "="))
+		return false;
+
+	return true;
+}

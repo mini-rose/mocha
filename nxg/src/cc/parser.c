@@ -60,6 +60,9 @@ var_decl_expr_t *node_resolve_local_touch(expr_t *node, const char *name,
 	fn_expr_t *fn = node->data;
 
 	for (int i = 0; i < fn->n_params; i++) {
+		if (strlen(fn->params[i]->name) != len)
+			continue;
+
 		if (!strncmp(fn->params[i]->name, name, len)) {
 			if (touch)
 				fn->params[i]->used = true;
@@ -68,6 +71,9 @@ var_decl_expr_t *node_resolve_local_touch(expr_t *node, const char *name,
 	}
 
 	for (int i = 0; i < fn->n_locals; i++) {
+		if (strlen(fn->locals[i]->name) != len)
+			continue;
+
 		if (!strncmp(fn->locals[i]->name, name, len)) {
 			if (touch)
 				fn->locals[i]->used = true;
@@ -208,37 +214,6 @@ type_t *parse_type(token_list *tokens, token *tok)
 	return type_new_null();
 }
 
-/**
- * name[: type] = value
- */
-static bool is_var_assign(token_list *tokens, token *tok)
-{
-	int offset = 0;
-
-	if (TOK_IS(tok, T_OPERATOR, "*")) {
-		tok = index_tok(tokens, tokens->iter);
-		offset++;
-	}
-
-	if (tok->type != T_IDENT)
-		return false;
-
-	tok = index_tok(tokens, tokens->iter + offset);
-	if (TOK_IS(tok, T_PUNCT, ":")) {
-		offset++;
-		tok = index_tok(tokens, tokens->iter + offset);
-		if (tok->type != T_DATATYPE && tok->type != T_IDENT)
-			return false;
-		offset++;
-	}
-
-	tok = index_tok(tokens, tokens->iter + offset);
-	if (!TOK_IS(tok, T_OPERATOR, "="))
-		return false;
-
-	return true;
-}
-
 static void fn_add_local_var(fn_expr_t *func, var_decl_expr_t *var)
 {
 	func->locals = realloc(func->locals, sizeof(var_decl_expr_t *)
@@ -258,8 +233,7 @@ static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens,
 	if (node_has_named_local(parent, tok->value, tok->len)) {
 		error_at(tokens->source, tok->value, tok->len,
 			 "a variable named `%.*s` already has been "
-			 "declared in "
-			 "this scope",
+			 "declared in this scope",
 			 tok->len, tok->value);
 	}
 
@@ -320,6 +294,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 		guess_decl->data_free = (expr_free_handle) var_decl_expr_free;
 		E_AS_VDECL(guess_decl->data)->name =
 		    strndup(name->value, name->len);
+		E_AS_VDECL(guess_decl->data)->decl_location = name;
 	}
 
 	node = expr_add_child(parent);
@@ -861,6 +836,7 @@ expr_t *parse(expr_t *module, settings_t *settings, token_list *tokens,
 
 	while ((current = next_tok(tokens)) && current->type != T_END) {
 		/* top-level: function decl */
+
 		if (TOK_IS(current, T_KEYWORD, "fn")) {
 
 			/* parse only the fn declaration, leave the rest */

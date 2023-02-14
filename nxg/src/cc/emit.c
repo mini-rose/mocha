@@ -16,6 +16,10 @@
 
 static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 				   fn_context_t *context, call_expr_t *call);
+static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
+		      LLVMValueRef to, LLVMValueRef from, char *copy_function);
+static LLVMValueRef gen_zero_value_for(LLVMBuilderRef builder,
+				       LLVMModuleRef mod, type_t *ty);
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name);
 
 static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
@@ -32,9 +36,10 @@ static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
 
 static void fn_context_destroy(fn_context_t *context)
 {
-	for (int i = 0; i < context->n_free_rules; i++) {
-		free(context->free_rules[i]->free_name);
-		free(context->free_rules[i]);
+	for (int i = 0; i < context->n_auto_drops; i++) {
+		type_destroy(context->auto_drops[i]->type);
+		free(context->auto_drops[i]->drop);
+		free(context->auto_drops[i]);
 	}
 
 	for (int i = 0; i < context->n_locals; i++)
@@ -42,15 +47,15 @@ static void fn_context_destroy(fn_context_t *context)
 
 	free(context->locals);
 	free(context->local_names);
-	free(context->free_rules);
+	free(context->auto_drops);
 }
 
-static void fn_add_free_rule(fn_context_t *context, free_rule_t *rule)
+static void fn_add_auto_drop(fn_context_t *context, auto_drop_rule_t *rule)
 {
-	context->free_rules =
-	    realloc(context->free_rules,
-		    sizeof(free_rule_t *) * (context->n_free_rules + 1));
-	context->free_rules[context->n_free_rules++] = rule;
+	context->auto_drops =
+	    realloc(context->auto_drops,
+		    sizeof(auto_drop_rule_t *) * (context->n_auto_drops + 1));
+	context->auto_drops[context->n_auto_drops++] = rule;
 }
 
 static LLVMTypeRef gen_str_type(LLVMModuleRef mod)
@@ -122,11 +127,35 @@ LLVMTypeRef gen_function_type(LLVMModuleRef mod, fn_expr_t *func)
 static LLVMValueRef gen_local_value(LLVMBuilderRef builder,
 				    fn_context_t *context, const char *name)
 {
-	LLVMValueRef val = fn_find_local(context, name);
+	LLVMValueRef val;
+	LLVMValueRef tmp;
+	var_decl_expr_t *decl;
+
+	decl = node_resolve_local(context->func, name, 0);
+	val = fn_find_local(context, name);
+
+	/* If we request a new value and it is an object, copy it. */
+	if (decl->type->kind == TY_OBJECT) {
+		if (!decl->type->v_object->m_copy) {
+			char *ty = type_name(decl->type);
+			warning("emit: copy not implemented for %.*s", ty);
+			free(ty);
+			return val;
+		}
+
+		tmp = LLVMBuildAlloca(
+		    builder, gen_type(context->llvm_mod, decl->type), "");
+		emit_copy(builder, context, tmp, val,
+			  decl->type->v_object->m_copy);
+		return LLVMBuildLoad2(builder, LLVMGetAllocatedType(tmp), tmp,
+				      "");
+	}
+
 	if (LLVMIsAAllocaInst(val)) {
 		val =
 		    LLVMBuildLoad2(builder, LLVMGetAllocatedType(val), val, "");
 	}
+
 	return val;
 }
 
@@ -177,14 +206,7 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 		    LLVMConstInt(LLVMInt64Type(), lit->v_str.len, false);
 		values[1] =
 		    LLVMBuildGlobalStringPtr(builder, lit->v_str.ptr, "");
-
-		/*
-		 * We mark the function as initially having an additional
-		 * reference, to trick strdrop() into thinking someone still is
-		 * using the pointer, so that the global string doesn't get
-		 * accidentally free'd.
-		 */
-		values[2] = LLVMConstInt(LLVMInt32Type(), 2, false);
+		values[2] = LLVMConstInt(LLVMInt32Type(), 0, false);
 
 		return LLVMConstNamedStruct(gen_str_type(context->llvm_mod),
 					    values, 3);
@@ -212,6 +234,8 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 		return gen_literal_value(builder, context, value->literal);
 	case VE_CALL:
 		return emit_call_node(builder, context, value->call);
+	case VE_PTR:
+		return gen_addr(builder, context, value->name);
 	case VE_DEREF:
 		return gen_deref(
 		    builder, context, value->name,
@@ -275,27 +299,45 @@ void emit_function_decl(LLVMModuleRef mod, mod_expr_t *module, fn_expr_t *fn,
 		free(ident);
 }
 
-void emit_free_call(LLVMBuilderRef builder, fn_context_t *context,
-		    free_rule_t *rule)
+static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
+		      LLVMValueRef to, LLVMValueRef from, char *copy_function)
 {
 	LLVMValueRef func;
+	LLVMValueRef args[2];
+	fn_candidates_t *results;
 
-	func = LLVMGetNamedFunction(context->llvm_mod, rule->free_name);
-	if (!func)
-		error("emit: missing `%s` free builtin function",
-		      rule->free_name);
+	func = LLVMGetNamedFunction(context->llvm_mod, copy_function);
+	results = module_find_fn_candidates(context->module, copy_function);
+	if (!func || !results->n_candidates)
+		error("emit: missing `%s` copy function", copy_function);
 
-	LLVMValueRef arg = rule->value;
-
-	fn_candidates_t *results =
-	    module_find_fn_candidates(context->module, rule->free_name);
-	if (!results->n_candidates)
-		error("emit: missing `%s` free function", rule->free_name);
+	args[0] = to;
+	args[1] = from;
 
 	LLVMBuildCall2(
 	    builder,
 	    gen_function_type(context->llvm_mod, results->candidate[0]), func,
-	    &arg, 1, "");
+	    args, 2, "");
+
+	free(results->candidate);
+	free(results);
+}
+
+static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
+		      auto_drop_rule_t *rule)
+{
+	LLVMValueRef func;
+	fn_candidates_t *results;
+
+	func = LLVMGetNamedFunction(context->llvm_mod, rule->drop);
+	results = module_find_fn_candidates(context->module, rule->drop);
+	if (!func || !results->n_candidates)
+		error("emit: missing `%s` drop function", rule->drop);
+
+	LLVMBuildCall2(
+	    builder,
+	    gen_function_type(context->llvm_mod, results->candidate[0]), func,
+	    &rule->value, 1, "");
 
 	free(results->candidate);
 	free(results);
@@ -310,8 +352,8 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 	value = node->data;
 
 	/* Free allocated resources */
-	for (int i = 0; i < context->n_free_rules; i++)
-		emit_free_call(builder, context, context->free_rules[i]);
+	for (int i = 0; i < context->n_auto_drops; i++)
+		emit_drop(builder, context, context->auto_drops[i]);
 
 	if (value->type == VE_NULL) {
 		LLVMBuildRetVoid(builder);
@@ -330,8 +372,6 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 	LLVMValueRef value;
 	LLVMValueRef to;
 	assign_expr_t *data;
-	var_decl_expr_t *decl;
-	bool used;
 
 	data = node->data;
 
@@ -342,10 +382,6 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		      "to %s",
 		      data->to->name);
 	}
-
-	/* Important order: node_resolve before gen_new_value */
-	decl = node_resolve_local(context->func, data->to->name, 0);
-	used = decl->used_by_emit;
 
 	value = gen_new_value(builder, context, data->value);
 
@@ -373,13 +409,46 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		to = gen_addr(builder, context, data->to->name);
 	}
 
-	if (is_str_type(data->to->return_type) && used) {
-		/* Before we assign to a string, we need to drop the previous
-		   one. */
-		free_rule_t rule = {.free_name = "cf_strdrop", .value = to};
-		emit_free_call(builder, context, &rule);
+	/* Call "copy constructors" for assignment. */
+
+	if (data->to->return_type->kind == TY_OBJECT) {
+		object_type_t *o = data->to->return_type->v_object;
+		LLVMValueRef m_func;
+		LLVMValueRef copy_args[2];
+		fn_candidates_t *results;
+
+		if (!o->m_copy)
+			goto simple_store;
+
+		results = module_find_fn_candidates(context->module, o->m_copy);
+		m_func = LLVMGetNamedFunction(context->llvm_mod, o->m_copy);
+		if (!m_func || !results->n_candidates) {
+			error("emit: could not find copy call for %s named %s",
+			      type_name(data->to->return_type), o->m_copy);
+		}
+
+		copy_args[0] = to;
+		copy_args[1] = value;
+
+		/* If we're assigning a value, be sure that it's allocated
+		   somewhere, and not a const. */
+		if (!LLVMIsAAllocaInst(value)) {
+			copy_args[1] =
+			    LLVMBuildAlloca(builder, LLVMTypeOf(value), "");
+			LLVMBuildStore(builder, value, copy_args[1]);
+		}
+
+		LLVMBuildCall2(
+		    builder,
+		    gen_function_type(context->llvm_mod, results->candidate[0]),
+		    m_func, copy_args, 2, "");
+
+		free(results->candidate);
+		free(results);
+		return;
 	}
 
+simple_store:
 	/* Make a temporary for the object we want to store. */
 	LLVMBuildStore(builder, value, to);
 }
@@ -396,37 +465,8 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 	args = calloc(call->n_args, sizeof(LLVMValueRef));
 	n_args = call->n_args;
 
-	for (int i = 0; i < n_args; i++) {
-		/* literal argument */
-		switch (call->args[i]->type) {
-		case VE_LIT:
-			args[i] = gen_literal_value(builder, context,
-						    call->args[i]->literal);
-			break;
-		case VE_REF:
-			args[i] = gen_local_value(builder, context,
-						  call->args[i]->name);
-			break;
-		case VE_PTR:
-			args[i] =
-			    gen_addr(builder, context, call->args[i]->name);
-			break;
-		case VE_DEREF:
-			args[i] =
-			    gen_deref(builder, context, call->args[i]->name,
-				      gen_type(context->llvm_mod,
-					       call->args[i]->return_type));
-			break;
-		case VE_CALL:
-			args[i] = emit_call_node(builder, context,
-						 call->args[i]->call);
-			break;
-		default:
-			error("emit: cannot emit the %d argument to a call to "
-			      "`%s`",
-			      i + 1, call->name);
-		}
-	}
+	for (int i = 0; i < n_args; i++)
+		args[i] = gen_new_value(builder, context, call->args[i]);
 
 	name = call->func->name;
 	if (!(call->func->flags & FN_NOMANGLE))
@@ -446,9 +486,8 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 	return ret;
 }
 
-static LLVMValueRef __unused gen_default_value_for(LLVMBuilderRef builder,
-						   LLVMModuleRef mod,
-						   type_t *ty)
+static LLVMValueRef gen_zero_value_for(LLVMBuilderRef builder,
+				       LLVMModuleRef mod, type_t *ty)
 {
 	if (ty->kind == TY_PLAIN) {
 		return LLVMConstInt(gen_type(mod, ty), 0, false);
@@ -460,10 +499,10 @@ static LLVMValueRef __unused gen_default_value_for(LLVMBuilderRef builder,
 
 		for (int i = 0; i < o->n_fields; i++) {
 			init_values[i] =
-			    gen_default_value_for(builder, mod, o->fields[i]);
+			    gen_zero_value_for(builder, mod, o->fields[i]);
 		}
 
-		object = LLVMConstStruct(init_values, 3, false);
+		object = LLVMConstStruct(init_values, o->n_fields, false);
 		free(init_values);
 		return object;
 	} else if (ty->kind == TY_POINTER) {
@@ -478,17 +517,26 @@ void emit_var_decl(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 {
 	LLVMValueRef alloca;
 	var_decl_expr_t *decl;
-	free_rule_t *rule;
 
 	decl = node->data;
 	alloca = LLVMBuildAlloca(
 	    builder, gen_type(context->llvm_mod, decl->type), decl->name);
 
-	if (is_str_type(decl->type)) {
-		rule = calloc(1, sizeof(*rule));
-		rule->free_name = strdup("cf_strdrop");
-		rule->value = alloca;
-		fn_add_free_rule(context, rule);
+	/* If it's an object, zero-initialize it & add any automatic drops. */
+	if (decl->type->kind == TY_OBJECT) {
+		LLVMBuildStore(
+		    builder,
+		    gen_zero_value_for(builder, context->llvm_mod, decl->type),
+		    alloca);
+
+		if (decl->type->v_object->m_drop) {
+			auto_drop_rule_t *drop = calloc(1, sizeof(*drop));
+			drop->type = type_copy(decl->type);
+			drop->drop = strdup(decl->type->v_object->m_drop);
+			drop->value = alloca;
+
+			fn_add_auto_drop(context, drop);
+		}
 	}
 
 	fn_context_add_local(context, alloca, decl->name);

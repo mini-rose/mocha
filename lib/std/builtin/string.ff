@@ -6,7 +6,6 @@
  * operations. For user-side string manipulation, see std.string instead.
  */
 
-__builtin_decl("cf_strset", null, &str, &i8, i64)
 __builtin_decl("cf_strcopy", null, &str, &str)
 __builtin_decl("cf_strdrop", null, &str)
 

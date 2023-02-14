@@ -108,12 +108,18 @@ type_t *type_build_str()
 
 	/*
 	 * obj { len: i64, ptr: &i8, ref: i32 }
+	 *
+	 * copy = cf_strcopy
+	 * drop = cf_strdrop
 	 */
 
 	o->name = strdup("str");
 	o->n_fields = 3;
 	o->field_names = calloc(3, sizeof(char *));
 	o->fields = calloc(3, sizeof(type_t *));
+
+	o->m_copy = strdup("cf_strcopy");
+	o->m_drop = strdup("cf_strdrop");
 
 	o->field_names[0] = strdup("len");
 	o->field_names[1] = strdup("ptr");
@@ -145,6 +151,9 @@ static object_type_t *object_type_copy(object_type_t *ty)
 	new->fields = calloc(3, sizeof(type_t *));
 	new->field_names = calloc(3, sizeof(char *));
 	new->name = strdup(ty->name);
+
+	new->m_copy = strdup(ty->m_copy);
+	new->m_drop = strdup(ty->m_drop);
 
 	new->n_fields = ty->n_fields;
 
@@ -287,6 +296,8 @@ void type_object_destroy(object_type_t *obj)
 	free(obj->fields);
 	free(obj->field_names);
 	free(obj->name);
+	free(obj->m_copy);
+	free(obj->m_drop);
 	free(obj);
 }
 

@@ -22,3 +22,35 @@ String
 Coffee provides a built-in dynamically-allocated string type ``str``. Creating
 and destroying strings is handled by the compiler, so it can seem like a simple
 type you can use without thinking about allocating enough memory for it.
+
+The implementation should call different methods depending on the operation.
+Assigning a value to a newly created variable generates 2 seperate expressions
+internally, an E_VARDECL and E_ASSIGN. This means that declaring the variable
+basically creates an ``alloca`` to store the struct, and then initializes it.
+
+The assignment will then make a copy of the object on the right::
+
+        initializes a variable with the empty str type
+        v
+        x: str
+
+            this literal will get turned into a const struct of str
+            v
+        x = "asdf"
+          ^
+          which will then get copied into the `x` value
+
+This is roughly should look like in LLVM IR::
+
+        ; Allocate space for the str instance
+        %x = alloca %str
+
+        ; Zero-initialize the str
+        store { i64, ptr, i32 } zeroinitializer, ptr %x
+
+        ; Create a temporary literal with the const global string
+        %l = alloca %str
+        store %str { i64 4, ptr @0, i32 0 }, ptr %l
+
+        ; Copy the temporary string into the actual variable
+        call void @cf_strcopy(ptr %x, ptr %l)
