@@ -917,18 +917,15 @@ char *fn_str_signature(fn_expr_t *func, bool with_colors)
 
 	for (int i = 0; i < func->n_params - 1; i++) {
 		ty_str = type_name(func->params[i]->type);
-		snprintf(buf, 64, "%s: %s%s%s, ", func->params[i]->name,
-			 with_colors ? "\e[33m" : "", ty_str,
-			 with_colors ? "\e[0m" : "");
+		snprintf(buf, 64, "%s%s%s, ", with_colors ? "\e[33m" : "",
+			 ty_str, with_colors ? "\e[0m" : "");
 		strcat(sig, buf);
 		free(ty_str);
 	}
 
 	if (func->n_params > 0) {
 		ty_str = type_name(func->params[func->n_params - 1]->type);
-		snprintf(buf, 64, "%s: %s%s%s",
-			 func->params[func->n_params - 1]->name,
-			 with_colors ? "\e[33m" : "", ty_str,
+		snprintf(buf, 64, "%s%s%s", with_colors ? "\e[33m" : "", ty_str,
 			 with_colors ? "\e[0m" : "");
 		strcat(sig, buf);
 		free(ty_str);

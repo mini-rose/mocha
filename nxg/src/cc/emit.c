@@ -420,8 +420,7 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 	/* Check for matching types on left & right side. */
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
 		error("emit: mismatched types on left and right side of "
-		      "assignment "
-		      "to %s",
+		      "assignment to %s",
 		      data->to->name);
 	}
 
