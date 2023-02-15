@@ -15,6 +15,15 @@ cf_null _C5printl(cf_i64 num)
 	printf("%ld\n", num);
 }
 
+cf_null _C5printv(cf_null)
+{
+	puts("null");
+}
+
+cf_null _C5printa(cf_i8 num) {
+	printf("%hhd\n", num);
+}
+
 cf_null _C5printb(cf_bool b)
 {
 	puts((b) ? "true" : "false");
