@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <nxg/cc/parser.h>
+#include <stdio.h>
 #include <string.h>
 
 /**

@@ -89,7 +89,7 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	right = index_tok(tokens, twoside_find_op(tokens, tok) + 1);
 	after_right = index_tok(tokens, tokens->iter + 2);
 
-	if (!is_operator(tok)) {
+	if (!is_operator(op)) {
 		error_at(tokens->source, op->value, op->len,
 			 "expected operator, got `%.*s`", op->len, op->value);
 	}

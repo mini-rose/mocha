@@ -412,8 +412,8 @@ static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 	}
 
 	/* return with a value */
-	node->data = parse_value_expr(parent, mod, data, tokens, tok);
-	data = node->data;
+	data = parse_value_expr(parent, mod, data, tokens, tok);
+	node->data = data;
 
 	if (!type_cmp(data->return_type, E_AS_FN(parent->data)->return_type)) {
 		error_at(tokens->source, tok->value, tok->len,
@@ -1122,7 +1122,8 @@ value_expr_type value_expr_type_from_op(token *op)
 	{
 		token_t token;
 		value_expr_type type;
-	} ops[] = {{T_MUL, VE_ADD}, {T_SUB, VE_SUB}, {T_MUL, VE_MUL}, {T_DIV, VE_DIV}};
+	} ops[] = {
+	    {T_ADD, VE_ADD}, {T_SUB, VE_SUB}, {T_MUL, VE_MUL}, {T_DIV, VE_DIV}};
 
 	for (int i = 0; i < LEN(ops); i++) {
 		if (op->type == ops[i].token)
