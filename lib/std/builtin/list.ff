@@ -1,0 +1,14 @@
+/* std.builtin.list - builtin list calls library
+   Copyright (c) 2023 mini-rose */
+
+/*
+ * Calls to these functions are emitted by the compiler for basic list
+ * operations. For user-side list manipulation, see std.list instead.
+ */
+
+__builtin_decl_mangled("drop", null, &list)
+__builtin_decl_mangled("copy", null, &list, &list)
+__builtin_decl_mangled("len", i64, &list)
+__builtin_decl_mangled("append", null, &list, &list)
+__builtin_decl_mangled("clear", null, &list, u32)
+__builtin_decl_mangled("remove", null, &list, u32)

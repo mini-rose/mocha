@@ -37,3 +37,25 @@ operations. For user-side string manipulation, see std.string instead.
 
 * ``drop(&str) -> null``
         Called when a string goes out of scope.
+
+
+std.builtin.list
+----------------
+* ``copy(&str, &str) -> null``
+        Called by the compiler, when assigning one list to another. This
+        means that all assignments are actually copies.
+
+* ``len(&str) -> i64``
+        Returns the list length.
+
+* ``drop(&str) -> null``
+        Called when a list goes out of scope.
+
+* ``append(&list, &list) -> null``
+        Append list by list.
+
+* ``clear(&list) -> null``
+        Removes all list items.
+
+* ``remove(&list, u32) -> null``
+        Removes item at given position.
