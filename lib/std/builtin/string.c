@@ -14,6 +14,7 @@ cf_null _C4dropP3str(struct cf_str *self)
 		return;
 
 	self->ref--;
+
 	if (!self->ref)
 		free(self->ptr);
 }
@@ -26,7 +27,7 @@ cf_null _C4copyP3strP3str(struct cf_str *self, struct cf_str *from)
 
 	self->ref = 1;
 	self->len = from->len;
-	self->ptr = malloc(self->len);
+	self->ptr = (char *) malloc(self->len);
 	memcpy(self->ptr, from->ptr, self->len);
 }
 
@@ -34,4 +35,10 @@ cf_null _C4copyP3strP3str(struct cf_str *self, struct cf_str *from)
 cf_i64 _C3lenP3str(struct cf_str *self)
 {
 	return self->len;
+}
+
+/* len(str) -> i64 */
+cf_i64 _C3len3str(struct cf_str self)
+{
+	return self.len;
 }

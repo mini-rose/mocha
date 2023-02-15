@@ -5,15 +5,31 @@
 /* Token type */
 typedef enum
 {
-	T_OPERATOR = 0,
-	T_DATATYPE = 1,
-	T_NEWLINE = 2,
-	T_KEYWORD = 3,
-	T_NUMBER = 4,
-	T_STRING = 5,
-	T_IDENT = 6,
-	T_PUNCT = 7,
-	T_END = 8
+	T_DATATYPE,
+	T_NEWLINE,
+	T_KEYWORD,
+	T_NUMBER,
+	T_STRING,
+	T_IDENT,
+	T_PUNCT,
+	T_END,
+
+	/* Operator types */
+	T_EQ,    // ==
+	T_NEQ,   // !=
+	T_ASS,   // =
+	T_ADD,   // +
+	T_ADDA,  // +=
+	T_ARROW, // ->
+	T_DEC,   // --
+	T_INC,   // ++
+	T_SUBA,  // -=
+	T_DIV,   // /
+	T_MOD,   // %
+	T_DIVA,  // /=
+	T_MODA,  // %=
+	T_MUL,   // *
+	T_SUB    // -
 } token_t;
 
 /* Token */

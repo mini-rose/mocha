@@ -270,7 +270,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 
 	name = tok;
 
-	if (TOK_IS(tok, T_OPERATOR, "*")) {
+	if (tok->type == T_MUL) {
 		deref = true;
 		tok = next_tok(tokens);
 		name = tok;
@@ -556,7 +556,7 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 	return_type_tok = NULL;
 
 params_skip:
-	if (TOK_IS(tok, T_OPERATOR, "->")) {
+	if (tok->type == T_ARROW) {
 		tok = next_tok(tokens);
 
 		if (tok->type != T_DATATYPE) {
@@ -1119,17 +1119,14 @@ const char *value_expr_type_name(value_expr_type t)
 
 value_expr_type value_expr_type_from_op(token *op)
 {
-	if (op->type != T_OPERATOR)
-		return VE_NULL;
-
 	static const struct
 	{
-		const char *val;
+		token_t token;
 		value_expr_type type;
-	} ops[] = {{"+", VE_ADD}, {"-", VE_SUB}, {"*", VE_MUL}, {"/", VE_DIV}};
+	} ops[] = {{T_MUL, VE_ADD}, {T_SUB, VE_SUB}, {T_MUL, VE_MUL}, {T_DIV, VE_DIV}};
 
 	for (int i = 0; i < LEN(ops); i++) {
-		if (!strncmp(op->value, ops[i].val, op->len))
+		if (op->type == ops[i].token)
 			return ops[i].type;
 	}
 

@@ -73,7 +73,7 @@ static int twoside_find_op(token_list *tokens, token *tok)
 {
 	int offset = 0;
 
-	while (tok->type != T_OPERATOR)
+	while (!is_operator(tok))
 		tok = index_tok(tokens, tokens->iter + offset++);
 	return tokens->iter + (offset - 1);
 }
@@ -89,7 +89,7 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	right = index_tok(tokens, twoside_find_op(tokens, tok) + 1);
 	after_right = index_tok(tokens, tokens->iter + 2);
 
-	if (op->type != T_OPERATOR) {
+	if (!is_operator(tok)) {
 		error_at(tokens->source, op->value, op->len,
 			 "expected operator, got `%.*s`", op->len, op->value);
 	}
@@ -128,7 +128,7 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	/* if the is an operator after this expression, set this whole
 	   expression to the left-hand side, and pass it again to a
 	   parse_twoside */
-	if (after_right->type == T_OPERATOR) {
+	if (is_operator(after_right)) {
 		value_expr_t *new_node;
 		new_node = calloc(1, sizeof(*new_node));
 		new_node->left = node;

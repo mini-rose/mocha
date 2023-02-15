@@ -4,3 +4,5 @@
 __builtin_decl_mangled("print", null, i32)
 __builtin_decl_mangled("print", null, i64)
 __builtin_decl_mangled("print", null, &str)
+__builtin_decl_mangled("print", null, str)
+__builtin_decl_mangled("print", null, bool)

@@ -188,6 +188,8 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 		return LLVMConstInt(LLVMInt32Type(), lit->v_i32, false);
 	if (lit->type->v_plain == PT_I64)
 		return LLVMConstInt(LLVMInt64Type(), lit->v_i64, false);
+	if (lit->type->v_plain == PT_BOOL)
+		return LLVMConstInt(LLVMInt1Type(), lit->v_bool, false);
 
 	/* Return a str struct. */
 	if (is_str_type(lit->type)) {

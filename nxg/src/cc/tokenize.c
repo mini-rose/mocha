@@ -52,12 +52,32 @@ token *token_new(token_t type, const char *value, int len)
 
 void token_print(token *tok)
 {
-	static const char *tok_str[] = {"OPERATOR", "DATATYPE", "NEWLINE",
-					"KEYWORD",  "NUMBER",   "STRING",
-					"IDENT",    "PUNCT",    "END"};
+	static const char *tok_str[] = {[T_DATATYPE] = "DATATYPE",
+					[T_NEWLINE] = "NEWLINE",
+					[T_KEYWORD] = "KEYWORD",
+					[T_NUMBER] = "NUMBER",
+					[T_STRING] = "STRING",
+					[T_IDENT] = "IDENT",
+					[T_PUNCT] = "PUNCT",
+					[T_END] = "END",
+					[T_ASS] = "ASS",
+					[T_EQ] = "EQ",
+					[T_NEQ] = "NEQ",
+					[T_ADDA] = "ADDA",
+					[T_ARROW] = "ARROW",
+					[T_DEC] = "DEC",
+					[T_INC] = "INC",
+					[T_SUBA] = "SUBA",
+					[T_ADD] = "ADD",
+					[T_DIV] = "DIV",
+					[T_MOD] = "MOD",
+					[T_DIVA] = "DIVA",
+					[T_MODA] = "MODA",
+					[T_MUL] = "MUL",
+					[T_SUB] = "SUB"};
 
 	if (tok->type == T_NEWLINE)
-		printf(" \033[37m%s\033[0m ", tok_str[tok->type]);
+		printf(" \033[37m%s\033[0m", tok_str[tok->type]);
 	else if (tok->type == T_END)
 		printf(" %s ", tok_str[tok->type]);
 	else if (tok->type == T_KEYWORD)
@@ -205,14 +225,16 @@ token_list *tokens(file_t *source)
 			token *tok;
 
 			static char *operators[] = {
-			    "=", "==", "!=", "+=", "->", "--", "++", "-=",
-			    "+", "/",  "%",  "/=", "%=", "*",  "-"};
+			    [T_ASS] = "=",   [T_EQ] = "==",    [T_NEQ] = "!=",
+			    [T_ADDA] = "+=", [T_ARROW] = "->", [T_DEC] = "--",
+			    [T_INC] = "++",  [T_SUBA] = "-=",  [T_ADD] = "+",
+			    [T_DIV] = "/",   [T_MOD] = "%",    [T_DIVA] = "/=",
+			    [T_MODA] = "%=", [T_MUL] = "*",    [T_SUB] = "-"};
 
-			for (int i = 0;
-			     i < LEN(operators); i++) {
+			for (int i = T_EQ; i < LEN(operators); i++) {
 				if (!strncmp(p, operators[i],
 					     strlen(operators[i]))) {
-					tok = token_new(last = T_OPERATOR, p,
+					tok = token_new(last = (token_t) i, p,
 							strlen(operators[i]));
 					token_list_append(list, tok);
 

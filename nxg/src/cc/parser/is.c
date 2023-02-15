@@ -77,7 +77,7 @@ bool is_reference(token *tok)
  */
 bool is_dereference(token_list *tokens, token *tok)
 {
-	if (!TOK_IS(tok, T_OPERATOR, "*") && !TOK_IS(tok, T_PUNCT, "*"))
+	if (tok->type != T_MUL)
 		return false;
 
 	tok = index_tok(tokens, tokens->iter);
@@ -113,6 +113,12 @@ bool is_single_value(token_list *tokens, token *tok)
 {
 	return is_literal(tok) || is_reference(tok) || is_call(tokens, tok)
 	    || is_dereference(tokens, tok) || is_pointer_to(tokens, tok);
+}
+
+bool is_operator(token *tok)
+{
+	/* TODO: make this better and safer */
+	return tok->type >= T_EQ && tok->type <= T_SUB;
 }
 
 bool is_integer(token *tok)
@@ -169,7 +175,7 @@ bool is_var_assign(token_list *tokens, token *tok)
 	}
 
 	tok = index_tok(tokens, tokens->iter + offset);
-	if (!TOK_IS(tok, T_OPERATOR, "="))
+	if (tok->type != T_ASS)
 		return false;
 
 	return true;

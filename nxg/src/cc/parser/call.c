@@ -1,5 +1,6 @@
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
+#include <nxg/cc/tokenize.h>
 #include <nxg/utils/error.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -162,7 +163,7 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			    type_copy(arg->call->func->return_type);
 
 		} else if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")
-			   || TOK_IS(tok, T_OPERATOR, "*")) {
+			   || tok->type == T_MUL) {
 
 			arg = call_add_arg(data);
 			arg->type = VE_REF;
@@ -186,7 +187,7 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 				}
 			}
 
-			if (TOK_IS(tok, T_OPERATOR, "*")) {
+			if (tok->type == T_MUL) {
 				arg->type = VE_DEREF;
 				tok = next_tok(tokens);
 				if (tok->type != T_IDENT) {

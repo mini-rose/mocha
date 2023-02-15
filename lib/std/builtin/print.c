@@ -15,7 +15,17 @@ cf_null _C5printl(cf_i64 num)
 	printf("%ld\n", num);
 }
 
+cf_null _C5printb(cf_bool b)
+{
+	puts((b) ? "true" : "false");
+}
+
 cf_null _C5printP3str(struct cf_str *string)
 {
 	printf("%.*s\n", (int) string->len, string->ptr);
+}
+
+cf_null _C5print3str(struct cf_str string)
+{
+	printf("%.*s\n", (int) string.len, string.ptr);
 }

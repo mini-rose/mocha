@@ -138,6 +138,7 @@ struct literal_expr
 		int v_i32;
 		long v_i64;
 		float v_f32;
+		bool v_bool;
 		sized_string_t v_str;
 	};
 };
@@ -187,6 +188,7 @@ bool is_reference(token *tok);
 bool is_dereference(token_list *tokens, token *tok);
 bool is_pointer_to(token_list *tokens, token *tok);
 bool is_single_value(token_list *tokens, token *tok);
+bool is_operator(token *tok);
 bool is_builtin_function(token *name);
 bool is_integer(token *tok);
 bool is_float(token *tok);
