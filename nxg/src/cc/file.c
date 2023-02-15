@@ -14,8 +14,10 @@ file_t *file_new_null(const char *path)
 	if ((self = (file_t *) malloc(sizeof(file_t))) == NULL)
 		error("Cannot allocate memory.");
 
-	if ((input = fopen(path, "r")) == NULL)
+	if ((input = fopen(path, "r")) == NULL) {
+		free(self);
 		return NULL;
+	}
 
 	fseek(input, 0L, SEEK_END);
 	size = ftell(input);

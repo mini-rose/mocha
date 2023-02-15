@@ -49,8 +49,10 @@ mod_expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 	snprintf(pathbuf, 512, "%s.ff", file);
 
 	fil = file_new_null(pathbuf);
-	if (!fil)
+	if (!fil) {
+		free(working_dir);
 		return NULL;
+	}
 
 	parsed_tokens = tokens(fil);
 	modname = make_modname(pathbuf);
@@ -84,8 +86,11 @@ mod_expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 	snprintf(path, 512, "%s%s", settings->stdpath, file);
 	mod = module_import(settings, module, path);
 
-	if (!mod)
+	if (!mod) {
+		free(path);
+		free(modname);
 		return NULL;
+	}
 
 	n = strlen(modname);
 	for (int i = 0; i < n; i++) {

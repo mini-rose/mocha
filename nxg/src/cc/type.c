@@ -53,8 +53,11 @@ type_t *type_from_string(const char *str)
 		if (strcmp(plain_types[i], str))
 			continue;
 
-		/* plain T */
-		ty->kind = TY_PLAIN;
+		/* Plain or null T */
+		if (!strcmp(str, "null"))
+			ty->kind = TY_NULL;
+		else
+			ty->kind = TY_PLAIN;
 		ty->v_plain = i;
 		return ty;
 	}

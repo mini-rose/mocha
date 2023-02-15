@@ -567,8 +567,7 @@ params_skip:
 
 		if (decl->return_type)
 			type_destroy(decl->return_type);
-		decl->return_type =
-		    type_from_sized_string(tok->value, tok->len);
+		decl->return_type = parse_type(tokens, tok);
 		return_type_tok = tok;
 		tok = next_tok(tokens);
 	}
