@@ -60,6 +60,11 @@ void bs_parse(char *key_s, char *key_e, char *val_s, settings_t *settings)
 	else if (!strncmp("output", key_s, key_e - key_s))
 		settings->output = strndup(val_s, eol - val_s);
 
+	else if (!strncmp("stdpath", key_s, key_e - key_s)) {
+		free(settings->stdpath);
+		settings->stdpath = strndup(val_s, eol - val_s);
+	}
+
 	else
 		error("invalid key: %.*s", key_e - key_s, key_s);
 }
