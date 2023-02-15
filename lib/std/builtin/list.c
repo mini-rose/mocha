@@ -15,7 +15,7 @@ typedef struct
 		cf_i64 v_i64;
 		cf_f32 v_f32;
 		cf_bool v_bool;
-		cf_str v_str;
+		struct cf_str v_str;
 	};
 } cf_object;
 
@@ -53,7 +53,7 @@ cf_i64 _C3lenP4list(cf_list *self)
 	return self->len;
 }
 
-cf_object *_C3getP4listj(cf_list *self, cf_u32 index)
+cf_object *_C3getP4listj(cf_list *self, cf_i32 index)
 {
 	if (index > self->len)
 		return NULL;
@@ -81,7 +81,8 @@ cf_null _C4clearP4list(cf_list *self)
 	self->len = 0;
 }
 
-cf_null _C6removeP4listj(cf_list *self, cf_u32 index) {
+cf_null _C6removeP4listj(cf_list *self, cf_i32 index)
+{
 	for (int i = index; i < self->len - 1; i++) {
 		self->items[i] = self->items[i + 1];
 		self->items[i + 1] = NULL;

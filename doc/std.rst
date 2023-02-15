@@ -41,14 +41,15 @@ operations. For user-side string manipulation, see std.string instead.
 
 std.builtin.list
 ----------------
-* ``copy(&str, &str) -> null``
-        Called by the compiler, when assigning one list to another. This
-        means that all assignments are actually copies.
 
-* ``len(&str) -> i64``
+* ``copy(&list, &list) -> null``
+        Called by the compiler, when assigning one list to another. This means
+        that all assignments are actually copies.
+
+* ``len(&list) -> i64``
         Returns the list length.
 
-* ``drop(&str) -> null``
+* ``drop(&list) -> null``
         Called when a list goes out of scope.
 
 * ``append(&list, &list) -> null``
