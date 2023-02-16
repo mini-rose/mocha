@@ -73,6 +73,10 @@ void token_print(token *tok)
 					[T_MOD] = "MOD",
 					[T_DIVA] = "DIVA",
 					[T_MODA] = "MODA",
+					[T_LPAREN] = "LPAREN",
+					[T_RPAREN] = "RPAREN",
+					[T_COMMA] = "COMMA",
+					[T_DOT] = "DOT",
 					[T_MUL] = "MUL",
 					[T_SUB] = "SUB"};
 
@@ -222,7 +226,7 @@ token_list *tokens(file_t *source)
 		}
 
 		if (ispunct(*p)) {
-			token *tok;
+			token *tok = NULL;
 
 			static char *operators[] = {
 			    [T_ASS] = "=",   [T_EQ] = "==",    [T_NEQ] = "!=",
@@ -231,17 +235,46 @@ token_list *tokens(file_t *source)
 			    [T_DIV] = "/",   [T_MOD] = "%",    [T_DIVA] = "/=",
 			    [T_MODA] = "%=", [T_MUL] = "*",    [T_SUB] = "-"};
 
+			switch (*p) {
+			case '(':
+				tok = token_new(last = T_LPAREN, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			case ')':
+				tok = token_new(last = T_RPAREN, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			case ',':
+				tok = token_new(last = T_COMMA, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			case '.':
+				tok = token_new(last = T_DOT, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			default:
+				break;
+			}
+
 			for (int i = T_EQ; i < LEN(operators); i++) {
 				if (!strncmp(p, operators[i],
 					     strlen(operators[i]))) {
+
 					tok = token_new(last = (token_t) i, p,
 							strlen(operators[i]));
-					token_list_append(list, tok);
 
+					token_list_append(list, tok);
 					p += strlen(operators[i]);
-					continue;
+					break;
 				}
 			}
+
+			if (tok)
+				continue;
 
 			while (isspace(*p))
 				p++;
@@ -255,6 +288,7 @@ token_list *tokens(file_t *source)
 			p++;
 			continue;
 		}
+
 
 		p++;
 	}

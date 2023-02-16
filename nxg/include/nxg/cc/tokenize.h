@@ -12,6 +12,10 @@ typedef enum
 	T_STRING,
 	T_IDENT,
 	T_PUNCT,
+	T_LPAREN, // (
+	T_RPAREN, // )
+	T_COMMA,  // ,
+	T_DOT,    // .
 	T_END,
 
 	/* Operator types */
