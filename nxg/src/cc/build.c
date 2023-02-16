@@ -52,25 +52,29 @@ static void build_and_link(settings_t *settings, const char *input_,
 	remove_extension(input);
 
 	/* mod.ll -> mod.bc */
-	snprintf(cmd, 1024, "/usr/bin/opt -O3 %s > %s.bc", input_, input);
+	snprintf(cmd, 1024, "/usr/bin/opt -O%d %s > %s.bc", settings->opt,
+		 input_, input);
+	if (settings->verbose)
+		puts(cmd);
 	pclose(popen(cmd, "r"));
 
 	/* mod.bc -> mod.s */
 	snprintf(cmd, 1024, "/usr/bin/llc -o %s.s %s.bc", input, input);
+	if (settings->verbose)
+		puts(cmd);
 	pclose(popen(cmd, "r"));
 
 	/* mod.s -> mod.o */
 	snprintf(cmd, 1024, "/usr/bin/as -o %s.o %s.s", input, input);
+	if (settings->verbose)
+		puts(cmd);
 	pclose(popen(cmd, "r"));
 
 	/* mod.o -> output */
 	snprintf(cmd, 1024,
-		 "/usr/bin/ld -o %s -dynamic-linker /lib/%s /lib/crt1.o "
+		 "/usr/bin/ld -o %s -dynamic-linker %s /lib/crt1.o "
 		 "/lib/crti.o %s.o ",
-		 output,
-		 settings->use_musl ? "ld-musl-x86_64.so.1"
-				    : "ld-linux-x86-64.so.2",
-		 input);
+		 output, settings->dyn_linker, input);
 
 	for (int i = 0; i < n_c_objects; i++) {
 		strcat(cmd, c_objects[i]);
@@ -78,6 +82,8 @@ static void build_and_link(settings_t *settings, const char *input_,
 	}
 
 	strcat(cmd, "/lib/crtn.o -lc 2>&1");
+	if (settings->verbose)
+		puts(cmd);
 	proc = popen(cmd, "r");
 
 	char c;
@@ -98,7 +104,7 @@ static void build_and_link(settings_t *settings, const char *input_,
 	free(input);
 }
 
-char *compile_c_object(char *file)
+char *compile_c_object(settings_t *settings, char *file)
 {
 	char *output = calloc(512, 1);
 	char cmd[512];
@@ -106,7 +112,10 @@ char *compile_c_object(char *file)
 	strcpy(output, file);
 	strcat(output, ".o");
 
-	snprintf(cmd, 512, "/usr/bin/clang -c -O2 -o %s %s", output, file);
+	snprintf(cmd, 512, "/usr/bin/clang -c -O%d -o %s %s", settings->opt,
+		 output, file);
+	if (settings->verbose)
+		puts(cmd);
 	pclose(popen(cmd, "r"));
 
 	return output;

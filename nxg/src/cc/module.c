@@ -66,7 +66,8 @@ mod_expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 	   in the final stage. */
 	snprintf(pathbuf, 512, "%s.c", file);
 	if (!access(pathbuf, F_OK))
-		add_module_c_object(module, compile_c_object(pathbuf));
+		add_module_c_object(module,
+				    compile_c_object(settings, pathbuf));
 
 	free(modname);
 	free(working_dir);
