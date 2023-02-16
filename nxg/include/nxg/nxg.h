@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #define NXG_MAJOR 0
-#define NXG_MINOR 3
+#define NXG_MINOR 4
 
 #define MAIN_MODULE "__main__"
 

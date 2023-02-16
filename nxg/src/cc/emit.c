@@ -91,6 +91,18 @@ static LLVMTypeRef gen_plain_type(LLVMModuleRef mod, plain_type t)
 	}
 }
 
+static LLVMTypeRef gen_object_type(LLVMModuleRef mod, type_t *ty)
+{
+	LLVMTypeRef type = LLVMGetTypeByName(mod, ty->v_object->name);
+
+	if (!type) {
+		error("emit: failed to find %%%s struct in module",
+		      ty->v_object->name);
+	}
+
+	return type;
+}
+
 LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty)
 {
 	if (ty->kind == TY_PLAIN)
@@ -102,7 +114,7 @@ LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty)
 	if (is_str_type(ty))
 		return gen_str_type(mod);
 	if (ty->kind == TY_OBJECT)
-		error("emit: LLVM object type is not yet implemented");
+		return gen_object_type(mod, ty);
 	return LLVMVoidType();
 }
 
@@ -302,8 +314,10 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 	char *symbol;
 
 	results = module_find_fn_candidates(context->module, "copy");
-	if (!results->n_candidates)
-		error("emit: missing copy function for %s", type_name(ty));
+	if (!results->n_candidates) {
+		error("emit: missing fn copy(&%s, &%s)", type_name(ty),
+		      type_name(ty));
+	}
 
 	/* match a copy<T>(&T, &T) */
 
@@ -324,8 +338,10 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 		break;
 	}
 
-	if (!match)
-		error("emit: missing copy function for %s", type_name(ty));
+	if (!match) {
+		error("emit: missing fn copy(&%s, &%s)", type_name(ty),
+		      type_name(ty));
+	}
 
 	symbol = nxg_mangle(match);
 	func = LLVMGetNamedFunction(context->llvm_mod, symbol);
@@ -351,8 +367,7 @@ static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 
 	results = module_find_fn_candidates(context->module, "drop");
 	if (!results->n_candidates)
-		error("emit: missing drop function for %s",
-		      type_name(rule->type));
+		error("emit: missing fn drop(&%s)", type_name(rule->type));
 
 	/* match a drop<T>(&T) */
 
@@ -371,10 +386,8 @@ static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 		break;
 	}
 
-	if (!match) {
-		error("emit: missing drop function for %s",
-		      type_name(rule->type));
-	}
+	if (!match)
+		error("emit: missing fn drop(&%s)", type_name(rule->type));
 
 	symbol = nxg_mangle(match);
 	func = LLVMGetNamedFunction(context->llvm_mod, symbol);
@@ -690,6 +703,26 @@ static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 	for (int i = 0; i < mod_data->n_decls; i++) {
 		emit_function_decl(mod, module->data, mod_data->decls[i],
 				   LLVMExternalLinkage);
+	}
+
+	/* Declare struct types. */
+	for (int i = 0; i < mod_data->n_type_decls; i++) {
+		if (mod_data->type_decls[i]->kind != TY_OBJECT)
+			continue;
+
+		object_type_t *o = mod_data->type_decls[i]->v_object;
+		LLVMTypeRef o_type;
+		LLVMTypeRef *fields = calloc(o->n_fields, sizeof(LLVMTypeRef));
+
+		o_type =
+		    LLVMStructCreateNamed(LLVMGetModuleContext(mod), o->name);
+
+		for (int j = 0; j < o->n_fields; j++)
+			fields[j] = gen_type(mod, o->fields[i]);
+
+		LLVMStructSetBody(o_type, fields, o->n_fields, false);
+
+		free(fields);
 	}
 
 	/* For emitting functions we need to make 2 passes. The first time we

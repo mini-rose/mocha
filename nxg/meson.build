@@ -12,6 +12,7 @@ sources = [
   'src/cc/parser/free.c',
   'src/cc/parser/value.c',
   'src/cc/parser/call.c',
+  'src/cc/parser/dump.c',
   'src/cc/parser/fn.c',
   'src/cc/parser.c',
   'src/cc/type.c',
@@ -28,7 +29,7 @@ llvm = declare_dependency(link_args: '-lLLVM')
 executable(
   'nxg', sources,
   include_directories: includes,
-  cpp_args: ['-O0', '-g'],
-  link_args: ['-fsanitize=address', '-Wall', '-Wextra', '-pedantic'],
+  cpp_args: ['-O2', '-g'],
+  link_args: ['-Wall', '-Wextra', '-pedantic'],
   dependencies: llvm
 )

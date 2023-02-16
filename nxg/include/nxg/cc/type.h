@@ -82,3 +82,5 @@ char *type_name(type_t *ty);
 void type_destroy(type_t *ty);
 void type_object_destroy(object_type_t *obj);
 const char *type_example_varname(type_t *ty);
+
+void type_object_add_field(object_type_t *o, char *name, type_t *ty);

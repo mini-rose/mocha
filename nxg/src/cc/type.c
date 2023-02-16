@@ -315,3 +315,13 @@ const char *type_example_varname(type_t *ty)
 		return "object";
 	return "x";
 }
+
+void type_object_add_field(object_type_t *o, char *name, type_t *ty)
+{
+	o->fields = realloc(o->fields, sizeof(type_t *) * (o->n_fields + 1));
+	o->field_names =
+	    realloc(o->field_names, sizeof(char *) * (o->n_fields + 1));
+
+	o->fields[o->n_fields] = type_copy(ty);
+	o->field_names[o->n_fields++] = strdup(name);
+}
