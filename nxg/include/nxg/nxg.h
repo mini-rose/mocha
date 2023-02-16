@@ -16,6 +16,7 @@ typedef struct
 	bool global;
 	bool using_bs;
 	bool jit;
+	bool use_musl;
 	char *output;
 	char *input;
 	char *stdpath;

@@ -40,8 +40,9 @@ char *make_modname(char *file)
 	return modname;
 }
 
-static void build_and_link(const char *input_, const char *output,
-			   char **c_objects, int n_c_objects)
+static void build_and_link(settings_t *settings, const char *input_,
+			   const char *output, char **c_objects,
+			   int n_c_objects)
 {
 	char cmd[1024];
 	char *input;
@@ -64,9 +65,12 @@ static void build_and_link(const char *input_, const char *output,
 
 	/* mod.o -> output */
 	snprintf(cmd, 1024,
-		 "/usr/bin/ld -o %s -dynamic-linker /lib/ld-linux-x86-64.so.2 "
-		 "/lib/crt1.o /lib/crti.o %s.o ",
-		 output, input);
+		 "/usr/bin/ld -o %s -dynamic-linker /lib/%s /lib/crt1.o "
+		 "/lib/crti.o %s.o ",
+		 output,
+		 settings->use_musl ? "ld-musl-x86_64.so.1"
+				    : "ld-linux-x86-64.so.2",
+		 input);
 
 	for (int i = 0; i < n_c_objects; i++) {
 		strcat(cmd, c_objects[i]);
@@ -148,7 +152,7 @@ void compile(settings_t *settings)
 	snprintf(module_path, 512, "/tmp/nxg/%s.ll", module_name);
 	emit_module(ast, module_path, true);
 
-	build_and_link(module_path, settings->output,
+	build_and_link(settings, module_path, settings->output,
 		       E_AS_MOD(ast->data)->c_objects,
 		       E_AS_MOD(ast->data)->n_c_objects);
 

@@ -16,15 +16,19 @@ static inline void help()
 static inline void full_help()
 {
 	help();
-	puts("Compile a single or multiple coffee source code files into an "
-	     "executable.\n\n"
-	     "  -h, --help      show this page\n"
-	     "  -v, --version   show the compiler version\n"
-	     "  -o <path>       output binary file name (default: a.out)\n"
-	     "  -s <path>       standard library path (default: "
-	     "/usr/lib/coffee/std)\n"
-	     "  -t              show generated tokens\n"
-	     "  -p              show generated AST");
+	fputs("Compile a single or multiple coffee source code files into an "
+	      "executable.\n\n"
+	      "Common:\n"
+	      "  -h, --help      show this page\n"
+	      "  -o <path>       output binary file name (default: a.out)\n"
+	      "  -p              show generated AST\n"
+	      "  -s <path>       standard library path (default: "
+	      "/usr/lib/coffee/std)\n"
+	      "  -t              show generated tokens\n"
+	      "  -v, --version   show the compiler version\n"
+	      "\nOther:\n"
+	      "  -M, --musl      use musl instead of glibc\n",
+	      stdout);
 	exit(0);
 }
 
@@ -44,12 +48,13 @@ int main(int argc, char **argv)
 	settings.using_bs = false;
 	settings.show_tokens = false;
 	settings.jit = argc == 1;
+	settings.use_musl = false;
 	int opt;
 
 	/* NOTE: for our uses, we might want to use a custom argument parser to
 	   allow for more complex combinations (along with long options). */
 
-	while ((opt = getopt(argc, argv, "o:s:hvpt")) != -1) {
+	while ((opt = getopt(argc, argv, "o:s:hvptM")) != -1) {
 		switch (opt) {
 		case 'o':
 			settings.output = strdup(optarg);
@@ -67,6 +72,9 @@ int main(int argc, char **argv)
 		case 't':
 			settings.show_tokens = true;
 			break;
+		case 'M':
+			settings.use_musl = true;
+			break;
 		case 'v':
 			version();
 			break;
@@ -78,6 +86,8 @@ int main(int argc, char **argv)
 			full_help();
 		if (!strncmp(argv[i], "--version", 10))
 			version();
+		if (!strncmp(argv[i], "--musl", 6))
+			settings.use_musl = true;
 
 		if (!strncmp(argv[i], ".", 2)) {
 			buildfile(&settings);
