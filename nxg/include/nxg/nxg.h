@@ -15,6 +15,7 @@ typedef struct
 	bool show_tokens;
 	bool global;
 	bool using_bs;
+	bool jit;
 	char *output;
 	char *input;
 	char *stdpath;

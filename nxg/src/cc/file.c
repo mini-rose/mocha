@@ -49,6 +49,33 @@ file_t *file_new(const char *path)
 	return f;
 }
 
+file_t *file_stdin()
+{
+	file_t *self;
+	char buf[256];
+	int n, amount;
+
+	if ((self = (file_t *) malloc(sizeof(file_t))) == NULL)
+		error("failed to malloc mem for file");
+
+	self->path = NULL;
+	self->content = NULL;
+	amount = 0;
+
+	while ((fgets(buf, 256, stdin))) {
+		n = strlen(buf);
+		self->content =
+		    realloc(self->content, (amount + n) * sizeof(char));
+		memcpy(self->content + amount, buf, n);
+		amount += n;
+	}
+
+	self->content = realloc(self->content, (amount + 1) * sizeof(char));
+	self->content[amount] = 0;
+
+	return self;
+}
+
 void file_destroy(file_t *f)
 {
 	free(f->path);

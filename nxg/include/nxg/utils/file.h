@@ -9,4 +9,6 @@ typedef struct {
 file_t *file_new_null(const char *path);
 
 file_t *file_new(const char *path);
+file_t *file_stdin(void);
+
 void file_destroy(file_t *f);

@@ -43,12 +43,8 @@ int main(int argc, char **argv)
 	settings.input = NULL;
 	settings.using_bs = false;
 	settings.show_tokens = false;
+	settings.jit = argc == 1;
 	int opt;
-
-	if (argc == 1) {
-		help();
-		exit(0);
-	}
 
 	/* NOTE: for our uses, we might want to use a custom argument parser to
 	   allow for more complex combinations (along with long options). */

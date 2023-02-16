@@ -117,10 +117,17 @@ static void import_builtins(settings_t *settings, expr_t *module)
 void compile(settings_t *settings)
 {
 	char module_path[512];
-	file_t *source = file_new(settings->input);
-	token_list *list = tokens(source);
+	file_t *source;
+	token_list *list;
 	char *module_name;
 	expr_t *ast;
+
+	if (settings->jit)
+		source = file_stdin();
+	else
+		source = file_new(settings->input);
+
+	list = tokens(source);
 
 	if (settings->show_tokens)
 		token_list_print(list);
