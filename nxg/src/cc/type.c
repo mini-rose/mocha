@@ -174,6 +174,7 @@ type_t *type_copy(type_t *ty)
 		new_ty->v_plain = ty->v_plain;
 	} else if (ty->kind == TY_OBJECT) {
 		new_ty->v_object = object_type_copy(ty->v_object);
+	} else if (ty->kind == TY_NULL) {
 	} else {
 		error("failed to copy type %s", type_name(ty));
 	}
