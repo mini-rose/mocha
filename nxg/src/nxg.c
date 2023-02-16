@@ -92,7 +92,7 @@ int main(int argc, char **argv)
 	}
 
 	if (settings.input == NULL)
-		settings.input = argv[optind];
+		settings.input = strdup(argv[optind]);
 
 	int n = strlen(settings.stdpath);
 	if (settings.stdpath[n - 1] == '/')

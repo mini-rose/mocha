@@ -25,7 +25,10 @@ typedef enum
 	K_RETURN = 9,
 
 	// Import keyword
-	K_IMPORT = 10
+	K_IMPORT = 10,
+
+	// Type decl keyword
+	K_TYPE = 11,
 } keyword_t;
 
 bool is_keyword(const char *);

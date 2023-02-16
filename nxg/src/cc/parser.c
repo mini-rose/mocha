@@ -158,15 +158,36 @@ void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 		 "unparsable literal `%.*s`", tok->len, tok->value);
 }
 
-type_t *parse_type(token_list *tokens, token *tok)
+static void parse_type_err(token_list *tokens, token *tok)
 {
+	char *fix = NULL;
+
+	if (!strncmp("int", tok->value, tok->len))
+		fix = "i32";
+	if (!strncmp("string", tok->value, tok->len))
+		fix = "str";
+	if (!strncmp("long", tok->value, tok->len))
+		fix = "i64";
+
+	if (!fix)
+		error_at(tokens->source, tok->value, tok->len, "unknown type");
+	error_at_with_fix(tokens->source, tok->value, tok->len, fix,
+			  "unknown type, did you mean to use a %s?", fix);
+}
+
+type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
+{
+	mod_expr_t *mod = context->data;
 	type_t *ty;
+
+	if (context->type != E_MODULE)
+		error("parse_type requires E_MODULE context");
 
 	if (TOK_IS(tok, T_PUNCT, "&")) {
 		tok = next_tok(tokens);
 		ty = type_new_null();
 		ty->kind = TY_POINTER;
-		ty->v_base = parse_type(tokens, tok);
+		ty->v_base = parse_type(context, tokens, tok);
 		return ty;
 	}
 
@@ -175,13 +196,26 @@ type_t *parse_type(token_list *tokens, token *tok)
 		if (!strncmp(tok->value, "str", tok->len))
 			return type_build_str();
 
-		error_at(tokens->source, tok->value, tok->len,
-			 "object types are not yet implemented");
+		/* Find any matching types */
+		for (int i = 0; i < mod->n_type_decls; i++) {
+			if (strncmp(mod->type_decls[i]->alias, tok->value,
+				    tok->len)) {
+				continue;
+			}
+
+			if (mod->type_decls[i]->kind == TY_ALIAS) {
+				return type_copy(mod->type_decls[i]->v_base);
+			} else {
+				error_at(tokens->source, tok->value, tok->len,
+					 "unknown type kind");
+			}
+		}
+
+		parse_type_err(tokens, tok);
 	}
 
-	if (tok->type == T_DATATYPE) {
+	if (tok->type == T_DATATYPE)
 		ty = type_from_sized_string(tok->value, tok->len);
-	}
 
 	tok = index_tok(tokens, tokens->iter);
 	if (TOK_IS(tok, T_PUNCT, "[")) {
@@ -243,7 +277,7 @@ static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens,
 
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
-	data->type = parse_type(tokens, tok);
+	data->type = parse_type(E_AS_FN(parent->data)->module, tokens, tok);
 
 	node = expr_add_child(parent);
 	node->type = E_VARDECL;
@@ -468,19 +502,18 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 
 	/* parameters (optional) */
 	tok = next_tok(tokens);
-	if (!TOK_IS(tok, T_PUNCT, "(")) {
+	if (tok->type != T_LPAREN)
 		goto params_skip;
-	}
 
 	tok = next_tok(tokens);
-	while (!TOK_IS(tok, T_PUNCT, ")")) {
+	while (tok->type != T_RPAREN) {
 		type_t *type;
 		token *name;
 
 		if (tok->type == T_DATATYPE || TOK_IS(tok, T_PUNCT, "&")) {
 			char fix[128];
 			int errlen;
-			type = parse_type(tokens, tok);
+			type = parse_type(module, tokens, tok);
 			name = index_tok(tokens, tokens->iter);
 			errlen = tok->len;
 
@@ -505,7 +538,7 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 		if (tok->type != T_IDENT) {
 			char fix[128];
 			name = index_tok(tokens, tokens->iter + 1);
-			type = parse_type(tokens, tok);
+			type = parse_type(module, tokens, tok);
 
 			snprintf(fix, 128, "%.*s: %s", name->len, name->value,
 				 type_name(type));
@@ -536,10 +569,10 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 
 		/* get the data type */
 
-		type = parse_type(tokens, tok);
+		type = parse_type(module, tokens, tok);
 		tok = next_tok(tokens);
 
-		if (!TOK_IS(tok, T_PUNCT, ",") && !TOK_IS(tok, T_PUNCT, ")")) {
+		if (tok->type != T_COMMA && tok->type != T_RPAREN) {
 			error_at_with_fix(tokens->source, tok->value, tok->len,
 					  ", or )", "unexpected token");
 		}
@@ -547,7 +580,7 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 		fn_add_param(decl, name->value, name->len, type);
 		type_destroy(type);
 
-		if (TOK_IS(tok, T_PUNCT, ","))
+		if (tok->type == T_COMMA)
 			tok = next_tok(tokens);
 	}
 
@@ -567,7 +600,7 @@ params_skip:
 
 		if (decl->return_type)
 			type_destroy(decl->return_type);
-		decl->return_type = parse_type(tokens, tok);
+		decl->return_type = parse_type(module, tokens, tok);
 		return_type_tok = tok;
 		tok = next_tok(tokens);
 	}
@@ -785,7 +818,7 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 		if (tok->type == T_NEWLINE)
 			break;
 
-		if (!TOK_IS(tok, T_PUNCT, ".")) {
+		if (tok->type != T_DOT) {
 			error_at_with_fix(
 			    tokens->source, tok->value, tok->len, ".",
 			    "expected dot seperator after module name");
@@ -807,6 +840,43 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 	}
 
 	free(path);
+}
+
+/**
+ * type ::= "type" ident = ident
+ *      ::= "type" ident { [ident ident newline]... }
+ */
+static void parse_type_decl(expr_t *module, token_list *tokens, token *tok)
+{
+	type_t *ty;
+	token *name;
+
+	/* name */
+	if ((tok = next_tok(tokens))->type != T_IDENT) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "expected type name");
+	}
+
+	name = tok;
+	tok = next_tok(tokens);
+
+	/* = or { */
+	if (tok->type == T_ASS) {
+
+		/* Type alias */
+		ty = module_add_type_decl(module);
+
+		tok = next_tok(tokens);
+		ty->kind = TY_ALIAS;
+		ty->alias = strndup(name->value, name->len);
+		ty->v_base = parse_type(module, tokens, tok);
+
+	} else if (TOK_IS(tok, T_PUNCT, "{")) {
+		error_at(tokens->source, tok->value, tok->len, "not impl");
+	} else {
+		error_at(tokens->source, tok->value, tok->len,
+			 "expected `=` for alias or `{` for structure type");
+	}
 }
 
 expr_t *parse(expr_t *module, settings_t *settings, token_list *tokens,
@@ -852,6 +922,8 @@ expr_t *parse(expr_t *module, settings_t *settings, token_list *tokens,
 			continue;
 		} else if (TOK_IS(current, T_KEYWORD, "use")) {
 			parse_use(settings, module, tokens, current);
+		} else if (TOK_IS(current, T_KEYWORD, "type")) {
+			parse_type_decl(module, tokens, current);
 		} else if (is_builtin_function(current)) {
 			parse_builtin_call(module, module, tokens, current);
 		} else {
@@ -931,7 +1003,8 @@ char *fn_str_signature(fn_expr_t *func, bool with_colors)
 	}
 
 	ty_str = type_name(func->return_type);
-	snprintf(buf, 64, "): %s", ty_str);
+	snprintf(buf, 64, ") -> %s%s%s", with_colors ? "\e[33m" : "", ty_str,
+		 with_colors ? "\e[0m" : "");
 	strcat(sig, buf);
 	free(ty_str);
 
@@ -942,12 +1015,15 @@ static const char *expr_info(expr_t *expr)
 {
 	static char info[512];
 	assign_expr_t *var;
+	mod_expr_t *mod;
 	char *tmp = NULL;
 	char marker;
 
 	switch (expr->type) {
 	case E_MODULE:
-		snprintf(info, 512, "%s", E_AS_MOD(expr->data)->name);
+		mod = expr->data;
+		snprintf(info, 512, "\e[1;98m%s\e[0m src=%s", mod->name,
+			 mod->source_name);
 		break;
 	case E_FUNCTION:
 		tmp = fn_str_signature(E_AS_FN(expr->data), true);
@@ -1032,6 +1108,67 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 	free(tmp);
 }
 
+static void expr_print_mod_expr(mod_expr_t *mod, int level)
+{
+	char *tmp;
+
+	if (mod->n_c_objects) {
+		indent(0, 2 * (level));
+		printf("\e[95mObjects to link (%d):\e[0m\n", mod->n_c_objects);
+	}
+
+	for (int i = 0; i < mod->n_c_objects; i++) {
+		indent(0, 2 * (level + 1));
+		printf("%s\n", mod->c_objects[i]);
+	}
+
+	if (mod->n_local_decls) {
+		indent(0, 2 * (level));
+		printf("\e[95mLocal declarations (%d):\e[0m\n",
+		       mod->n_local_decls);
+	}
+
+	for (int i = 0; i < mod->n_local_decls; i++) {
+		indent(0, 2 * (level + 1));
+		tmp = fn_str_signature(mod->local_decls[i], true);
+		printf("%s\n", tmp);
+		free(tmp);
+	}
+
+	if (mod->n_decls) {
+		indent(0, 2 * (level));
+		printf("\e[95mExtern declarations (%d):\e[0m\n", mod->n_decls);
+	}
+
+	for (int i = 0; i < mod->n_decls; i++) {
+		indent(0, 2 * (level + 1));
+		tmp = fn_str_signature(mod->decls[i], true);
+		printf("%s\n", tmp);
+		free(tmp);
+	}
+
+	if (mod->n_type_decls) {
+		indent(0, 2 * (level));
+		printf("\e[95mType declarations (%d):\e[0m\n",
+		       mod->n_type_decls);
+	}
+
+	for (int i = 0; i < mod->n_type_decls; i++) {
+		indent(0, 2 * (level + 1));
+		tmp = type_name(mod->type_decls[i]);
+		printf("%s\n", tmp);
+		free(tmp);
+	}
+
+	if (mod->n_imported) {
+		indent(0, 2 * (level));
+		printf("\e[95mImported modules (%d):\e[0m\n", mod->n_imported);
+	}
+
+	for (int i = 0; i < mod->n_imported; i++)
+		expr_print_level(mod->imported[i], level + 1, false);
+}
+
 static void expr_print_level(expr_t *expr, int level, bool with_next)
 {
 	expr_t *walker;
@@ -1039,11 +1176,14 @@ static void expr_print_level(expr_t *expr, int level, bool with_next)
 	for (int i = 0; i < level; i++)
 		fputs("  ", stdout);
 
-	printf("\e[96m%s\e[0m %s\n", expr_typename(expr->type),
-	       expr_info(expr));
+	printf("\e[%sm%s\e[0m %s\n", expr->type == E_MODULE ? "1;91" : "96",
+	       expr_typename(expr->type), expr_info(expr));
 
 	if (expr->type == E_RETURN)
 		expr_print_value_expr(expr->data, level + 1);
+
+	if (expr->type == E_MODULE)
+		expr_print_mod_expr(expr->data, level + 1);
 
 	if (expr->type == E_ASSIGN)
 		expr_print_value_expr(E_AS_ASS(expr->data)->value, level + 1);

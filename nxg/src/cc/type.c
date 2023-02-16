@@ -261,6 +261,12 @@ char *type_name(type_t *ty)
 			free(tmp);
 		}
 		strcat(name, "}");
+	} else if (ty->kind == TY_ALIAS) {
+		tmp = type_name(ty->v_base);
+		snprintf(name, 512, "alias[%s = %s]", ty->alias, tmp);
+		free(tmp);
+	} else {
+		snprintf(name, 512, "<type>");
 	}
 
 	return name;
@@ -274,6 +280,9 @@ void type_destroy(type_t *ty)
 		type_destroy(ty->v_base);
 	} else if (ty->kind == TY_OBJECT) {
 		type_object_destroy(ty->v_object);
+	} else if (ty->kind == TY_ALIAS) {
+		free(ty->alias);
+		type_destroy(ty->v_base);
 	} else {
 		error("type: cannot destroy type %s", type_name(ty));
 	}

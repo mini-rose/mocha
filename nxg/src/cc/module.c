@@ -110,21 +110,40 @@ mod_expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 fn_expr_t *module_add_decl(expr_t *module)
 {
 	mod_expr_t *mod = module->data;
+	fn_expr_t *decl;
 
 	mod->decls =
 	    realloc(mod->decls, sizeof(fn_expr_t *) * (mod->n_decls + 1));
-	mod->decls[mod->n_decls] = calloc(1, sizeof(fn_expr_t));
-	return mod->decls[mod->n_decls++];
+	mod->decls[mod->n_decls++] = decl = calloc(1, sizeof(fn_expr_t));
+
+	decl->module = module;
+
+	return decl;
 }
 
 fn_expr_t *module_add_local_decl(expr_t *module)
 {
 	mod_expr_t *mod = module->data;
+	fn_expr_t *decl;
 
 	mod->local_decls = realloc(
 	    mod->local_decls, sizeof(fn_expr_t *) * (mod->n_local_decls + 1));
-	mod->local_decls[mod->n_local_decls] = calloc(1, sizeof(fn_expr_t));
-	return mod->local_decls[mod->n_local_decls++];
+	mod->local_decls[mod->n_local_decls++] = decl =
+	    calloc(1, sizeof(fn_expr_t));
+
+	decl->module = module;
+
+	return decl;
+}
+
+type_t *module_add_type_decl(expr_t *module)
+{
+	mod_expr_t *mod = module->data;
+
+	mod->type_decls = realloc(mod->type_decls,
+				  sizeof(type_t *) * (mod->n_type_decls + 1));
+	mod->type_decls[mod->n_type_decls] = type_new();
+	return mod->type_decls[mod->n_type_decls++];
 }
 
 void add_candidate(fn_candidates_t *resolved, fn_expr_t *ptr)

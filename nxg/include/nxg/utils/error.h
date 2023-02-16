@@ -18,3 +18,5 @@ noreturn void error_at_with_fix(file_t *source, const char *pos, int len,
 				const char *fix, const char *format, ...);
 void warning_at(file_t *source, const char *pos, int len, const char *format,
 		...);
+
+void indent(int tabs, int spaces);

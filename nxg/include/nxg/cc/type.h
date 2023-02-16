@@ -38,7 +38,8 @@ typedef enum
 	TY_PLAIN,   /* T */
 	TY_POINTER, /* &T */
 	TY_ARRAY,   /* T[] */
-	TY_OBJECT,  /* obj T {} */
+	TY_OBJECT,  /* type T {} */
+	TY_ALIAS,   /* type T = U */
 } type_kind;
 
 typedef struct
@@ -53,10 +54,11 @@ struct type
 {
 	type_kind kind;
 	size_t len; /* in case of array type */
+	char *alias; /* aliased name */
 	union
 	{
-		plain_type v_plain;      /* plain type */
-		type_t *v_base;          /* base type of pointer/element */
+		plain_type v_plain; /* plain type */
+		type_t *v_base; /* base type of pointer/element/alias */
 		object_type_t *v_object; /* object type */
 	};
 };

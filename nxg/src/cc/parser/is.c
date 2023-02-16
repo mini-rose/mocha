@@ -46,13 +46,13 @@ bool is_call(token_list *tokens, token *tok)
 		return false;
 
 	tok = index_tok(tokens, index);
-	if (!TOK_IS(tok, T_PUNCT, "("))
+	if (tok->type != T_LPAREN)
 		return false;
 
 	/* find the closing brace */
 	do {
 		tok = index_tok(tokens, ++index);
-		if (TOK_IS(tok, T_PUNCT, ")"))
+		if (tok->type == T_RPAREN)
 			return true;
 	} while (tok->type != T_END && tok->type != T_NEWLINE);
 

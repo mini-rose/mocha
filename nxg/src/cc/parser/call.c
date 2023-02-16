@@ -35,15 +35,15 @@ static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens)
 	token *arg;
 
 	while ((arg = next_tok(tokens))->type != T_NEWLINE) {
-		type_t *ty = parse_type(tokens, arg);
+		type_t *ty = parse_type(decl->module, tokens, arg);
 		fn_add_param(decl, "_", 1, ty);
 		type_destroy(ty);
 
 		arg = next_tok(tokens);
-		if (TOK_IS(arg, T_PUNCT, ")"))
+		if (arg->type == T_RPAREN)
 			break;
 
-		if (!TOK_IS(arg, T_PUNCT, ",")) {
+		if (arg->type != T_COMMA) {
 			error_at_with_fix(tokens->source, arg->value, arg->len,
 					  ",",
 					  "expected comma between arguments",
@@ -96,7 +96,7 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 		decl->name = strndup(arg->value, arg->len);
 
 		arg = next_tok(tokens);
-		if (!TOK_IS(arg, T_PUNCT, ",")) {
+		if (arg->type != T_COMMA) {
 			error_at(tokens->source, arg->value, arg->len,
 				 "missing return type argument");
 		}
@@ -109,13 +109,17 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 				 "expected to be the return type");
 		}
 
-		decl->return_type = parse_type(tokens, arg);
+		expr_t *context = parent;
+		if (parent->type == E_FUNCTION)
+			context = E_AS_FN(parent->data)->module;
+
+		decl->return_type = parse_type(context, tokens, arg);
 
 		arg = next_tok(tokens);
-		if (TOK_IS(arg, T_PUNCT, ")"))
+		if (arg->type == T_RPAREN)
 			return ERR_WAS_BUILTIN;
 
-		if (!TOK_IS(arg, T_PUNCT, ",")) {
+		if (arg->type != T_COMMA) {
 			error_at_with_fix(tokens->source, arg->value, arg->len,
 					  ",",
 					  "expected comma between arguments");
@@ -150,7 +154,7 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 	/* Arguments - currently only support variable names & literals
 	 */
-	while (!TOK_IS(tok, T_PUNCT, ")")) {
+	while (tok->type != T_RPAREN) {
 		if (is_call(tokens, tok)) {
 			arg = call_add_arg(data);
 			add_arg_token(&arg_tokens, tok);
@@ -231,10 +235,10 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 		tok = next_tok(tokens);
 
-		if (TOK_IS(tok, T_PUNCT, ")"))
+		if (tok->type == T_RPAREN)
 			break;
 
-		if (!TOK_IS(tok, T_PUNCT, ",")) {
+		if (tok->type != T_COMMA) {
 			error_at_with_fix(
 			    tokens->source, tok->value, tok->len, ",",
 			    "expected comma seperating the arguments");

@@ -54,6 +54,8 @@ typedef struct
 	int n_imported;
 	char **c_objects;
 	int n_c_objects;
+	type_t **type_decls;
+	int n_type_decls;
 } mod_expr_t;
 
 typedef enum
@@ -100,6 +102,7 @@ typedef struct
 struct fn_expr
 {
 	char *name;
+	expr_t *module;
 	var_decl_expr_t **params;
 	var_decl_expr_t **locals;
 	int n_params;
@@ -201,7 +204,7 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 value_expr_t *parse_value_expr(expr_t *context, expr_t *mod, value_expr_t *node,
 			       token_list *tokens, token *tok);
 void parse_call(expr_t *parent, expr_t *mod, token_list *tokens, token *tok);
-type_t *parse_type(token_list *tokens, token *tok);
+type_t *parse_type(expr_t *context, token_list *tokens, token *tok);
 void parse_literal(value_expr_t *node, token_list *tokens, token *tok);
 expr_t *expr_add_child(expr_t *parent);
 
