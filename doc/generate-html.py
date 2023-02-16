@@ -4,6 +4,13 @@
 import docutils.core
 import os
 
+additional_style = """
+body {
+    width: 50%;
+    margin: auto;
+}
+"""
+
 files = sorted(os.listdir())
 links = []
 
@@ -15,12 +22,23 @@ for doc in files:
         continue
 
     basename = doc.rsplit('.', 1)[0]
+    dest = f'html/{basename}.html'
 
     docutils.core.publish_file(
         source_path=f'{basename}.rst',
-        destination_path=f'html/{basename}.html',
+        destination_path=dest,
         writer_name='html'
     )
+
+    # Add custom styles
+    with open(dest) as f:
+        html = f.read()
+
+    tag = '<style type="text/css">'
+    html = html.replace(tag, tag + additional_style)
+
+    with open(dest, 'w') as f:
+        f.write(html)
 
     links.append(f'<a href="html/{basename}.html">{doc}</a><br>')
 
@@ -36,9 +54,24 @@ index_source = f"""
             font-family: monospace;
         }}
 
+        body {{
+            width: 50%;
+            margin: auto;
+            margin-top: 20px;
+        }}
+
         </style>
     </head>
-    <h1>Coffee Documentation</h1>
+    <h1>Coffee</h1>
+    <p>
+        A compiled programming language, using the LLVM toolchain, with a focus
+        legible syntax, modularity and compatibility with C. This documentation
+        is generated from reStructuredText files into simple HTML files, which
+        are just sorted alphabetically so this is very basic. There is an idea
+        to upgrade this documentation to something proper, but this is enough
+        for now.
+    </p>
+    <hr>
     <p>
         Here is the list of all generated HTML pages from the .rst files:
     </p>

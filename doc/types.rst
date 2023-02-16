@@ -60,25 +60,25 @@ The compiler depends on the std.builtin.string module to provide these
 functions which it can then emit calls to.
 
 
-Object
-------
+Structured type
+---------------
 
-Similar to other programming languages, Coffee offers an object type, which is
-basically the same as the C struct. You can create an object using the ``obj``
-keyword::
+Similar to other programming languages, Coffee offers an structured type, which
+is basically the same as the C struct. You can create an object type using the
+``type`` keyword::
 
-        obj User {
+        type User {
                 str name
                 i32 id
         }
 
-This object has two fields, a name and id, which can both be accessed by anyone,
+This type has two fields, a name and id, which can both be accessed by anyone,
 as there isn't any notion of private/protected fields. In LLVM IR, this would be
 represented as::
 
         %User = type { %str, i32 }
 
-Objects have special semantic rules emitted by the compiler. For example,
+Structures have special semantic rules emitted by the compiler. For example,
 passing a raw object to a function (not a reference to it) will generate a copy
 call before passing the value. This will require a function defined for that
 operation. Here is a list of functions that shall be implemented for an object::
