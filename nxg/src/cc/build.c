@@ -152,11 +152,6 @@ void compile(settings_t *settings)
 		       E_AS_MOD(ast->data)->c_objects,
 		       E_AS_MOD(ast->data)->n_c_objects);
 
-	if (settings->using_bs) {
-		free(settings->input);
-		free(settings->output);
-	}
-
 	expr_destroy(ast);
 	file_destroy(source);
 	token_list_destroy(list);

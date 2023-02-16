@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 {
 	settings_t settings = {0};
 	settings.stdpath = strdup("/usr/lib/coffee/std");
-	settings.output = "a.out";
+	settings.output = strdup("a.out");
 	settings.global = false;
 	settings.input = NULL;
 	settings.using_bs = false;
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 	while ((opt = getopt(argc, argv, "o:s:hvpt")) != -1) {
 		switch (opt) {
 		case 'o':
-			settings.output = optarg;
+			settings.output = strdup(optarg);
 			break;
 		case 's':
 			free(settings.stdpath);
@@ -100,6 +100,8 @@ int main(int argc, char **argv)
 
 	compile(&settings);
 
+	free(settings.output);
+	free(settings.input);
 	free(settings.stdpath);
 	return 0;
 }
