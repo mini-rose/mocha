@@ -24,7 +24,7 @@ typedef struct
 	bool using_bs;
 	bool jit;
 	bool verbose;
-	int opt;
+	char *opt;
 	char *output;
 	char *input;
 	char *stdpath;

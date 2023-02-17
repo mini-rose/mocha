@@ -52,7 +52,7 @@ static void build_and_link(settings_t *settings, const char *input_,
 	remove_extension(input);
 
 	/* mod.ll -> mod.bc */
-	snprintf(cmd, 1024, "/usr/bin/opt -O%d %s > %s.bc", settings->opt,
+	snprintf(cmd, 1024, "/usr/bin/opt -O%s %s > %s.bc", settings->opt,
 		 input_, input);
 	if (settings->verbose)
 		puts(cmd);
@@ -112,7 +112,7 @@ char *compile_c_object(settings_t *settings, char *file)
 	strcpy(output, file);
 	strcat(output, ".o");
 
-	snprintf(cmd, 512, "/usr/bin/clang -c -O%d -o %s %s", settings->opt,
+	snprintf(cmd, 512, "/usr/bin/clang -c -O%s -o %s %s", settings->opt,
 		 output, file);
 	if (settings->verbose)
 		puts(cmd);

@@ -1,6 +1,7 @@
 /* nxg - coffee compiler, build system & package manager
    Copyright (c) 2023 mini-rose */
 
+#include <getopt.h>
 #include <nxg/bs/buildfile.h>
 #include <nxg/nxg.h>
 #include <nxg/utils/error.h>
@@ -23,7 +24,7 @@ static inline void full_help()
 	    "  -h, --help      show this page\n"
 	    "  -o <path>       output binary file name (default: " DEFAULT_OUT
 	    ")\n"
-	    "  -O <level>      optimization level, one of: 0 1 2 3\n"
+	    "  -O <level>      optimization level, one of: 0 1 2 3 s\n"
 	    "  -p              show generated AST\n"
 	    "  -s <path>       standard library path (default: " DEFAULT_STD
 	    ")\n"
@@ -46,26 +47,66 @@ static inline void version()
 	exit(0);
 }
 
+void default_settings(settings_t *settings) {
+	settings->stdpath = strdup(DEFAULT_STD);
+	settings->output = strdup(DEFAULT_OUT);
+	settings->global = false;
+	settings->input = NULL;
+	settings->using_bs = false;
+	settings->show_tokens = false;
+	settings->dyn_linker = strdup(DEFAULT_LD);
+	settings->verbose = false;
+	settings->opt = strdup("0");
+}
+
+void parse_opt(settings_t *settings, const char *option, char *arg)
+{
+	puts(option);
+
+	if (!strncmp(option, "help", 4))
+		full_help();
+
+	if (!strncmp(option, "version", 8))
+		version();
+
+	if (!strncmp(option, "musl", 4)) {
+		free(settings->dyn_linker);
+		settings->dyn_linker = strdup(LD_MUSL);
+	}
+
+	if (!strncmp(option, "ld", 4)) {
+		if (!arg)
+			error("missing argument for --ld <path>");
+		free(settings->dyn_linker);
+		settings->dyn_linker = strdup(arg);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	settings_t settings = {0};
-	settings.stdpath = strdup(DEFAULT_STD);
-	settings.output = strdup(DEFAULT_OUT);
-	settings.global = false;
-	settings.input = NULL;
-	settings.using_bs = false;
-	settings.show_tokens = false;
+	int c, optindx = 0;
+
+	default_settings(&settings);
 	settings.jit = argc == 1;
-	settings.dyn_linker = strdup(DEFAULT_LD);
-	settings.verbose = false;
-	settings.opt = DEFAULT_OPT;
-	int opt;
 
-	/* NOTE: for our uses, we might want to use a custom argument parser to
-	   allow for more complex combinations (along with long options). */
+	static struct option longopts[] = {{"help", no_argument, 0, 0},
+					   {"version", no_argument, 0, 0},
+					   {"musl", no_argument, 0, 0},
+					   {"ld", required_argument, 0, 0}};
 
-	while ((opt = getopt(argc, argv, "o:s:L:O:hvptMV")) != -1) {
-		switch (opt) {
+	while (1) {
+		c = getopt_long(argc, argv, "o:s:L:O:hvptMV", longopts,
+				&optindx);
+
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 0:
+			parse_opt(&settings, longopts[optindx].name,
+				  optarg);
+			break;
 		case 'o':
 			settings.output = strdup(optarg);
 			break;
@@ -97,27 +138,16 @@ int main(int argc, char **argv)
 			settings.verbose = true;
 			break;
 		case 'O':
-			settings.opt = atoi(optarg);
+			settings.opt = strdup(optarg);
 			break;
 		}
 	}
 
-	for (int i = 0; i < argc; i++) {
-		if (!strncmp(argv[i], "--help", 6))
-			full_help();
-		if (!strncmp(argv[i], "--version", 10))
-			version();
-		if (!strncmp(argv[i], "--musl", 6)) {
-			free(settings.dyn_linker);
-			settings.dyn_linker = strdup(LD_MUSL);
-		}
-		if (!strncmp(argv[i], "--ld", 4)) {
-			if (argc <= i + 2)
-				error("missing argument for --ld <path>");
-			free(settings.dyn_linker);
-			settings.dyn_linker = strdup(argv[i + 1]);
-		}
+	/* NOTE: for our uses, we might want to use a custom argument parser to
+	   allow for more complex combinations (along with long options). */
 
+
+	for (int i = 0; i < argc; i++) {
 		if (!strncmp(argv[i], ".", 2)) {
 			buildfile(&settings);
 			settings.using_bs = true;
