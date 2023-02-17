@@ -603,7 +603,7 @@ params_skip:
 	if (tok->type == T_ARROW) {
 		tok = next_tok(tokens);
 
-		if (tok->type != T_DATATYPE) {
+		if (!is_type(tokens, tok)) {
 			error_at(tokens->source, tok->value, tok->len,
 				 "expected return type, got `%.*s`", tok->len,
 				 tok->value);

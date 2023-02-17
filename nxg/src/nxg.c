@@ -31,7 +31,7 @@ static inline void full_help()
 	    "  -t              show generated tokens\n"
 	    "  -v, --version   show the compiler version\n"
 	    "  -V              be verbose, show ran shell commands\n"
-	    "\nOther:\n"
+	    "\nLink:\n"
 	    "  -M, --musl      use musl instead of glibc\n"
 	    "  -L, --ld <path> dynamic linker to use (default: " DEFAULT_LD
 	    ")\n"
