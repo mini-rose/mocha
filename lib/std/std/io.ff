@@ -1,4 +1,4 @@
-/* print.ff - printing utilities
+/* io.ff - standard input/output
    Copyright (c) 2023 mini-rose */
 
 __builtin_decl_mangled("print", null, i8)

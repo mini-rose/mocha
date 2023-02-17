@@ -1,0 +1,9 @@
+/* sys.ff
+   Copyright (c) 2023 mini-rose */
+
+__builtin_decl_mangled("system", i32, &str)
+fn system(cmd: str) {
+	system(&cmd)
+}
+
+__builtin_decl("sleep", u32, i32)
