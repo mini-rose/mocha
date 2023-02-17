@@ -17,10 +17,12 @@ typedef struct
 	LLVMModuleRef llvm_mod;
 	LLVMValueRef llvm_func;
 	LLVMValueRef *locals;
+	settings_t *settings;
 	char **local_names;
 	int n_locals;
 	auto_drop_rule_t **auto_drops;
 	int n_auto_drops;
 } fn_context_t;
 
-void emit_module(expr_t *module, const char *out, bool is_main);
+void emit_module(settings_t *settings, expr_t *module, const char *out,
+		 bool is_main);

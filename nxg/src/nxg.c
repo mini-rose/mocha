@@ -35,6 +35,8 @@ static inline void full_help()
 	    "  -M, --musl      use musl instead of glibc\n"
 	    "  -L, --ld <path> dynamic linker to use (default: " DEFAULT_LD
 	    ")\n"
+	    "\nEmit:\n"
+	    "  --Dstack        disable stacktrace\n"
 	    "\nRemember that these options may change, so scripts with them "
 	    "may not be ideal at this moment.\n",
 	    stdout);
@@ -56,6 +58,7 @@ void default_settings(settings_t *settings) {
 	settings->show_tokens = false;
 	settings->dyn_linker = strdup(DEFAULT_LD);
 	settings->verbose = false;
+	settings->stacktrace = true;
 	settings->opt = strdup("0");
 }
 
@@ -72,6 +75,10 @@ void parse_opt(settings_t *settings, const char *option, char *arg)
 	if (!strncmp(option, "musl", 4)) {
 		free(settings->dyn_linker);
 		settings->dyn_linker = strdup(LD_MUSL);
+	}
+
+	if (!strcmp(option, "Dstack")) {
+		settings->stacktrace = false;
 	}
 
 	if (!strncmp(option, "ld", 4)) {
@@ -93,7 +100,8 @@ int main(int argc, char **argv)
 	static struct option longopts[] = {{"help", no_argument, 0, 0},
 					   {"version", no_argument, 0, 0},
 					   {"musl", no_argument, 0, 0},
-					   {"ld", required_argument, 0, 0}};
+					   {"ld", required_argument, 0, 0},
+					   {"Dstack", no_argument, 0, 0}};
 
 	while (1) {
 		c = getopt_long(argc, argv, "o:s:L:O:hvptMV", longopts,

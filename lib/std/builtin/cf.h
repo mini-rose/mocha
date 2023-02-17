@@ -1,4 +1,4 @@
-/* cf_types.h - C representations of Coffee types
+/* cf.h - C bridge declarations to Coffee
    Copyright (c) 2023 mini-rose */
 
 #pragma once
@@ -38,3 +38,6 @@ struct cf_str
 	cf_i8 *ptr;
 	cf_i32 ref;
 };
+
+/* Max functions on the callstack. */
+#define CF_STACKLIMIT 2048

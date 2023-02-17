@@ -1,0 +1,6 @@
+/* std.builtin.stacktrace - follow the stack
+   Copyright (c) 2023 mini-rose */
+
+__builtin_decl("__cf_stackpush", null, &i8, &i8)
+__builtin_decl("__cf_stackpop", null)
+__builtin_decl("__cf_stackdump", null)

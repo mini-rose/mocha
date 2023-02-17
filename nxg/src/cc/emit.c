@@ -21,6 +21,7 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 static LLVMValueRef gen_zero_value_for(LLVMBuilderRef builder,
 				       LLVMModuleRef mod, type_t *ty);
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name);
+void emit_stackpop(LLVMBuilderRef builder, LLVMModuleRef mod);
 
 static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
 				 char *name)
@@ -413,12 +414,19 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 		emit_drop(builder, context, context->auto_drops[i]);
 
 	if (value->type == VE_NULL) {
+		if (context->settings->stacktrace)
+			emit_stackpop(builder, context->llvm_mod);
+
 		LLVMBuildRetVoid(builder);
 	} else {
 		ret = gen_new_value(builder, context, node->data);
 		if (!ret)
 			error("emit: could not generate return value for %s",
 			      E_AS_FN(context->func->data)->name);
+
+		if (context->settings->stacktrace)
+			emit_stackpop(builder, context->llvm_mod);
+
 		LLVMBuildRet(builder, ret);
 	}
 }
@@ -592,7 +600,31 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 	}
 }
 
-void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
+void emit_stackpush(LLVMBuilderRef builder, LLVMModuleRef mod,
+		    const char *symbol, const char *file)
+{
+	LLVMTypeRef param_types[2];
+	LLVMValueRef args[2];
+
+	param_types[0] = LLVMPointerType(LLVMInt8Type(), 0);
+	param_types[1] = LLVMPointerType(LLVMInt8Type(), 0);
+	args[0] = LLVMBuildGlobalStringPtr(builder, symbol, "");
+	args[1] = LLVMBuildGlobalStringPtr(builder, file, "");
+
+	LLVMBuildCall2(
+	    builder, LLVMFunctionType(LLVMVoidType(), param_types, 2, false),
+	    LLVMGetNamedFunction(mod, "__cf_stackpush"), args, 2, "");
+}
+
+void emit_stackpop(LLVMBuilderRef builder, LLVMModuleRef mod)
+{
+	LLVMBuildCall2(builder,
+		       LLVMFunctionType(LLVMVoidType(), NULL, 0, false),
+		       LLVMGetNamedFunction(mod, "__cf_stackpop"), NULL, 0, "");
+}
+
+void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
+			expr_t *fn)
 {
 	LLVMValueRef func;
 	fn_context_t context;
@@ -606,6 +638,7 @@ void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 	context.module = module;
 	context.llvm_func = func;
 	context.llvm_mod = mod;
+	context.settings = settings;
 
 	LLVMBasicBlockRef args_block, code_block;
 	LLVMBuilderRef builder;
@@ -633,8 +666,12 @@ void emit_function_body(LLVMModuleRef mod, expr_t *module, expr_t *fn)
 
 	code_block = LLVMAppendBasicBlock(func, "code");
 	LLVMBuildBr(builder, code_block);
-
 	LLVMPositionBuilderAtEnd(builder, code_block);
+
+	if (settings->stacktrace) {
+		emit_stackpush(builder, mod, E_AS_FN(fn->data)->name,
+			       E_AS_MOD(module->data)->source_name);
+	}
 
 	walker = fn->child;
 	while (walker) {
@@ -691,7 +728,8 @@ void emit_main_function(LLVMModuleRef mod)
 	LLVMDisposeBuilder(builder);
 }
 
-static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
+static LLVMModuleRef emit_module_contents(settings_t *settings,
+					  LLVMModuleRef mod, expr_t *module)
 {
 	mod_expr_t *mod_data;
 	char *err_msg = NULL;
@@ -745,7 +783,7 @@ static LLVMModuleRef emit_module_contents(LLVMModuleRef mod, expr_t *module)
 	walker = module->child;
 	while (walker) {
 		if (walker->type == E_FUNCTION)
-			emit_function_body(mod, module, walker);
+			emit_function_body(settings, mod, module, walker);
 		walker = walker->next;
 	}
 
@@ -771,7 +809,8 @@ static void add_builtin_types(LLVMModuleRef module)
 	LLVMStructSetBody(str, fields, 3, false);
 }
 
-void emit_module(expr_t *module, const char *out, bool is_main)
+void emit_module(settings_t *settings, expr_t *module, const char *out,
+		 bool is_main)
 {
 	LLVMModuleRef mod;
 	mod_expr_t *mod_data;
@@ -784,8 +823,8 @@ void emit_module(expr_t *module, const char *out, bool is_main)
 	add_builtin_types(mod);
 
 	for (int i = 0; i < mod_data->n_imported; i++)
-		emit_module_contents(mod, mod_data->imported[i]);
-	emit_module_contents(mod, module);
+		emit_module_contents(settings, mod, mod_data->imported[i]);
+	emit_module_contents(settings, mod, module);
 
 	emit_main_function(mod);
 

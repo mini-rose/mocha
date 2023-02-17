@@ -123,6 +123,7 @@ char *compile_c_object(settings_t *settings, char *file)
 
 static void import_builtins(settings_t *settings, expr_t *module)
 {
+	module_std_import(settings, module, "/builtin/stacktrace");
 	module_std_import(settings, module, "/builtin/string");
 	module_std_import(settings, module, "/builtin/print");
 }
@@ -159,7 +160,7 @@ void compile(settings_t *settings)
 		expr_print(ast);
 
 	snprintf(module_path, 512, "/tmp/nxg/%s.ll", module_name);
-	emit_module(ast, module_path, true);
+	emit_module(settings, ast, module_path, true);
 
 	build_and_link(settings, module_path, settings->output,
 		       E_AS_MOD(ast->data)->c_objects,

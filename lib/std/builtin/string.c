@@ -1,7 +1,7 @@
 /* std.builtin.string - string operations
    Copyright (c) 2023 mini-rose */
 
-#include "cf_types.h"
+#include "cf.h"
 
 #include <stdio.h>
 #include <stdlib.h>
