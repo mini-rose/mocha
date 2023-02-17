@@ -24,7 +24,7 @@ static void add_module_c_object(mod_expr_t *module, char *object)
 	module->c_objects[module->n_c_objects++] = object;
 }
 
-mod_expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
+expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 {
 	mod_expr_t *module = module_expr->data;
 	char pathbuf[512];
@@ -58,40 +58,56 @@ mod_expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 	modname = make_modname(pathbuf);
 	parsed = calloc(1, sizeof(*parsed));
 	parsed->data = calloc(1, sizeof(mod_expr_t));
-	parsed = parse(parsed, settings, parsed_tokens, modname);
+	parsed = parse(module_expr, parsed, settings, parsed_tokens, modname);
 	add_module_import(module, parsed);
 
 	/* Apart from the regular coffee source code, if there is a C file with
 	   the same name as the imported module, compile it & link against it
 	   in the final stage. */
 	snprintf(pathbuf, 512, "%s.c", file);
-	if (!access(pathbuf, F_OK))
+	if (!access(pathbuf, F_OK)) {
 		add_module_c_object(module,
 				    compile_c_object(settings, pathbuf));
+	}
 
 	free(modname);
 	free(working_dir);
 	file_destroy(fil);
 	token_list_destroy(parsed_tokens);
 
-	return parsed->data;
+	return parsed;
 }
 
-mod_expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
+expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 {
 	char *path = calloc(512, 1);
 	char *modname = strdup(file + 1);
 	mod_expr_t *mod;
+	expr_t *imported;
 	int n;
 
 	snprintf(path, 512, "%s%s", settings->stdpath, file);
-	mod = module_import(settings, module, path);
+	imported = module_import(settings, module, path);
 
-	if (!mod) {
+	if (!imported) {
 		free(path);
 		free(modname);
 		return NULL;
 	}
+
+	/* Add the module to the module's std. */
+	mod_expr_t *parent = module->data;
+
+	if (!parent->std_modules)
+		parent->std_modules = calloc(1, sizeof(std_modules_t));
+
+	parent->std_modules->modules =
+	    realloc(parent->std_modules->modules,
+		    sizeof(expr_t *) * (parent->std_modules->n_modules + 1));
+	parent->std_modules->modules[parent->std_modules->n_modules++] =
+	    imported;
+
+	mod = imported->data;
 
 	n = strlen(modname);
 	for (int i = 0; i < n; i++) {
@@ -105,7 +121,7 @@ mod_expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 	mod->name = modname;
 	mod->origin = MO_STD;
 
-	return mod;
+	return imported;
 }
 
 fn_expr_t *module_add_decl(expr_t *module)
@@ -209,6 +225,21 @@ check_decls:
 
 		free(imported->candidate);
 		free(imported);
+	}
+
+	if (mod->std_modules && mod->origin == MO_LOCAL) {
+		std_modules_t *stds = E_AS_MOD(module->data)->std_modules;
+		for (int i = 0; i < stds->n_modules; i++) {
+			fn_candidates_t *imported;
+			imported =
+			    module_find_fn_candidates(stds->modules[i], name);
+
+			for (int j = 0; j < imported->n_candidates; j++)
+				add_candidate(resolved, imported->candidate[j]);
+
+			free(imported->candidate);
+			free(imported);
+		}
 	}
 
 	return resolved;

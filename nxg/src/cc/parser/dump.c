@@ -1,6 +1,8 @@
 /* parser/dump.c - dump expr trees
    Copyright (c) 2023 mini-rose */
 
+#include "nxg/utils/error.h"
+
 #include <nxg/cc/parser.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -161,6 +163,21 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 
 	for (int i = 0; i < mod->n_imported; i++)
 		expr_print_level(mod->imported[i], level + 1, false);
+
+	if (mod->std_modules) {
+		if (mod->std_modules->n_modules) {
+			indent(0, 2 * (level));
+			printf("\e[95mStandard modules (%d):\e[0m\n",
+			       mod->std_modules->n_modules);
+		}
+
+		for (int i = 0; i < mod->std_modules->n_modules; i++) {
+			indent(0, 2 * (level + 1));
+			printf(
+			    "%s\n",
+			    E_AS_MOD(mod->std_modules->modules[i]->data)->name);
+		}
+	}
 }
 
 static void expr_print_level(expr_t *expr, int level, bool with_next)

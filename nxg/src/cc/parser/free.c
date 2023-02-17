@@ -14,7 +14,7 @@ void mod_expr_free(mod_expr_t *module)
 	for (int i = 0; i < module->n_imported; i++)
 		expr_destroy(module->imported[i]);
 
-	for (int i = 0; i < module->n_imported; i++)
+	for (int i = 0; i < module->n_c_objects; i++)
 		free(module->c_objects[i]);
 
 	for (int i = 0; i < module->n_type_decls; i++)

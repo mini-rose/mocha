@@ -942,8 +942,8 @@ static void parse_type_decl(expr_t *module, token_list *tokens, token *tok)
 	}
 }
 
-expr_t *parse(expr_t *module, settings_t *settings, token_list *tokens,
-	      const char *module_id)
+expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
+	      token_list *tokens, const char *module_id)
 {
 	token *current = next_tok(tokens);
 	mod_expr_t *data = module->data;
@@ -957,6 +957,11 @@ expr_t *parse(expr_t *module, settings_t *settings, token_list *tokens,
 	module->type = E_MODULE;
 	module->data = data;
 	module->data_free = (expr_free_handle) mod_expr_free;
+
+	if (parent) {
+		if (E_AS_MOD(parent->data)->origin == MO_LOCAL)
+			data->std_modules = E_AS_MOD(parent->data)->std_modules;
+	}
 
 	/*
 	 * In order to support overloading & use-before-declare we need

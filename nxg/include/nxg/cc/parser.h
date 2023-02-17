@@ -40,6 +40,12 @@ typedef enum
 	MO_STD
 } mod_origin;
 
+typedef struct
+{
+	expr_t **modules;
+	int n_modules;
+} std_modules_t;
+
 /* top-level module */
 typedef struct
 {
@@ -56,6 +62,7 @@ typedef struct
 	int n_c_objects;
 	type_t **type_decls;
 	int n_type_decls;
+	std_modules_t *std_modules;
 } mod_expr_t;
 
 typedef enum
@@ -154,8 +161,8 @@ struct literal_expr
 #define E_AS_VAL(DATAPTR)   ((value_expr_t *) DATAPTR)
 #define E_AS_CALL(DATAPTR)  ((call_expr_t *) DATAPTR)
 
-expr_t *parse(expr_t *module, settings_t *settings, token_list *list,
-	      const char *module_id);
+expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
+	      token_list *list, const char *module_id);
 void expr_destroy(expr_t *expr);
 void expr_print(expr_t *expr);
 const char *expr_typename(expr_type type);

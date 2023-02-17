@@ -151,7 +151,7 @@ void compile(settings_t *settings)
 	ast->data = calloc(1, sizeof(mod_expr_t));
 	import_builtins(settings, ast);
 
-	ast = parse(ast, settings, list, module_name);
+	ast = parse(NULL, ast, settings, list, module_name);
 
 	mkdir("/tmp/nxg", 0777);
 
@@ -165,6 +165,8 @@ void compile(settings_t *settings)
 		       E_AS_MOD(ast->data)->c_objects,
 		       E_AS_MOD(ast->data)->n_c_objects);
 
+	free(E_AS_MOD(ast->data)->std_modules->modules);
+	free(E_AS_MOD(ast->data)->std_modules);
 	expr_destroy(ast);
 	file_destroy(source);
 	token_list_destroy(list);
