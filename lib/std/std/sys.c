@@ -18,7 +18,16 @@ int _C6systemP3str(cf_str *cmd)
 	return ret;
 }
 
-int _C6system3str(cf_str cmd)
+cf_str *_C6getenvP3str(cf_str *name)
 {
-	return _C6systemP3str(&cmd);
+	cf_str *self;
+	char *buf;
+
+	self = (cf_str *) malloc(sizeof(cf_str));
+	buf = strndup(name->ptr, name->len);
+	self->ptr = getenv(buf);
+	free(buf);
+	self->len = strlen(self->ptr);
+
+	return self;
 }

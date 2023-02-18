@@ -1,0 +1,5 @@
+/* os.ff
+   Copyright (c) 2023 mini-rose */
+
+/* Cause normal process termination */
+__builtin_decl("exit", null, i32)

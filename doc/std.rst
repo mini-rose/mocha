@@ -12,16 +12,6 @@ meaning you get access to stuff like ``print`` without the need to include
 it.
 
 
-std.builtin.print
------------------
-
-Printing routines.
-
-* ``print(i32) -> null``
-* ``print(i64) -> null``
-* ``print(&str) -> null``
-
-
 std.builtin.string
 ------------------
 
@@ -60,3 +50,34 @@ std.builtin.list
 
 * ``remove(&list, u32) -> null``
         Removes item at given position.
+
+std.io
+------
+
+Printing routines.
+
+* ``print(i8) -> null``
+* ``print(i32) -> null``
+* ``print(i64) -> null``
+* ``print(&str) -> null``
+* ``print(bool) -> null``
+
+
+std.os
+------
+
+* ``exit(i32) -> null``
+        Cause normal process termination.
+
+
+std.sys
+-------
+
+* ``getenv(str) -> str``
+        Get an environment variable.
+
+* ``system(str) -> null``
+        Execute a shell command.
+
+* ``sleep(i32) -> i32``
+        Sleep for a specified number of seconds.

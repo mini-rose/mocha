@@ -1,9 +1,22 @@
 /* sys.ff
    Copyright (c) 2023 mini-rose */
 
+
+/* Execute a shell command */
 __builtin_decl_mangled("system", i32, &str)
+
 fn system(cmd: str) {
 	system(&cmd)
 }
 
+
+/* Sleep for a specified number of seconds */
 __builtin_decl("sleep", u32, i32)
+
+
+/* Get an environment variable */
+__builtin_decl_mangled("getenv", str, &str)
+
+fn getenv(name: str) -> str {
+	ret getenv(&name)
+}
