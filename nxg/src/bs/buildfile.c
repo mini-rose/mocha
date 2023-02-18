@@ -1,115 +1,127 @@
+#include "nxg/nxg.h"
 #include <ctype.h>
 #include <nxg/bs/buildfile.h>
-#include <nxg/utils/error.h>
 #include <nxg/utils/file.h>
+#include <nxg/utils/error.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void bs_parse_opt(char *opt_s, char *opt_e, settings_t *settings)
+static inline char *skip_comment(char *p)
 {
-	if ((opt_e - opt_s) == 1 && *opt_s != ' ')
-		switch (*opt_s) {
-			case 'p':
-				settings->show_ast = true;
-				break;
-			case 't':
-				settings->show_tokens = true;
-				break;
-		}
+	while (*(p++) != '\n')
+		;
+
+	return ++p;
 }
 
-void bs_parse_arr(char *key_s, char *key_e, char *val_s, settings_t *settings)
+static inline void push_to_settings(file_t *f, settings_t *settings, char *key,
+				    int key_len, char *val, int val_len)
 {
-	char *p = val_s;
+	if (!strncmp("source", key, key_len))
+		settings->input = strndup(val, val_len);
+	else if (!strncmp("output", key, key_len))
+		settings->output = strndup(val, val_len);
+	else if (!strncmp("libpath", key, key_len))
+		settings->libpath = strndup(val, val_len);
+	else
+		error_at(f, key, key_len, "invalid key: '%.*s'", key_len, key);
+}
 
-	// options: ['-p', '-v']
-	if (strncmp("options", key_s, key_e - key_s))
-		error("invalid key: %.*s", key_e - key_s, key_s);
+static inline void push_flag_to_settings(file_t *f, settings_t *settings,
+					 char *key, int key_len, char *val,
+					 int val_len)
+{
+	printf("VALUE: '%.*s'\n", val_len, val);
 
-	while (*p != '\n' && *p) {
-		if (isspace(*p)) {
-			p++;
-			continue;
-		}
+	if (!strncmp("-p", val, val_len))
+		settings->show_ast = true;
+	else if (!strncmp("-O", val, val_len - 1))
+		settings->opt = strndup(val + 2, 1);
+	else if (!strncmp("-L", val, 2))
+		settings->opt = strndup(val + 2, val_len - 2);
+	else if (!strncmp("-t", val, val_len))
+		settings->show_tokens = true;
+	else if (!strncmp("-M", val, val_len))
+		settings->dyn_linker = strdup("/lib/ld-musl-x86_64.so.1");
+	else if (!strncmp("-V", val, val_len))
+		settings->verbose = true;
+	else if (!strncmp("-Eno-stack", val, val_len))
+		settings->emit_stacktrace = false;
+	else if (!strncmp("-Ekeep-var-names", val, val_len))
+		settings->emit_varnames = true;
+	else
+		error_at(f, val, val_len, "invalid flag: '%.*s'", val_len, val);
+}
 
+static inline void parse_list(file_t *f, settings_t *settings, char *key,
+			      int key_len, char *p)
+{
+	if (strncmp("flags", key, key_len))
+		error_at(f, key, key_len, "invalid key: '%.*s'", key_len, key);
+
+	while (*p != ']') {
 		if (*p == '\'') {
-			char *q;
+			char *q = strstr(++p, "'");
+			push_flag_to_settings(f, settings, key, key_len, p,
+					      (int) (q - p));
 
-			// Skip string quote and '-'
-			p += 2;
-
-			q = strstr(p, "'");
-
-			bs_parse_opt(p, q, settings);
+			p += q - p + 1;
 		}
 
 		p++;
 	}
 }
 
-void bs_parse(char *key_s, char *key_e, char *val_s, settings_t *settings)
+static inline char *parse_option(file_t *f, settings_t *settings, char *p)
 {
-	char *eol = strstr(val_s, "\n");
+	char *q;
+	char *key = NULL;
+	int key_len = 0;
+	char *val = NULL;
+	int val_len = 0;
 
-	// input: file.ff
-	if (!strncmp("input", key_s, key_e - key_s))
-		settings->input = strndup(val_s, eol - val_s);
+	q = strstr(p, "=");
 
-	// output: a.out
-	else if (!strncmp("output", key_s, key_e - key_s))
-		settings->output = strndup(val_s, eol - val_s);
+	key = p;
+	key_len = (q++ - p) - 1;
 
-	else if (!strncmp("stdpath", key_s, key_e - key_s)) {
-		free(settings->libpath);
-		settings->libpath = strndup(val_s, eol - val_s);
+	while (isspace(*q))
+		q++;
+
+	if (*q == '\'') {
+		char *qq = strstr(++q, "'");
+		val = q;
+		val_len = qq - q;
+		push_to_settings(f, settings, key, key_len, val, val_len);
+	} else if (*q == '[') {
+		parse_list(f, settings, key, key_len, q);
 	}
 
-	else
-		error("invalid key: %.*s", key_e - key_s, key_s);
+	while (*p != '\n')
+		p++;
+
+	return p;
 }
 
 void buildfile(settings_t *settings)
 {
 	file_t *f = file_new(".coffee");
 	char *p = f->content;
-	char *s = p;
 
 	while (*p) {
-		if (!strncmp(p, "/*", 2)) {
-			char *q = strstr(p + 2, "*/");
+		if (*p == '#')
+			p = skip_comment(p);
 
-			if (!q)
-				error_at(f, p, 1, "Unterminated comment.");
-
-			p += q - p + 2;
-			continue;
-		}
-
-		if (isspace(*p)) {
+		if (isspace(*p))
 			p++;
-			continue;
-		}
 
-		if (*p == ':') {
-			char *q = p + 1;
-
-			while (isspace(*q))
-				q++;
-
-			if (*q == '[')
-				bs_parse_arr(s, p, q + 1, settings);
-			else
-				bs_parse(s, p, q, settings);
-
-			while (*p != '\n')
-				p++;
-
-			s = p + 1;
-		}
+		if (isalpha(*p))
+			p = parse_option(f, settings, p);
 
 		p++;
 	}
 
 	file_destroy(f);
+	exit(0);
 }

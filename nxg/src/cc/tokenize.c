@@ -268,9 +268,15 @@ token_list *tokens(file_t *source)
 				token_list_append(list, tok);
 				p++;
 				break;
+			case ';':
+				p++;
+				break;
 			default:
 				break;
 			}
+
+			if (!ispunct(*p))
+				continue;
 
 			for (int i = T_EQ; i < LEN(operators); i++) {
 				if (!strncmp(p, operators[i],
