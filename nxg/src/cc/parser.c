@@ -959,8 +959,7 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 	module->data_free = (expr_free_handle) mod_expr_free;
 
 	if (parent) {
-		if (E_AS_MOD(parent->data)->origin == MO_LOCAL)
-			data->std_modules = E_AS_MOD(parent->data)->std_modules;
+		data->std_modules = E_AS_MOD(parent->data)->std_modules;
 		data->c_objects = E_AS_MOD(parent->data)->c_objects;
 	}
 

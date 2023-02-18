@@ -150,6 +150,7 @@ void compile(settings_t *settings)
 	ast = calloc(1, sizeof(*ast));
 	ast->data = calloc(1, sizeof(mod_expr_t));
 	E_AS_MOD(ast->data)->c_objects = calloc(1, sizeof(c_objects_t));
+	E_AS_MOD(ast->data)->std_modules = calloc(1, sizeof(std_modules_t));
 
 	import_builtins(settings, ast);
 

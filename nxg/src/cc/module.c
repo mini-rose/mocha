@@ -57,9 +57,11 @@ expr_t *module_import_impl(settings_t *settings, expr_t *module_expr,
 	}
 
 	parsed_tokens = tokens(fil);
+
 	modname = make_modname(pathbuf);
 	parsed = calloc(1, sizeof(*parsed));
 	parsed->data = calloc(1, sizeof(mod_expr_t));
+
 	parsed = parse(module_expr, parsed, settings, parsed_tokens, modname);
 
 	/* Apart from the regular coffee source code, if there is a C file with
@@ -108,9 +110,6 @@ expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 
 	/* Add the module to the module's std. */
 	mod_expr_t *parent = module->data;
-
-	if (!parent->std_modules)
-		parent->std_modules = calloc(1, sizeof(std_modules_t));
 
 	parent->std_modules->modules =
 	    realloc(parent->std_modules->modules,
@@ -188,7 +187,8 @@ void add_candidate(fn_candidates_t *resolved, fn_expr_t *ptr)
 	resolved->candidate[resolved->n_candidates++] = ptr;
 }
 
-fn_candidates_t *module_find_fn_candidates(expr_t *module, char *name)
+fn_candidates_t *module_find_fn_candidates_impl(expr_t *module, char *name,
+						int depth)
 {
 	mod_expr_t *mod = module->data;
 	fn_candidates_t *resolved;
@@ -196,6 +196,9 @@ fn_candidates_t *module_find_fn_candidates(expr_t *module, char *name)
 	expr_t *walker;
 
 	resolved = calloc(1, sizeof(*resolved));
+
+	if (depth > 1)
+		return resolved;
 
 	/* Check the module itself */
 	walker = module->child;
@@ -229,7 +232,10 @@ check_decls:
 	/* Check the imported modules */
 	for (int i = 0; i < mod->n_imported; i++) {
 		fn_candidates_t *imported;
-		imported = module_find_fn_candidates(mod->imported[i], name);
+
+		/* Keep the same depth for imported modules. */
+		imported = module_find_fn_candidates_impl(mod->imported[i],
+							  name, depth);
 
 		for (int j = 0; j < imported->n_candidates; j++)
 			add_candidate(resolved, imported->candidate[j]);
@@ -238,12 +244,22 @@ check_decls:
 		free(imported);
 	}
 
-	if (mod->std_modules && mod->origin == MO_LOCAL) {
+	if (mod->std_modules) {
 		std_modules_t *stds = E_AS_MOD(module->data)->std_modules;
 		for (int i = 0; i < stds->n_modules; i++) {
+
+			/* Don't look inside outselfs. */
+			if (!strcmp(E_AS_MOD(module->data)->name,
+				    E_AS_MOD(stds->modules[i]->data)->name)) {
+				continue;
+			}
+
+			/* Increase the depth for std modules so they can
+			   include themselfs, without making an infinite
+			   recursion loop. */
 			fn_candidates_t *imported;
-			imported =
-			    module_find_fn_candidates(stds->modules[i], name);
+			imported = module_find_fn_candidates_impl(
+			    stds->modules[i], name, depth + 1);
 
 			for (int j = 0; j < imported->n_candidates; j++)
 				add_candidate(resolved, imported->candidate[j]);
@@ -254,4 +270,9 @@ check_decls:
 	}
 
 	return resolved;
+}
+
+fn_candidates_t *module_find_fn_candidates(expr_t *module, char *name)
+{
+	return module_find_fn_candidates_impl(module, name, 0);
 }

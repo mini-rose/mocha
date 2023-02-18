@@ -72,12 +72,13 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 	char *lit_str;
 	char *tmp = NULL;
 
+	if (val->type == VE_NULL)
+		return;
+
 	for (int i = 0; i < level; i++)
 		fputs("  ", stdout);
 
-	if (val->type == VE_NULL) {
-		printf("literal: \e[33mnull\e[0m\n");
-	} else if (val->type == VE_REF) {
+	if (val->type == VE_REF) {
 		printf("ref: `%s`\n", val->name);
 	} else if (val->type == VE_LIT) {
 		lit_str = stringify_literal(val->literal);

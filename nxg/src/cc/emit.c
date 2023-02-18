@@ -316,7 +316,7 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 
 	results = module_find_fn_candidates(context->module, "copy");
 	if (!results->n_candidates) {
-		error("emit: missing fn copy(&%s, &%s)", type_name(ty),
+		error("emit: missing `fn copy(&%s, &%s)`", type_name(ty),
 		      type_name(ty));
 	}
 
@@ -340,7 +340,7 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 	}
 
 	if (!match) {
-		error("emit: missing fn copy(&%s, &%s)", type_name(ty),
+		error("emit: missing `fn copy(&%s, &%s)`", type_name(ty),
 		      type_name(ty));
 	}
 
@@ -368,7 +368,7 @@ static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 
 	results = module_find_fn_candidates(context->module, "drop");
 	if (!results->n_candidates)
-		error("emit: missing fn drop(&%s)", type_name(rule->type));
+		error("emit: missing `fn drop(&%s)`", type_name(rule->type));
 
 	/* match a drop<T>(&T) */
 
@@ -388,7 +388,7 @@ static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 	}
 
 	if (!match)
-		error("emit: missing fn drop(&%s)", type_name(rule->type));
+		error("emit: missing `fn drop(&%s)`", type_name(rule->type));
 
 	symbol = nxg_mangle(match);
 	func = LLVMGetNamedFunction(context->llvm_mod, symbol);
@@ -663,6 +663,16 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 		}
 
 		fn_context_add_local(&context, arg, data->params[i]->name);
+
+		/* If a parameter is a copied object, drop it. */
+		if (data->params[i]->type->kind == TY_OBJECT) {
+			auto_drop_rule_t *drop = calloc(1, sizeof(*drop));
+
+			drop->value = arg;
+			drop->type = type_copy(data->params[i]->type);
+
+			fn_add_auto_drop(&context, drop);
+		}
 	}
 
 	/* If we have a return value, store it into a local variable. */
