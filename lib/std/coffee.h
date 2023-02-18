@@ -33,11 +33,13 @@ typedef unsigned long cf_u64;
 typedef void cf_null;
 typedef bool cf_bool;
 
+#define CF_STR_ALLOC 1
+
 typedef struct
 {
 	cf_i64 len;
 	cf_i8 *ptr;
-	cf_i32 ref;
+	cf_i32 flags;
 } cf_str;
 
 /* Max functions on the callstack. */

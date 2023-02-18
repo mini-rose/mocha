@@ -124,6 +124,9 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 	case VE_MREF:
 		printf("member: `%s.%s`\n", val->name, val->member);
 		break;
+	case VE_MPTR:
+		printf("member: `&%s.%s`\n", val->name, val->member);
+		break;
 	case VE_ADD:
 	case VE_SUB:
 	case VE_MUL:

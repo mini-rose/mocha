@@ -110,7 +110,7 @@ type_t *type_build_str()
 	o = ty->v_object;
 
 	/*
-	 * obj { len: i64, ptr: &i8, ref: i32 }
+	 * obj { len: i64, ptr: &i8, flags: i32 }
 	 */
 
 	o->name = strdup("str");
@@ -120,7 +120,7 @@ type_t *type_build_str()
 
 	o->field_names[0] = strdup("len");
 	o->field_names[1] = strdup("ptr");
-	o->field_names[2] = strdup("ref");
+	o->field_names[2] = strdup("flags");
 
 	i8 = type_new_plain(PT_I8);
 

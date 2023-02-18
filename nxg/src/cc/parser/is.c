@@ -94,6 +94,29 @@ bool is_member(token_list *tokens, token *tok)
 }
 
 /**
+ * member-ptr ::= &ident.ident
+ */
+bool is_pointer_to_member(token_list *tokens, token *tok)
+{
+	if (!TOK_IS(tok, T_PUNCT, "&"))
+		return false;
+
+	tok = index_tok(tokens, tokens->iter);
+	if (tok->type != T_IDENT)
+		return false;
+
+	tok = index_tok(tokens, tokens->iter + 1);
+	if (tok->type != T_DOT)
+		return false;
+
+	tok = index_tok(tokens, tokens->iter + 2);
+	if (tok->type != T_IDENT)
+		return false;
+
+	return true;
+}
+
+/**
  * dereference ::= *ident
  */
 bool is_dereference(token_list *tokens, token *tok)

@@ -1,4 +1,5 @@
 #include <nxg/cc/parser.h>
+#include <nxg/cc/type.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -16,6 +17,39 @@ static void parse_reference(value_expr_t *node, expr_t *context,
 	var_decl_expr_t *var =
 	    node_resolve_local(context, tok->value, tok->len);
 	node->return_type = type_copy(var->type);
+}
+
+static void parse_member(value_expr_t *node, expr_t *context,
+			 token_list *tokens, token *tok)
+{
+	type_t *temp_type;
+
+	parse_reference(node, context, tokens, tok);
+	tok = next_tok(tokens);
+
+	type_t *o_type = node->return_type;
+	if (o_type->kind == TY_POINTER)
+		o_type = o_type->v_base;
+
+	if (o_type->kind != TY_OBJECT) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "cannot access members of non-object type");
+	}
+
+	tok = next_tok(tokens);
+
+	node->type = VE_MREF;
+	node->member = strndup(tok->value, tok->len);
+
+	temp_type = type_object_field_type(o_type->v_object, node->member);
+	if (temp_type->kind == TY_NULL) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "no field named %s found in %s", node->member,
+			 o_type->v_object->name);
+	}
+
+	type_destroy(node->return_type);
+	node->return_type = temp_type;
 }
 
 err_t parse_single_value(expr_t *context, expr_t *mod, value_expr_t *node,
@@ -38,31 +72,21 @@ err_t parse_single_value(expr_t *context, expr_t *mod, value_expr_t *node,
 		return ERR_OK;
 	}
 
+	/* member access */
 	if (is_member(tokens, tok)) {
-		parse_reference(node, context, tokens, tok);
+		parse_member(node, context, tokens, tok);
+		return ERR_OK;
+	}
+
+	/* pointer to member */
+	if (is_pointer_to_member(tokens, tok)) {
 		tok = next_tok(tokens);
+		parse_member(node, context, tokens, tok);
+		temp_type = node->return_type;
+		node->return_type = type_pointer_of(temp_type);
+		node->type = VE_MPTR;
 
-		if (node->return_type->kind != TY_OBJECT) {
-			error_at(tokens->source, tok->value, tok->len,
-				 "cannot access members of non-object type");
-		}
-
-		tok = next_tok(tokens);
-
-		node->type = VE_MREF;
-		node->member = strndup(tok->value, tok->len);
-
-		temp_type = type_object_field_type(node->return_type->v_object,
-						   node->member);
-		if (temp_type->kind == TY_NULL) {
-			error_at(tokens->source, tok->value, tok->len,
-				 "no field named %s found in %s", node->member,
-				 node->return_type->v_object->name);
-		}
-
-		type_destroy(node->return_type);
-		node->return_type = temp_type;
-
+		type_destroy(temp_type);
 		return ERR_OK;
 	}
 

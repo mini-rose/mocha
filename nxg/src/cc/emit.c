@@ -144,18 +144,33 @@ static LLVMValueRef gen_local_value(LLVMBuilderRef builder,
 {
 	LLVMValueRef val;
 	LLVMValueRef tmp;
+	LLVMTypeRef o_type;
 	var_decl_expr_t *decl;
 
 	decl = node_resolve_local(context->func, name, 0);
 	val = fn_find_local(context, name);
 
-	/* If we request a new value and it is an object, copy it. */
 	if (decl->type->kind == TY_OBJECT) {
-		tmp = LLVMBuildAlloca(
-		    builder, gen_type(context->llvm_mod, decl->type), "");
+		o_type = gen_type(context->llvm_mod, decl->type);
+
+		char *alloca_name;
+		if (context->settings->emit_varnames) {
+			alloca_name = calloc(128, 1);
+			snprintf(alloca_name, 128, "copy.%s", name);
+		} else {
+			alloca_name = strdup("");
+		}
+
+		tmp = LLVMBuildAlloca(builder, o_type, alloca_name);
+		LLVMBuildStore(
+		    builder,
+		    gen_zero_value_for(builder, context->llvm_mod, decl->type),
+		    tmp);
+
 		emit_copy(builder, context, tmp, val, decl->type);
-		return LLVMBuildLoad2(builder, LLVMGetAllocatedType(tmp), tmp,
-				      "");
+
+		return LLVMBuildLoad2(
+		    builder, gen_type(context->llvm_mod, decl->type), tmp, "");
 	}
 
 	if (LLVMIsAAllocaInst(val)) {
@@ -183,6 +198,17 @@ static LLVMValueRef gen_member_value(LLVMBuilderRef builder,
 
 	field_type = type_object_field_type(local_type->v_object, node->member);
 	member_type = gen_type(context->llvm_mod, field_type);
+
+	if (field_type->kind == TY_OBJECT) {
+		LLVMValueRef alloca = LLVMBuildAlloca(builder, member_type, "");
+		LLVMBuildStore(
+		    builder,
+		    gen_zero_value_for(builder, context->llvm_mod, field_type),
+		    alloca);
+
+		emit_copy(builder, context, alloca, ptr, field_type);
+		ptr = alloca;
+	}
 
 	ret = LLVMBuildLoad2(builder, member_type, ptr, "");
 
@@ -271,6 +297,8 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 		return emit_call_node(builder, context, value->call);
 	case VE_PTR:
 		return gen_addr(builder, context, value->name);
+	case VE_MPTR:
+		return gen_ptr_to_member(builder, context, value);
 	case VE_DEREF:
 		return gen_deref(
 		    builder, context, value->name,
@@ -461,7 +489,7 @@ static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
 	type_t *local_type;
 	type_t *field_type;
 
-	if (node->type != VE_MREF)
+	if (node->type != VE_MREF && node->type != VE_MPTR)
 		error("emit: trying to getelementptr into non-object ref");
 
 	local = node_resolve_local(context->func, node->name, 0);
@@ -491,8 +519,8 @@ static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
 static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 			     expr_t *node)
 {
-	LLVMValueRef value;
 	LLVMValueRef to;
+	LLVMValueRef value;
 	assign_expr_t *data;
 
 	data = node->data;
@@ -503,8 +531,6 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		      "assignment to %s",
 		      data->to->name);
 	}
-
-	value = gen_new_value(builder, context, data->value);
 
 	if (data->to->type == VE_DEREF) {
 
@@ -542,20 +568,18 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 	}
 
 	/* Call copy for assignment. */
-
 	if (data->to->return_type->kind == TY_OBJECT) {
 		LLVMValueRef tmp;
-
-		tmp = LLVMBuildAlloca(
-		    builder, gen_type(context->llvm_mod, data->to->return_type),
-		    "");
-		LLVMBuildStore(builder, value, tmp);
-
+		if (data->value->type == VE_REF)
+			tmp = gen_addr(builder, context, data->value->name);
+		else
+			tmp = gen_new_value(builder, context, data->value);
 		emit_copy(builder, context, to, tmp, data->to->return_type);
 		return;
 	}
 
 	/* Make a temporary for the object we want to store. */
+	value = gen_new_value(builder, context, data->value);
 	LLVMBuildStore(builder, value, to);
 }
 
