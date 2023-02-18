@@ -31,5 +31,15 @@ executable(
   include_directories: includes,
   cpp_args: ['-O2', '-g'],
   link_args: ['-Wall', '-Wextra', '-pedantic'],
-  dependencies: llvm
+  dependencies: llvm,
+  install: true
+)
+
+libdir = get_option('libdir')
+coffee_libdir = join_paths(libdir, 'coffee')
+
+install_subdir(
+  '../lib/std',
+  install_dir : coffee_libdir,
+  strip_directory : false
 )
