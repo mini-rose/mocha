@@ -1,0 +1,10 @@
+type User {
+	name: str
+}
+
+fn main {
+	x: User
+	x.name = "Hello world"
+
+	print(x.name)
+}

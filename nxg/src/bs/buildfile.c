@@ -123,5 +123,4 @@ void buildfile(settings_t *settings)
 	}
 
 	file_destroy(f);
-	exit(0);
 }
