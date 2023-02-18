@@ -35,7 +35,8 @@ static inline void full_help()
 	    "  -L, --ld <path> dynamic linker to use (default: " DEFAULT_LD
 	    ")\n"
 	    "\nEmit:\n"
-	    "  --Dstack        disable stacktrace\n"
+	    "  -Eno-stack      disable stacktrace\n"
+	    "  -Ekeep-var-names keep variable names in LLVM IR\n"
 	    "\nRemember that these options may change, so scripts with them "
 	    "may not be ideal at this moment.\n",
 	    stdout);
@@ -57,14 +58,13 @@ void default_settings(settings_t *settings) {
 	settings->show_tokens = false;
 	settings->dyn_linker = strdup(DEFAULT_LD);
 	settings->verbose = false;
-	settings->stacktrace = true;
+	settings->emit_stacktrace = true;
+	settings->emit_varnames = false;
 	settings->opt = strdup("0");
 }
 
 void parse_opt(settings_t *settings, const char *option, char *arg)
 {
-	puts(option);
-
 	if (!strncmp(option, "help", 4))
 		full_help();
 
@@ -76,16 +76,22 @@ void parse_opt(settings_t *settings, const char *option, char *arg)
 		settings->dyn_linker = strdup(LD_MUSL);
 	}
 
-	if (!strcmp(option, "Dstack")) {
-		settings->stacktrace = false;
-	}
-
 	if (!strncmp(option, "ld", 4)) {
 		if (!arg)
 			error("missing argument for --ld <path>");
 		free(settings->dyn_linker);
 		settings->dyn_linker = strdup(arg);
 	}
+}
+
+void parse_emit_opt(settings_t *settings, const char *option)
+{
+	if (!strcmp("no-stack", option))
+		settings->emit_stacktrace = false;
+	else if (!strcmp("keep-var-names", option))
+		settings->emit_varnames = true;
+	else
+		warning("unknown emit option `%s`", option);
 }
 
 int main(int argc, char **argv)
@@ -103,7 +109,7 @@ int main(int argc, char **argv)
 					   {"Dstack", no_argument, 0, 0}};
 
 	while (1) {
-		c = getopt_long(argc, argv, "o:s:L:O:hvptMV", longopts,
+		c = getopt_long(argc, argv, "o:s:L:O:E:hvptMV", longopts,
 				&optindx);
 
 		if (c == -1)
@@ -146,6 +152,10 @@ int main(int argc, char **argv)
 			break;
 		case 'O':
 			settings.opt = strdup(optarg);
+			break;
+		case 'E':
+			/* emit options */
+			parse_emit_opt(&settings, optarg);
 			break;
 		}
 	}

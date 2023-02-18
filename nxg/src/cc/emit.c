@@ -410,7 +410,7 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 	value = node->data;
 
 	if (value->type != VE_NULL) {
-		ret = gen_new_value(builder, context, node->data);
+		ret = gen_new_value(builder, context, value);
 		if (!ret) {
 			error("emit: could not generate return value for %s",
 			      E_AS_FN(context->func->data)->name);
@@ -501,14 +501,6 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 	if (!(call->func->flags & FN_NOMANGLE))
 		name = nxg_mangle(call->func);
 
-#if 0
-	LLVMValueRef iter = LLVMGetFirstFunction(context->llvm_mod);
-	LLVMValueRef f = LLVMGetNextFunction(iter);
-	while ((f = LLVMGetNextFunction(f))) {
-		LLVMDumpValue(f);
-	}
-#endif
-
 	func = LLVMGetNamedFunction(context->llvm_mod, name);
 	if (!func)
 		error("emit: missing named func %s", name);
@@ -556,11 +548,18 @@ void emit_var_decl(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 {
 	LLVMValueRef alloca;
 	var_decl_expr_t *decl;
+	char *varname;
 
 	decl = node->data;
+	varname = calloc(strlen(decl->name) + 7, 1);
+	strcpy(varname, "local.");
+	strcat(varname, decl->name);
 
-	alloca = LLVMBuildAlloca(builder,
-				 gen_type(context->llvm_mod, decl->type), "");
+	alloca =
+	    LLVMBuildAlloca(builder, gen_type(context->llvm_mod, decl->type),
+			    context->settings->emit_varnames ? varname : "");
+
+	free(varname);
 
 	/* If it's an object, zero-initialize it & add any automatic drops. */
 	if (decl->type->kind == TY_OBJECT) {
@@ -657,9 +656,17 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 		if (data->params[i]->type->kind == TY_POINTER) {
 			arg = LLVMGetParam(func, i);
 		} else {
+			char *varname =
+			    calloc(strlen(data->params[i]->name) + 7, 1);
+			strcpy(varname, "local.");
+			strcat(varname, data->params[i]->name);
+
 			arg = LLVMBuildAlloca(
-			    builder, gen_type(mod, data->params[i]->type), "");
+			    builder, gen_type(mod, data->params[i]->type),
+			    settings->emit_varnames ? varname : "");
 			LLVMBuildStore(builder, LLVMGetParam(func, i), arg);
+
+			free(varname);
 		}
 
 		fn_context_add_local(&context, arg, data->params[i]->name);
@@ -676,9 +683,10 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 	}
 
 	/* If we have a return value, store it into a local variable. */
-	if (E_AS_FN(fn->data)->return_type->kind != TY_NULL) {
-		context.ret_value = LLVMBuildAlloca(
-		    builder, gen_type(mod, E_AS_FN(fn->data)->return_type), "");
+	if (data->return_type->kind != TY_NULL) {
+		context.ret_value =
+		    LLVMBuildAlloca(builder, gen_type(mod, data->return_type),
+				    settings->emit_varnames ? "ret" : "");
 	}
 
 	/* args -> code */
@@ -692,7 +700,7 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 	/* Code block */
 	LLVMPositionBuilderAtEnd(builder, code_block);
 
-	if (settings->stacktrace) {
+	if (settings->emit_stacktrace) {
 		emit_stackpush(builder, mod, E_AS_FN(fn->data)->name,
 			       E_AS_MOD(module->data)->source_name);
 	}
@@ -710,7 +718,7 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 		emit_drop(builder, &context, context.auto_drops[i]);
 
 	/* Stack pop */
-	if (settings->stacktrace)
+	if (settings->emit_stacktrace)
 		emit_stackpop(builder, context.llvm_mod);
 
 	/* Return from function */
@@ -722,9 +730,6 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 				   context.ret_value, "");
 		LLVMBuildRet(builder, ret_value);
 	}
-
-	if (!data->n_params)
-		LLVMDeleteBasicBlock(args_block);
 
 	if (LLVMVerifyFunction(func, LLVMPrintMessageAction)) {
 		error("emit: something is wrong with the emitted `%s` function",
@@ -764,7 +769,7 @@ void emit_main_function(LLVMModuleRef mod)
 	LLVMPositionBuilderAtEnd(builder, start_block);
 
 	LLVMBuildCall2(builder, LLVMFunctionType(LLVMVoidType(), NULL, 0, 0),
-		       LLVMGetNamedFunction(mod, "_C4main"), NULL, 0, "");
+		       LLVMGetNamedFunction(mod, "_C4mainv"), NULL, 0, "");
 
 	return_value = LLVMConstNull(LLVMInt32Type());
 	LLVMBuildRet(builder, return_value);

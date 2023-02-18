@@ -24,7 +24,8 @@ typedef struct
 	bool using_bs;
 	bool jit;
 	bool verbose;
-	bool stacktrace;
+	bool emit_stacktrace;
+	bool emit_varnames;
 	char *opt;
 	char *output;
 	char *input;
