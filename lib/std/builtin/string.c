@@ -13,7 +13,6 @@ cf_null _C4dropP3str(cf_str *self)
 	if (!(self->flags & CF_STR_ALLOC))
 		return;
 
-	printf("free(%p)\n", self->ptr);
 	free(self->ptr);
 }
 
@@ -26,7 +25,6 @@ cf_null _C4copyP3strP3str(cf_str *self, cf_str *from)
 	self->flags = CF_STR_ALLOC;
 	self->len = from->len;
 	self->ptr = (char *) malloc(self->len);
-	printf("malloc(%p)\n", self->ptr);
 	memcpy(self->ptr, from->ptr, self->len);
 }
 
