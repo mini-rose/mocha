@@ -26,7 +26,7 @@ sources = [
 
 llvm = declare_dependency(link_args: '-lLLVM')
 
-executable(
+exe = executable(
   'nxg', sources,
   include_directories: includes,
   cpp_args: ['-O2', '-g'],
@@ -35,11 +35,15 @@ executable(
   install: true
 )
 
-libdir = get_option('libdir')
-coffee_libdir = join_paths(libdir, 'coffee')
+coffee_libdir = '/usr/lib/coffee'
 
 install_subdir(
-  '../lib/std',
+  '../lib',
   install_dir : coffee_libdir,
   strip_directory : false
+)
+
+install_data(
+  exe.path(),
+  install_dir : '/usr/bin'
 )
