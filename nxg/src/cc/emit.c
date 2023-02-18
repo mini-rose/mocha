@@ -409,26 +409,17 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 
 	value = node->data;
 
-	/* Free allocated resources */
-	for (int i = 0; i < context->n_auto_drops; i++)
-		emit_drop(builder, context, context->auto_drops[i]);
-
-	if (value->type == VE_NULL) {
-		if (context->settings->stacktrace)
-			emit_stackpop(builder, context->llvm_mod);
-
-		LLVMBuildRetVoid(builder);
-	} else {
+	if (value->type != VE_NULL) {
 		ret = gen_new_value(builder, context, node->data);
-		if (!ret)
+		if (!ret) {
 			error("emit: could not generate return value for %s",
 			      E_AS_FN(context->func->data)->name);
+		}
 
-		if (context->settings->stacktrace)
-			emit_stackpop(builder, context->llvm_mod);
-
-		LLVMBuildRet(builder, ret);
+		LLVMBuildStore(builder, ret, context->ret_value);
 	}
+
+	LLVMBuildBr(builder, context->end);
 }
 
 static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
@@ -558,8 +549,8 @@ void emit_var_decl(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 
 	decl = node->data;
 
-	alloca = LLVMBuildAlloca(
-	    builder, gen_type(context->llvm_mod, decl->type), decl->name);
+	alloca = LLVMBuildAlloca(builder,
+				 gen_type(context->llvm_mod, decl->type), "");
 
 	/* If it's an object, zero-initialize it & add any automatic drops. */
 	if (decl->type->kind == TY_OBJECT) {
@@ -640,7 +631,7 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 	context.llvm_mod = mod;
 	context.settings = settings;
 
-	LLVMBasicBlockRef args_block, code_block;
+	LLVMBasicBlockRef args_block, code_block, end_block;
 	LLVMBuilderRef builder;
 	expr_t *walker;
 
@@ -664,8 +655,21 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 		fn_context_add_local(&context, arg, data->params[i]->name);
 	}
 
+	/* If we have a return value, store it into a local variable. */
+	if (E_AS_FN(fn->data)->return_type->kind != TY_NULL) {
+		context.ret_value = LLVMBuildAlloca(
+		    builder, gen_type(mod, E_AS_FN(fn->data)->return_type), "");
+	}
+
+	/* args -> code */
 	code_block = LLVMAppendBasicBlock(func, "code");
 	LLVMBuildBr(builder, code_block);
+
+	/* end block with return statement */
+	end_block = LLVMAppendBasicBlock(func, "end");
+	context.end = end_block;
+
+	/* Code block */
 	LLVMPositionBuilderAtEnd(builder, code_block);
 
 	if (settings->stacktrace) {
@@ -677,6 +681,26 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 	while (walker) {
 		emit_node(builder, &context, walker);
 		walker = walker->next;
+	}
+
+	LLVMPositionBuilderAtEnd(builder, end_block);
+
+	/* Generate drop calls for allocated resources */
+	for (int i = 0; i < context.n_auto_drops; i++)
+		emit_drop(builder, &context, context.auto_drops[i]);
+
+	/* Stack pop */
+	if (settings->stacktrace)
+		emit_stackpop(builder, context.llvm_mod);
+
+	/* Return from function */
+	if (data->return_type->kind == TY_NULL) {
+		LLVMBuildRetVoid(builder);
+	} else {
+		LLVMValueRef ret_value =
+		    LLVMBuildLoad2(builder, gen_type(mod, data->return_type),
+				   context.ret_value, "");
+		LLVMBuildRet(builder, ret_value);
 	}
 
 	if (!data->n_params)
