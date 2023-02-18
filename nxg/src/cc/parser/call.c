@@ -206,8 +206,15 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	fn_candidates_t *resolved = module_find_fn_candidates(mod, data->name);
 
 	if (!resolved->n_candidates) {
+		/* Check if maybe the user missed an import */
+		char *fix = NULL;
+
+		if (!strcmp(data->name, "print"))
+			fix = ", did you mean to `use std.io`?";
+
 		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
-			 "no function named `%s` found", data->name);
+			 "no function named `%s` found%s", data->name,
+			 fix ? fix : "");
 	}
 
 	bool try_next;
