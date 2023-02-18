@@ -58,8 +58,12 @@ char *nxg_mangle(const fn_expr_t *func)
 	char *name = calloc(512, 1);
 
 	snprintf(name, 512, "_C%d%s", (int) strlen(func->name), func->name);
+
 	for (int i = 0; i < func->n_params; i++)
 		mangled_type_str(func->params[i]->type, &name[strlen(name)]);
+
+	if (!func->n_params)
+		name[strlen(name)] = mangled_type_char(PT_NULL);
 
 	return name;
 }
