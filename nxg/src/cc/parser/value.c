@@ -38,6 +38,34 @@ err_t parse_single_value(expr_t *context, expr_t *mod, value_expr_t *node,
 		return ERR_OK;
 	}
 
+	if (is_member(tokens, tok)) {
+		parse_reference(node, context, tokens, tok);
+		tok = next_tok(tokens);
+
+		if (node->return_type->kind != TY_OBJECT) {
+			error_at(tokens->source, tok->value, tok->len,
+				 "cannot access members of non-object type");
+		}
+
+		tok = next_tok(tokens);
+
+		node->type = VE_MREF;
+		node->member = strndup(tok->value, tok->len);
+
+		temp_type = type_object_field_type(node->return_type->v_object,
+						   node->member);
+		if (temp_type->kind == TY_NULL) {
+			error_at(tokens->source, tok->value, tok->len,
+				 "no field named %s found in %s", node->member,
+				 node->return_type->v_object->name);
+		}
+
+		type_destroy(node->return_type);
+		node->return_type = temp_type;
+
+		return ERR_OK;
+	}
+
 	/* reference */
 	if (is_reference(tok)) {
 		parse_reference(node, context, tokens, tok);
@@ -141,36 +169,46 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 }
 
 /**
- * literal   ::= string | integer | float | "null"
- * reference ::= identifier
- * value     ::= literal
- *           ::= reference
- *           ::= call
- *           ::= dereference
- *           ::= pointer-to
- *           ::= value op value
- *           ::= op value
+ * literal      ::= string | integer | float | "null"
+ * reference    ::= ident
+ * dereference  ::= *ident
+ * pointer-to   ::= &ident
+ * member       ::= ident.ident
+ * member-deref ::= *ident.ident
+ * member-ptr   ::= &ident.ident
+ * value        ::= literal
+ *              ::= reference
+ *              ::= call
+ *              ::= dereference
+ *              ::= pointer-to
+ *              ::= member
+ *              ::= member-deref
+ *              ::= member-ptr
+ *              ::= value <op> value
  *
  * value
  */
 value_expr_t *parse_value_expr(expr_t *context, expr_t *mod, value_expr_t *node,
 			       token_list *tokens, token *tok)
 {
-	/* literal | reference | call | dereference | pointer-to */
-	if (((is_literal(tok) || is_reference(tok) || is_pointer_to(tokens, tok)
-	      || is_dereference(tokens, tok))
-	     && index_tok(tokens, tokens->iter)->type == T_NEWLINE)
-	    || is_call(tokens, tok)) {
-		parse_single_value(context, mod, node, tokens, tok);
-		return node;
-	}
+	token *next;
 
-	/* value op value */
-	if (is_single_value(tokens, tok)) {
+	next = index_tok(tokens, tokens->iter);
+	if (is_operator(next)) {
 		/* TODO: this operator parser can only do single chain of
 		   values, without any parenthesis or operator precendence */
 		return parse_twoside_value_expr(context, mod, node, tokens,
 						tok);
+	}
+
+	if (is_single_value(tokens, tok)) {
+		if (parse_single_value(context, mod, node, tokens, tok)
+		    == ERR_SYNTAX) {
+			error_at(tokens->source, tok->value, tok->len,
+				 "syntax error, could not parse value");
+		}
+
+		return node;
 	}
 
 	error_at(tokens->source, tok->value, tok->len, "failed to parse value");

@@ -16,8 +16,12 @@ token *index_tok(token_list *list, int index)
 {
 	static token end_token = {.type = T_END, .value = "", .len = 0};
 
-	if (list->iter >= list->length)
+	if (index >= list->length)
 		return &end_token;
+
+	if (index == 0)
+		index = 1;
+
 	return list->tokens[index - 1];
 }
 

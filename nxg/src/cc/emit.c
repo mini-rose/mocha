@@ -22,6 +22,9 @@ static LLVMValueRef gen_zero_value_for(LLVMBuilderRef builder,
 				       LLVMModuleRef mod, type_t *ty);
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name);
 void emit_stackpop(LLVMBuilderRef builder, LLVMModuleRef mod);
+static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
+				      fn_context_t *context,
+				      value_expr_t *node);
 
 static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
 				 char *name)
@@ -163,6 +166,30 @@ static LLVMValueRef gen_local_value(LLVMBuilderRef builder,
 	return val;
 }
 
+static LLVMValueRef gen_member_value(LLVMBuilderRef builder,
+				     fn_context_t *context, value_expr_t *node)
+{
+	LLVMValueRef ptr;
+	LLVMValueRef ret;
+	LLVMTypeRef member_type;
+	type_t *local_type;
+	type_t *field_type;
+
+	ptr = gen_ptr_to_member(builder, context, node);
+	local_type = node_resolve_local(context->func, node->name, 0)->type;
+
+	if (local_type->kind == TY_POINTER)
+		local_type = local_type->v_base;
+
+	field_type = type_object_field_type(local_type->v_object, node->member);
+	member_type = gen_type(context->llvm_mod, field_type);
+
+	ret = LLVMBuildLoad2(builder, member_type, ptr, "");
+
+	type_destroy(field_type);
+	return ret;
+}
+
 static LLVMValueRef gen_addr(LLVMBuilderRef builder, fn_context_t *context,
 			     const char *name)
 {
@@ -236,6 +263,8 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 		break;
 	case VE_REF:
 		return gen_local_value(builder, context, value->name);
+	case VE_MREF:
+		return gen_member_value(builder, context, value);
 	case VE_LIT:
 		return gen_literal_value(builder, context, value->literal);
 	case VE_CALL:

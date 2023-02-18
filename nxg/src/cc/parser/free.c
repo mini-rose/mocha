@@ -1,5 +1,3 @@
-#include "nxg/cc/type.h"
-
 #include <nxg/cc/parser.h>
 #include <nxg/utils/error.h>
 #include <stdlib.h>

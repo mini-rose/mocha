@@ -6,12 +6,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-static value_expr_t *call_add_arg(call_expr_t *call)
+static void call_push_arg(call_expr_t *call, value_expr_t *node)
 {
-	value_expr_t *node = calloc(1, sizeof(*node));
 	call->args =
 	    realloc(call->args, sizeof(value_expr_t *) * (call->n_args + 1));
 	call->args[call->n_args++] = node;
+}
+
+static value_expr_t *call_add_arg(call_expr_t *call)
+{
+	value_expr_t *node = calloc(1, sizeof(*node));
+	call_push_arg(call, node);
 	return node;
 }
 
@@ -166,66 +171,17 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			arg->return_type =
 			    type_copy(arg->call->func->return_type);
 
-		} else if (tok->type == T_IDENT || TOK_IS(tok, T_PUNCT, "&")
-			   || tok->type == T_MUL) {
-
-			arg = call_add_arg(data);
-			arg->type = VE_REF;
-
-			if (TOK_IS(tok, T_PUNCT, "&")) {
-				arg->type = VE_PTR;
-				tok = next_tok(tokens);
-
-				if (is_literal(tok)) {
-					error_at(
-					    tokens->source, tok->value,
-					    tok->len,
-					    "cannot take address of literal");
-				}
-
-				if (tok->type != T_IDENT) {
-					error_at(tokens->source, tok->value,
-						 tok->len,
-						 "expected variable name after "
-						 "reference marker");
-				}
-			}
-
-			if (tok->type == T_MUL) {
-				arg->type = VE_DEREF;
-				tok = next_tok(tokens);
-				if (tok->type != T_IDENT) {
-					error_at(tokens->source, tok->value,
-						 tok->len,
-						 "expected variable name after "
-						 "dereference marker");
-				}
-			}
-
-			arg->name = strndup(tok->value, tok->len);
+		} else if (is_single_value(tokens, tok)) {
+			arg = calloc(1, sizeof(*arg));
 			add_arg_token(&arg_tokens, tok);
-
-			var_decl_expr_t *var;
-
-			var = node_resolve_local(parent, arg->name, 0);
-			if (!var) {
-				error_at(tokens->source, tok->value, tok->len,
-					 "use of undeclared variable");
-			}
-
-			/* if we have a reference marker (&x), then the return
-			   type is the pointer type of the value */
-			if (arg->type == VE_PTR)
-				arg->return_type = type_pointer_of(var->type);
-			else if (arg->type == VE_DEREF)
-				arg->return_type = type_copy(var->type->v_base);
-			else
-				arg->return_type = type_copy(var->type);
+			arg = parse_value_expr(parent, mod, arg, tokens, tok);
+			call_push_arg(data, arg);
 
 		} else if (is_literal(tok)) {
 			arg = call_add_arg(data);
 			add_arg_token(&arg_tokens, tok);
 			parse_literal(arg, tokens, tok);
+
 		} else {
 			error_at(tokens->source, tok->value, tok->len,
 				 "expected value or variable name, got "

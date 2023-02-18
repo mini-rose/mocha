@@ -1,5 +1,3 @@
-#include "nxg/cc/tokenize.h"
-
 #include <ctype.h>
 #include <nxg/cc/parser.h>
 #include <stdio.h>
@@ -68,9 +66,31 @@ bool is_literal(token *tok)
 	    || TOK_IS(tok, T_DATATYPE, "null");
 }
 
+/**
+ * reference ::= ident
+ */
 bool is_reference(token *tok)
 {
 	return tok->type == T_IDENT;
+}
+
+/**
+ * member ::= ident.ident
+ */
+bool is_member(token_list *tokens, token *tok)
+{
+	if (tok->type != T_IDENT)
+		return false;
+
+	tok = index_tok(tokens, tokens->iter);
+	if (tok->type != T_DOT)
+		return false;
+
+	tok = index_tok(tokens, tokens->iter + 1);
+	if (tok->type != T_IDENT)
+		return false;
+
+	return true;
 }
 
 /**

@@ -204,6 +204,7 @@ bool is_type(token_list *tokens, token *tok);
 bool is_call(token_list *tokens, token *tok);
 bool is_literal(token *tok);
 bool is_reference(token *tok);
+bool is_member(token_list *tokens, token *tok);
 bool is_dereference(token_list *tokens, token *tok);
 bool is_pointer_to(token_list *tokens, token *tok);
 bool is_single_value(token_list *tokens, token *tok);

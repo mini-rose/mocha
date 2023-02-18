@@ -364,5 +364,5 @@ int type_object_field_index(object_type_t *o, char *name)
 		return i;
 	}
 
-	return 0;
+	return -1;
 }

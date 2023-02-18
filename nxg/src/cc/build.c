@@ -1,10 +1,9 @@
 /* nxg/build.c
    Copyright (c) 2023 mini-rose */
 
-#include "nxg/cc/module.h"
-
 #include <libgen.h>
 #include <nxg/cc/emit.h>
+#include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
 #include <nxg/cc/tokenize.h>
 #include <nxg/nxg.h>

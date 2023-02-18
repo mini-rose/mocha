@@ -1,8 +1,6 @@
 /* nxg/mangle.c
    Copyright (c) 2023 mini-rose */
 
-#include "nxg/cc/type.h"
-
 #include <nxg/cc/mangle.h>
 #include <nxg/utils/error.h>
 #include <stdio.h>

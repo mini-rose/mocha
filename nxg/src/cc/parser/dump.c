@@ -2,6 +2,7 @@
    Copyright (c) 2023 mini-rose */
 
 #include <nxg/cc/parser.h>
+#include <nxg/utils/error.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -98,28 +99,44 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 	for (int i = 0; i < level; i++)
 		fputs("  ", stdout);
 
-	if (val->type == VE_REF) {
+	switch (val->type) {
+	case VE_REF:
 		printf("ref: `%s`\n", val->name);
-	} else if (val->type == VE_LIT) {
+		break;
+	case VE_LIT:
 		lit_str = stringify_literal(val->literal);
 		tmp = type_name(val->literal->type);
 		printf("literal: \e[33m%s\e[0m %s\n", tmp, lit_str);
 		free(lit_str);
-	} else if (val->type == VE_CALL) {
+		break;
+	case VE_CALL:
 		printf("call: `%s` n_args=%d\n", val->call->name,
 		       val->call->n_args);
 		for (int i = 0; i < val->call->n_args; i++)
 			expr_print_value_expr(val->call->args[i], level + 1);
-	} else if (val->type == VE_PTR) {
+		break;
+	case VE_PTR:
 		printf("addr: `&%s`\n", val->name);
-	} else if (val->type == VE_DEREF) {
+		break;
+	case VE_DEREF:
 		printf("deref: `*%s`\n", val->name);
-	} else {
+		break;
+	case VE_MREF:
+		printf("member: `%s.%s`\n", val->name, val->member);
+		break;
+	case VE_ADD:
+	case VE_SUB:
+	case VE_MUL:
+	case VE_DIV:
 		printf("op: %s\n", value_expr_type_name(val->type));
 		if (val->left)
 			expr_print_value_expr(val->left, level + 1);
 		if (val->right)
 			expr_print_value_expr(val->right, level + 1);
+		break;
+	default:
+		error("dump: cannot dump VE_%s value expr",
+		      value_expr_type_name(val->type));
 	}
 
 	free(tmp);
