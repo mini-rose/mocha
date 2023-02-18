@@ -1,14 +1,14 @@
 /* std.builtin.string - string operations
    Copyright (c) 2023 mini-rose */
 
-#include "cf.h"
+#include "../coffee.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 /* drop(&str) -> null */
-cf_null _C4dropP3str(struct cf_str *self)
+cf_null _C4dropP3str(cf_str *self)
 {
 	if (!self->ref)
 		return;
@@ -20,7 +20,7 @@ cf_null _C4dropP3str(struct cf_str *self)
 }
 
 /* copy(&str, &str) -> null */
-cf_null _C4copyP3strP3str(struct cf_str *self, struct cf_str *from)
+cf_null _C4copyP3strP3str(cf_str *self, cf_str *from)
 {
 	if (self->ref)
 		_C4dropP3str(self);
@@ -32,13 +32,7 @@ cf_null _C4copyP3strP3str(struct cf_str *self, struct cf_str *from)
 }
 
 /* len(&str) -> i64 */
-cf_i64 _C3lenP3str(struct cf_str *self)
+cf_i64 _C3lenP3str(cf_str *self)
 {
 	return self->len;
-}
-
-/* len(str) -> i64 */
-cf_i64 _C3len3str(struct cf_str self)
-{
-	return self.len;
 }

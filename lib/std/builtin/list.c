@@ -1,7 +1,7 @@
 /* std.builtin.list - list operations
    Copyright (c) 2023 mini-rose */
 
-#include "cf.h"
+#include "../coffee.h"
 
 #include <memory.h>
 #include <stdlib.h>
@@ -15,7 +15,7 @@ typedef struct
 		cf_i64 v_i64;
 		cf_f32 v_f32;
 		cf_bool v_bool;
-		struct cf_str v_str;
+		cf_str v_str;
 	};
 } cf_object;
 

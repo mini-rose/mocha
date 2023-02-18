@@ -1,9 +1,23 @@
-/* coffee.h - helper for makeing new modules in c
+/* coffee.h - header for bridging between C and Coffee.
    Copyright (c) 2023 mini-rose */
 
 #pragma once
 
 #include <stdbool.h>
+
+typedef enum
+{
+	CF_I8,
+	CF_U8,
+	CF_I16,
+	CF_U16,
+	CF_I32,
+	CF_U32,
+	CF_I64,
+	CF_U64,
+	CF_NULL,
+	CF_BOOL
+} cf_type;
 
 /* Coffee types */
 typedef char cf_i8;
@@ -18,9 +32,13 @@ typedef double cf_f64;
 typedef unsigned long cf_u64;
 typedef void cf_null;
 typedef bool cf_bool;
+
 typedef struct
 {
 	cf_i64 len;
 	cf_i8 *ptr;
 	cf_i32 ref;
 } cf_str;
+
+/* Max functions on the callstack. */
+#define CF_STACKLIMIT 2048
