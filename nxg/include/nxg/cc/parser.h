@@ -72,22 +72,26 @@ typedef struct
 
 typedef enum
 {
-	VE_NULL,  /* */
-	VE_REF,   /* name */
-	VE_LIT,   /* literal */
-	VE_CALL,  /* call */
-	VE_ADD,   /* left + right */
-	VE_SUB,   /* left - right */
-	VE_MUL,   /* left * right */
-	VE_DIV,   /* left / right */
-	VE_PTR,   /* &name */
-	VE_DEREF, /* *name */
+	VE_NULL,   /* */
+	VE_REF,    /* name */
+	VE_LIT,    /* literal */
+	VE_CALL,   /* call */
+	VE_ADD,    /* left + right */
+	VE_SUB,    /* left - right */
+	VE_MUL,    /* left * right */
+	VE_DIV,    /* left / right */
+	VE_PTR,    /* &name */
+	VE_DEREF,  /* *name */
+	VE_MREF,   /* name.member */
+	VE_MPTR,   /* &name.member */
+	VE_MDEREF, /* *name.member */
 } value_expr_type;
 
 struct value_expr
 {
 	type_t *return_type;
 	value_expr_type type;
+	char *member;
 	union
 	{
 		char *name;

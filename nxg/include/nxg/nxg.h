@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #define NXG_MAJOR 0
-#define NXG_MINOR 4
+#define NXG_MINOR 5
 
 #define MAIN_MODULE "__main__"
 
@@ -15,6 +15,11 @@
 #define DEFAULT_OPT 2
 
 #define LD_MUSL "/lib/ld-musl-x86_64.so.1"
+
+#if !defined NXG_LIB
+# error what
+# define NXG_LIB DEFAULT_LIB
+#endif
 
 typedef struct
 {

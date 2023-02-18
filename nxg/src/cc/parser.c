@@ -178,7 +178,7 @@ static void parse_type_err(token_list *tokens, token *tok)
 type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
 {
 	mod_expr_t *mod = context->data;
-	type_t *ty;
+	type_t *ty = NULL;
 
 	if (context->type != E_MODULE)
 		error("parse_type requires E_MODULE context");
@@ -193,8 +193,10 @@ type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
 
 	if (tok->type == T_IDENT) {
 		/* Our special case: the string */
-		if (!strncmp(tok->value, "str", tok->len))
-			return type_build_str();
+		if (!strncmp(tok->value, "str", tok->len)) {
+			ty = type_build_str();
+			goto array_part;
+		}
 
 		/* Find any matching types */
 		for (int i = 0; i < mod->n_type_decls; i++) {
@@ -205,7 +207,8 @@ type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
 					continue;
 				}
 
-				return type_copy(mod->type_decls[i]->v_base);
+				ty = type_copy(mod->type_decls[i]->v_base);
+				goto array_part;
 
 			} else if (mod->type_decls[i]->kind == TY_OBJECT) {
 				/* Object type */
@@ -214,7 +217,8 @@ type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
 					continue;
 				}
 
-				return type_copy(mod->type_decls[i]);
+				ty = type_copy(mod->type_decls[i]);
+				goto array_part;
 
 			} else {
 				error_at(tokens->source, tok->value, tok->len,
@@ -228,6 +232,12 @@ type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
 	if (tok->type == T_DATATYPE)
 		ty = type_from_sized_string(tok->value, tok->len);
 
+	if (!ty) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "failed to parse type");
+	}
+
+array_part:
 	tok = index_tok(tokens, tokens->iter);
 	if (TOK_IS(tok, T_PUNCT, "[")) {
 		/* array type */
@@ -257,7 +267,7 @@ type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
 	}
 
 	return type_new_null();
-}
+	}
 
 static void fn_add_local_var(fn_expr_t *func, var_decl_expr_t *var)
 {
@@ -309,8 +319,11 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	assign_expr_t *data;
 	expr_t *node;
 	token *name;
+	token *dot_tok = NULL;
+	token *member_tok = NULL;
 	bool deref = false;
 	bool guess_type = false;
+	bool member_access = false;
 	expr_t *guess_decl;
 
 	name = tok;
@@ -352,10 +365,29 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	node->data = data;
 	node->data_free = (expr_free_handle) assign_expr_free;
 
-	/* parse value */
-	tok = next_tok(tokens);
 	tok = next_tok(tokens);
 
+	/* Assign to member */
+	if (tok->type == T_DOT) {
+		member_access = true;
+		dot_tok = tok;
+
+		tok = next_tok(tokens);
+		if (tok->type != T_IDENT) {
+			error_at(
+			    tokens->source, tok->value, tok->len,
+			    "expected field name after member access operator");
+		}
+
+		member_tok = tok;
+		data->to->member = strndup(tok->value, tok->len);
+		data->to->type = data->to->type == VE_REF ? VE_MREF : VE_MDEREF;
+
+		tok = next_tok(tokens);
+	}
+
+	/* Parse value */
+	tok = next_tok(tokens);
 	data->value = calloc(1, sizeof(*data->value));
 	data->value = parse_value_expr(parent, mod, data->value, tokens, tok);
 
@@ -376,6 +408,34 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 		if (!local)
 			error("parser: failed to find local var decl of deref");
 
+		type_t *local_type = NULL;
+
+		/* object.field */
+		if (member_access) {
+			type_t *o_type = local->type;
+			if (o_type->kind == TY_POINTER)
+				o_type = o_type->v_base;
+
+			if (o_type->kind != TY_OBJECT) {
+				error_at(tokens->source, dot_tok->value,
+					 dot_tok->len,
+					 "cannot access member of non-object "
+					 "variable");
+			}
+
+			local_type = type_of_member(o_type, data->to->member);
+
+			if (local_type->kind == TY_NULL) {
+				error_at(tokens->source, member_tok->value,
+					 member_tok->len, "unknown field of %s",
+					 o_type->v_object->name);
+			}
+
+		} else {
+			local_type = type_copy(local->type);
+		}
+
+		/* *var */
 		if (deref) {
 			if (local->type->kind != TY_POINTER) {
 				error_at(
@@ -383,10 +443,12 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 				    "cannot dereference a non-pointer type");
 			}
 
-			data->to->return_type = type_copy(local->type->v_base);
+			data->to->return_type = type_copy(local_type->v_base);
 		} else {
-			data->to->return_type = type_copy(local->type);
+			data->to->return_type = type_copy(local_type);
 		}
+
+		type_destroy(local_type);
 	}
 
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
@@ -859,11 +921,10 @@ static void parse_object_fields(expr_t *module, type_t *ty, token_list *tokens,
 	char *ident;
 	type_t *field;
 
-	tok = next_tok(tokens);
 	while (tok->type == T_NEWLINE)
 		tok = next_tok(tokens);
 
-	while (tok->type == T_RBRACE) {
+	while (tok->type != T_RBRACE) {
 		/* field name */
 		if (tok->type != T_IDENT) {
 			error_at(tokens->source, tok->value, tok->len,
@@ -934,6 +995,7 @@ static void parse_type_decl(expr_t *module, token_list *tokens, token *tok)
 		ty->v_object = calloc(1, sizeof(*ty->v_object));
 		ty->v_object->name = strndup(name->value, name->len);
 
+		tok = next_tok(tokens);
 		parse_object_fields(module, ty, tokens, tok);
 
 	} else {
@@ -1117,8 +1179,9 @@ char *stringify_literal(literal_expr_t *literal)
 
 const char *value_expr_type_name(value_expr_type t)
 {
-	static const char *names[] = {"NULL", "REF", "LIT", "CALL", "ADD",
-				      "SUB",  "MUL", "DIV", "PTR",  "DEREF"};
+	static const char *names[] = {"NULL", "REF",  "LIT",   "CALL", "ADD",
+				      "SUB",  "MUL",  "DIV",   "PTR",  "DEREF",
+				      "MREF", "MPTR", "MDEREF"};
 
 	if (t >= 0 && t < LEN(names))
 		return names[t];

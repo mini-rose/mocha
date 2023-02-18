@@ -152,19 +152,27 @@ bool is_float(token *tok)
 }
 
 /**
- * name[: type] = value
+ * name[.field][: type] = value
  */
 bool is_var_assign(token_list *tokens, token *tok)
 {
 	int offset = 0;
 
-	if (!strncmp(tok->value, "*", tok->len)) {
+	if (tok->type == T_MUL) {
 		tok = index_tok(tokens, tokens->iter);
 		offset++;
 	}
 
 	if (tok->type != T_IDENT)
 		return false;
+
+	tok = index_tok(tokens, tokens->iter + offset);
+	if (tok->type == T_DOT)
+		offset++;
+
+	tok = index_tok(tokens, tokens->iter + offset);
+	if (tok->type == T_IDENT)
+		offset++;
 
 	tok = index_tok(tokens, tokens->iter + offset);
 	if (TOK_IS(tok, T_PUNCT, ":")) {

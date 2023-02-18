@@ -56,18 +56,28 @@ void value_expr_free(value_expr_t *value)
 	if (!value)
 		return;
 
-	if (value->type == VE_NULL)
+	switch (value->type) {
+	case VE_NULL:
 		return;
-	else if (value->type == VE_REF || value->type == VE_PTR
-		 || value->type == VE_DEREF) {
+	case VE_MREF:
+	case VE_MDEREF:
+	case VE_MPTR:
+		free(value->member);
+		/* fallthrough */
+	case VE_REF:
+	case VE_PTR:
+	case VE_DEREF:
 		free(value->name);
-	} else if (value->type == VE_LIT) {
+		break;
+	case VE_LIT:
 		literal_expr_free(value->literal);
 		free(value->literal);
-	} else if (value->type == VE_CALL) {
+		break;
+	case VE_CALL:
 		call_expr_free(value->call);
 		free(value->call);
-	} else {
+		break;
+	default:
 		value_expr_free(value->left);
 		free(value->left);
 		value_expr_free(value->right);

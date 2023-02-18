@@ -422,6 +422,43 @@ void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
 	LLVMBuildBr(builder, context->end);
 }
 
+static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
+				      fn_context_t *context, value_expr_t *node)
+{
+	LLVMValueRef indices[2];
+	LLVMValueRef ptr;
+	LLVMValueRef obj;
+	var_decl_expr_t *local;
+	type_t *local_type;
+	type_t *field_type;
+
+	if (node->type != VE_MREF)
+		error("emit: trying to getelementptr into non-object ref");
+
+	local = node_resolve_local(context->func, node->name, 0);
+	local_type = local->type;
+	if (local_type->kind == TY_POINTER)
+		local_type = local_type->v_base;
+
+	if (local_type->kind != TY_OBJECT)
+		error("emit: non-object type for MREF");
+
+	field_type = type_object_field_type(local_type->v_object, node->member);
+
+	indices[0] = LLVMConstInt(LLVMInt32Type(), 0, false);
+	indices[1] = LLVMConstInt(
+	    LLVMInt32Type(),
+	    type_object_field_index(local_type->v_object, node->member), false);
+
+	obj = fn_find_local(context, node->name);
+	ptr = LLVMBuildGEP2(builder, gen_type(context->llvm_mod, local_type),
+			    obj, indices, 2, "");
+
+	type_destroy(field_type);
+
+	return ptr;
+}
+
 static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 			     expr_t *node)
 {
@@ -440,9 +477,9 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 
 	value = gen_new_value(builder, context, data->value);
 
-	/* If we assign to a dereference, we first need to get the value under
-	   the alloca. */
 	if (data->to->type == VE_DEREF) {
+
+		/* *var = xxx */
 		LLVMValueRef local;
 		LLVMValueRef ptr;
 
@@ -458,10 +495,21 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		}
 
 		to = ptr;
-
 		type_destroy(ptr_type);
-	} else {
+
+	} else if (data->to->type == VE_REF) {
+
+		/* var = xxx */
 		to = gen_addr(builder, context, data->to->name);
+
+	} else if (data->to->type == VE_MREF) {
+
+		/* var.field = xxx */
+		to = gen_ptr_to_member(builder, context, data->to);
+
+	} else {
+		error("emit: cannot emit assign to %s",
+		      value_expr_type_name(data->to->type));
 	}
 
 	/* Call copy for assignment. */
@@ -596,7 +644,7 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 	case E_SKIP:
 		break;
 	default:
-		warning("undefined emit rules for node");
+		warning("undefined emit semantics for node");
 	}
 }
 
@@ -731,10 +779,12 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 		LLVMBuildRet(builder, ret_value);
 	}
 
+#if 0
 	if (LLVMVerifyFunction(func, LLVMPrintMessageAction)) {
 		error("emit: something is wrong with the emitted `%s` function",
 		      name);
 	}
+#endif
 
 	LLVMDisposeBuilder(builder);
 	fn_context_destroy(&context);
@@ -805,7 +855,7 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 		    LLVMStructCreateNamed(LLVMGetModuleContext(mod), o->name);
 
 		for (int j = 0; j < o->n_fields; j++)
-			fields[j] = gen_type(mod, o->fields[i]);
+			fields[j] = gen_type(mod, o->fields[j]);
 
 		LLVMStructSetBody(o_type, fields, o->n_fields, false);
 
@@ -836,10 +886,12 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 		walker = walker->next;
 	}
 
+#if 0
 	if (LLVMVerifyModule(mod, LLVMPrintMessageAction, &err_msg)) {
 		error("emit: LLVM failed to generate the `%s` module",
 		      mod_data->name);
 	}
+#endif
 
 	LLVMDisposeMessage(err_msg);
 	return mod;

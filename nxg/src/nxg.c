@@ -26,7 +26,7 @@ static inline void full_help()
 	    ")\n"
 	    "  -O <level>      optimization level, one of: 0 1 2 3 s\n"
 	    "  -p              show generated AST\n"
-	    "  -s <path>       library path (default: " DEFAULT_LIB ")\n"
+	    "  -s <path>       library path (default: " NXG_LIB ")\n"
 	    "  -t              show generated tokens\n"
 	    "  -v, --version   show the compiler version\n"
 	    "  -V              be verbose, show ran shell commands\n"
@@ -46,11 +46,12 @@ static inline void full_help()
 static inline void version()
 {
 	printf("nxg %d.%d\n", NXG_MAJOR, NXG_MINOR);
+	printf("lib %s\n", NXG_LIB);
 	exit(0);
 }
 
 void default_settings(settings_t *settings) {
-	settings->libpath = strdup(DEFAULT_LIB);
+	settings->libpath = strdup(NXG_LIB);
 	settings->output = strdup(DEFAULT_OUT);
 	settings->global = false;
 	settings->input = NULL;

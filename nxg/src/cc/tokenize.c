@@ -138,7 +138,7 @@ static char *strend(char *p)
 
 token_list *tokens(file_t *source)
 {
-	token_t last;
+	token_t last = T_NEWLINE;
 	token_list *list = token_list_new();
 	file_t *f = source;
 	list->source = source;

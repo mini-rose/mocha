@@ -1,11 +1,16 @@
 /* parser/dump.c - dump expr trees
    Copyright (c) 2023 mini-rose */
 
-#include "nxg/utils/error.h"
-
 #include <nxg/cc/parser.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+static void indent(int levels)
+{
+	for (int i = 0; i < (levels * 2); i++)
+		fputc(' ', stdout);
+}
 
 static const char *expr_info(expr_t *expr)
 {
@@ -34,18 +39,33 @@ static const char *expr_info(expr_t *expr)
 		var = E_AS_ASS(expr->data);
 		tmp = type_name(var->value->return_type);
 
-		if (var->to->type == VE_LIT || var->to->type == VE_REF)
+		switch (var->to->type) {
+		case VE_LIT:
+		case VE_REF:
+		case VE_MREF:
 			marker = ' ';
-		else if (var->to->type == VE_PTR)
-			marker = '&';
-		else if (var->to->type == VE_DEREF)
+			break;
+		case VE_DEREF:
+		case VE_MDEREF:
 			marker = '*';
-		else
+			break;
+		default:
 			marker = '?';
+		}
 
-		snprintf(info, 512, "%c%s = (\e[33m%s\e[0m) %s", marker,
-			 var->to->name, tmp,
+		char *field;
+		if (var->to->member) {
+			field = calloc(512, 1);
+			snprintf(field, 512, ".%s", var->to->member);
+		} else {
+			field = strdup("");
+		}
+
+		snprintf(info, 512, "%c%s%s = (\e[33m%s\e[0m) %s", marker,
+			 var->to->name, field, tmp,
 			 value_expr_type_name(var->value->type));
+		free(field);
+
 		break;
 	case E_RETURN:
 		tmp = type_name(E_AS_VAL(expr->data)->return_type);
@@ -110,55 +130,55 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 	char *tmp;
 
 	if (mod->c_objects->n) {
-		indent(0, 2 * (level));
+		indent(level);
 		printf("\e[95mObjects to link (%d):\e[0m\n", mod->c_objects->n);
 	}
 
 	for (int i = 0; i < mod->c_objects->n; i++) {
-		indent(0, 2 * (level + 1));
+		indent(level + 1);
 		printf("%s\n", mod->c_objects->objects[i]);
 	}
 
 	if (mod->n_local_decls) {
-		indent(0, 2 * (level));
+		indent(level);
 		printf("\e[95mLocal declarations (%d):\e[0m\n",
 		       mod->n_local_decls);
 	}
 
 	for (int i = 0; i < mod->n_local_decls; i++) {
-		indent(0, 2 * (level + 1));
+		indent(level + 1);
 		tmp = fn_str_signature(mod->local_decls[i], true);
 		printf("%s\n", tmp);
 		free(tmp);
 	}
 
 	if (mod->n_decls) {
-		indent(0, 2 * (level));
+		indent(level);
 		printf("\e[95mExtern declarations (%d):\e[0m\n", mod->n_decls);
 	}
 
 	for (int i = 0; i < mod->n_decls; i++) {
-		indent(0, 2 * (level + 1));
+		indent(level + 1);
 		tmp = fn_str_signature(mod->decls[i], true);
 		printf("%s\n", tmp);
 		free(tmp);
 	}
 
 	if (mod->n_type_decls) {
-		indent(0, 2 * (level));
+		indent(level);
 		printf("\e[95mType declarations (%d):\e[0m\n",
 		       mod->n_type_decls);
 	}
 
 	for (int i = 0; i < mod->n_type_decls; i++) {
-		indent(0, 2 * (level + 1));
+		indent(level + 1);
 		tmp = type_name(mod->type_decls[i]);
 		printf("%s\n", tmp);
 		free(tmp);
 	}
 
 	if (mod->n_imported) {
-		indent(0, 2 * (level));
+		indent(level);
 		printf("\e[95mImported modules (%d):\e[0m\n", mod->n_imported);
 	}
 
@@ -167,13 +187,13 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 
 	if (mod->std_modules) {
 		if (mod->std_modules->n_modules) {
-			indent(0, 2 * (level));
+			indent(level);
 			printf("\e[95mStandard modules (%d):\e[0m\n",
 			       mod->std_modules->n_modules);
 		}
 
 		for (int i = 0; i < mod->std_modules->n_modules; i++) {
-			indent(0, 2 * (level + 1));
+			indent(level + 1);
 			printf(
 			    "%s\n",
 			    E_AS_MOD(mod->std_modules->modules[i]->data)->name);

@@ -27,12 +27,12 @@ void error(const char *format, ...)
 	exit(1);
 }
 
-void indent(int tabs, int spaces)
+static void indent(int tabs, int spaces)
 {
 	for (int i = 0; i < tabs; i++)
-		fputc('\t', stdout);
+		fputc('\t', stderr);
 	for (int i = 0; i < spaces; i++)
-		fputc(' ', stdout);
+		fputc(' ', stderr);
 }
 
 typedef struct

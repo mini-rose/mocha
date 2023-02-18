@@ -190,6 +190,22 @@ type_t *type_pointer_of(type_t *ty)
 	return ptr;
 }
 
+type_t *type_of_member(type_t *ty, char *member)
+{
+	object_type_t *o = ty->v_object;
+
+	if (ty->kind != TY_OBJECT)
+		return type_new_null();
+
+	for (int i = 0; i < o->n_fields; i++) {
+		if (strcmp(o->field_names[i], member))
+			continue;
+		return type_copy(o->fields[i]);
+	}
+
+	return type_new_null();
+}
+
 bool type_cmp(type_t *left, type_t *right)
 {
 	if (left == right)
@@ -274,6 +290,9 @@ char *type_name(type_t *ty)
 
 void type_destroy(type_t *ty)
 {
+	if (!ty)
+		return;
+
 	if (ty->kind == TY_NULL || ty->kind == TY_PLAIN) {
 		/* do nothing */
 	} else if (ty->kind == TY_POINTER || ty->kind == TY_ARRAY) {
@@ -324,4 +343,26 @@ void type_object_add_field(object_type_t *o, char *name, type_t *ty)
 
 	o->fields[o->n_fields] = type_copy(ty);
 	o->field_names[o->n_fields++] = strdup(name);
+}
+
+type_t *type_object_field_type(object_type_t *o, char *name)
+{
+	for (int i = 0; i < o->n_fields; i++) {
+		if (strcmp(o->field_names[i], name))
+			continue;
+		return type_copy(o->fields[i]);
+	}
+
+	return type_new_null();
+}
+
+int type_object_field_index(object_type_t *o, char *name)
+{
+	for (int i = 0; i < o->n_fields; i++) {
+		if (strcmp(o->field_names[i], name))
+			continue;
+		return i;
+	}
+
+	return 0;
 }
