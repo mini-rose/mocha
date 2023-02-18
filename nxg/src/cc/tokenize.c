@@ -76,6 +76,8 @@ void token_print(token *tok)
 					[T_LPAREN] = "LPAREN",
 					[T_RPAREN] = "RPAREN",
 					[T_COMMA] = "COMMA",
+					[T_LBRACE] = "LBRACE",
+					[T_RBRACE] = "RBRACE",
 					[T_DOT] = "DOT",
 					[T_MUL] = "MUL",
 					[T_SUB] = "SUB"};
@@ -243,6 +245,16 @@ token_list *tokens(file_t *source)
 				break;
 			case ')':
 				tok = token_new(last = T_RPAREN, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			case '{':
+				tok = token_new(last = T_LBRACE, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			case '}':
+				tok = token_new(last = T_RBRACE, p, 1);
 				token_list_append(list, tok);
 				p++;
 				break;

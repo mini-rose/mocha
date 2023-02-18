@@ -682,7 +682,7 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 	while (tok->type == T_NEWLINE)
 		tok = next_tok(tokens);
 
-	if (!TOK_IS(tok, T_PUNCT, "{")) {
+	if (tok->type != T_LBRACE) {
 		error_at(tokens->source, tok->value, tok->len,
 			 "missing opening brace for `%s`", decl->name);
 		return ERR_SYNTAX;
@@ -705,12 +705,12 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 		if (tok->type == T_NEWLINE)
 			continue;
 
-		if (TOK_IS(tok, T_PUNCT, "{")) {
+		if (tok->type == T_LBRACE) {
 			brace_level++;
 			continue;
 		}
 
-		if (TOK_IS(tok, T_PUNCT, "}")) {
+		if (tok->type == T_RBRACE) {
 			brace_level--;
 			continue;
 		}
@@ -771,9 +771,9 @@ static void skip_block(token_list *tokens, token *tok)
 	int depth = 0;
 
 	do {
-		if (TOK_IS(tok, T_PUNCT, "{"))
+		if (tok->type == T_LBRACE)
 			depth++;
-		if (TOK_IS(tok, T_PUNCT, "}"))
+		if (tok->type == T_RBRACE)
 			depth--;
 		tok = next_tok(tokens);
 	} while (depth);
@@ -863,7 +863,7 @@ static void parse_object_fields(expr_t *module, type_t *ty, token_list *tokens,
 	while (tok->type == T_NEWLINE)
 		tok = next_tok(tokens);
 
-	while (!TOK_IS(tok, T_PUNCT, "}")) {
+	while (tok->type == T_RBRACE) {
 		/* field name */
 		if (tok->type != T_IDENT) {
 			error_at(tokens->source, tok->value, tok->len,
@@ -926,7 +926,7 @@ static void parse_type_decl(expr_t *module, token_list *tokens, token *tok)
 		ty->alias = strndup(name->value, name->len);
 		ty->v_base = parse_type(module, tokens, tok);
 
-	} else if (TOK_IS(tok, T_PUNCT, "{")) {
+	} else if (tok->type == T_LBRACE) {
 
 		/* Object type */
 		ty = module_add_type_decl(module);

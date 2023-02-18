@@ -6,13 +6,6 @@ Coffee has its own build system builtin compiler.
 The `.coffee` file should be placed in project root
 directory.
 
-Syntax
-------
-
-KEY: VALUE
-
-KEY: [VALUE, VALUE]
-
 Options
 -------
 * `input` - source file
