@@ -1,6 +1,11 @@
-project('nextgen', 'c', version: '0.1')
-
-includes = include_directories('include')
+project(
+  'nextgen', 'c', version: '0.1',
+  default_options: [
+    'prefix=/usr',
+    'libdir=lib/coffee',
+    'bindir=bin'
+  ]
+)
 
 sources = [
   'src/nxg.c',
@@ -24,26 +29,23 @@ sources = [
   'src/bs/buildfile.c'
 ]
 
+includes = include_directories('include')
 llvm = declare_dependency(link_args: '-lLLVM')
+libdir = get_option('prefix') / get_option('libdir')
+bindir = get_option('prefix') / get_option('bindir')
 
 exe = executable(
   'nxg', sources,
   include_directories: includes,
-  cpp_args: ['-O2', '-g'],
+  c_args: ['-O2', '-g', '-DNXG_LIB="' + libdir + '"'],
   link_args: ['-Wall', '-Wextra', '-pedantic'],
   dependencies: llvm,
-  install: true
+  install: true,
+  install_dir: bindir
 )
-
-coffee_libdir = '/usr/lib/coffee'
 
 install_subdir(
   '../lib',
-  install_dir : coffee_libdir,
+  install_dir : libdir,
   strip_directory : false
-)
-
-install_data(
-  exe.path(),
-  install_dir : '/usr/bin'
 )
