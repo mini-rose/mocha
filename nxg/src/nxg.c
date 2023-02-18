@@ -26,8 +26,7 @@ static inline void full_help()
 	    ")\n"
 	    "  -O <level>      optimization level, one of: 0 1 2 3 s\n"
 	    "  -p              show generated AST\n"
-	    "  -s <path>       standard library path (default: " DEFAULT_STD
-	    ")\n"
+	    "  -s <path>       library path (default: " DEFAULT_LIB ")\n"
 	    "  -t              show generated tokens\n"
 	    "  -v, --version   show the compiler version\n"
 	    "  -V              be verbose, show ran shell commands\n"
@@ -50,7 +49,7 @@ static inline void version()
 }
 
 void default_settings(settings_t *settings) {
-	settings->stdpath = strdup(DEFAULT_STD);
+	settings->libpath = strdup(DEFAULT_LIB);
 	settings->output = strdup(DEFAULT_OUT);
 	settings->global = false;
 	settings->input = NULL;
@@ -119,8 +118,8 @@ int main(int argc, char **argv)
 			settings.output = strdup(optarg);
 			break;
 		case 's':
-			free(settings.stdpath);
-			settings.stdpath = strdup(optarg);
+			free(settings.libpath);
+			settings.libpath = strdup(optarg);
 			break;
 		case 'L':
 			free(settings.dyn_linker);
@@ -154,7 +153,6 @@ int main(int argc, char **argv)
 	/* NOTE: for our uses, we might want to use a custom argument parser to
 	   allow for more complex combinations (along with long options). */
 
-
 	for (int i = 0; i < argc; i++) {
 		if (!strncmp(argv[i], ".", 2)) {
 			buildfile(&settings);
@@ -171,15 +169,16 @@ int main(int argc, char **argv)
 	if (settings.input == NULL)
 		settings.input = strdup(argv[optind]);
 
-	int n = strlen(settings.stdpath);
-	if (settings.stdpath[n - 1] == '/')
-		settings.stdpath[n - 1] = 0;
+	int n = strlen(settings.libpath);
+	if (settings.libpath[n - 1] == '/')
+		settings.libpath[n - 1] = 0;
 
 	compile(&settings);
 
 	free(settings.dyn_linker);
 	free(settings.output);
 	free(settings.input);
-	free(settings.stdpath);
+	free(settings.libpath);
+	free(settings.opt);
 	return 0;
 }

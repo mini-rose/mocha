@@ -46,6 +46,12 @@ typedef struct
 	int n_modules;
 } std_modules_t;
 
+typedef struct
+{
+	char **objects;
+	int n;
+} c_objects_t;
+
 /* top-level module */
 typedef struct
 {
@@ -58,11 +64,10 @@ typedef struct
 	int n_local_decls;
 	expr_t **imported;
 	int n_imported;
-	char **c_objects;
-	int n_c_objects;
 	type_t **type_decls;
 	int n_type_decls;
 	std_modules_t *std_modules;
+	c_objects_t *c_objects;
 } mod_expr_t;
 
 typedef enum

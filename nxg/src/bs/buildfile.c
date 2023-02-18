@@ -61,8 +61,8 @@ void bs_parse(char *key_s, char *key_e, char *val_s, settings_t *settings)
 		settings->output = strndup(val_s, eol - val_s);
 
 	else if (!strncmp("stdpath", key_s, key_e - key_s)) {
-		free(settings->stdpath);
-		settings->stdpath = strndup(val_s, eol - val_s);
+		free(settings->libpath);
+		settings->libpath = strndup(val_s, eol - val_s);
 	}
 
 	else

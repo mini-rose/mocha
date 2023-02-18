@@ -19,12 +19,14 @@ static void add_module_import(mod_expr_t *module, expr_t *ast)
 
 static void add_module_c_object(mod_expr_t *module, char *object)
 {
-	module->c_objects = realloc(module->c_objects,
-				    sizeof(char *) * (module->n_c_objects + 1));
-	module->c_objects[module->n_c_objects++] = object;
+	module->c_objects->objects =
+	    realloc(module->c_objects->objects,
+		    sizeof(char *) * (module->c_objects->n + 1));
+	module->c_objects->objects[module->c_objects->n++] = object;
 }
 
-expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
+expr_t *module_import_impl(settings_t *settings, expr_t *module_expr,
+			   char *file)
 {
 	mod_expr_t *module = module_expr->data;
 	char pathbuf[512];
@@ -59,7 +61,6 @@ expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 	parsed = calloc(1, sizeof(*parsed));
 	parsed->data = calloc(1, sizeof(mod_expr_t));
 	parsed = parse(module_expr, parsed, settings, parsed_tokens, modname);
-	add_module_import(module, parsed);
 
 	/* Apart from the regular coffee source code, if there is a C file with
 	   the same name as the imported module, compile it & link against it
@@ -78,6 +79,16 @@ expr_t *module_import(settings_t *settings, expr_t *module_expr, char *file)
 	return parsed;
 }
 
+expr_t *module_import(settings_t *settings, expr_t *module, char *file)
+{
+	expr_t *imported;
+
+	imported = module_import_impl(settings, module, file);
+	add_module_import(module->data, imported);
+
+	return imported;
+}
+
 expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 {
 	char *path = calloc(512, 1);
@@ -86,8 +97,8 @@ expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 	expr_t *imported;
 	int n;
 
-	snprintf(path, 512, "%s%s", settings->stdpath, file);
-	imported = module_import(settings, module, path);
+	snprintf(path, 512, "%s%s", settings->libpath, file);
+	imported = module_import_impl(settings, module, path);
 
 	if (!imported) {
 		free(path);

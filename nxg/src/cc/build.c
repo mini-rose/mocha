@@ -41,8 +41,7 @@ char *make_modname(char *file)
 }
 
 static void build_and_link(settings_t *settings, const char *input_,
-			   const char *output, char **c_objects,
-			   int n_c_objects)
+			   const char *output, c_objects_t *c_objects)
 {
 	char cmd[1024];
 	char *input;
@@ -76,8 +75,8 @@ static void build_and_link(settings_t *settings, const char *input_,
 		 "/lib/crti.o %s.o ",
 		 output, settings->dyn_linker, input);
 
-	for (int i = 0; i < n_c_objects; i++) {
-		strcat(cmd, c_objects[i]);
+	for (int i = 0; i < c_objects->n; i++) {
+		strcat(cmd, c_objects->objects[i]);
 		strcat(cmd, " ");
 	}
 
@@ -109,8 +108,7 @@ char *compile_c_object(settings_t *settings, char *file)
 	char *output = calloc(512, 1);
 	char cmd[512];
 
-	strcpy(output, file);
-	strcat(output, ".o");
+	snprintf(output, 512, "%s.o", file);
 
 	snprintf(cmd, 512, "/usr/bin/clang -c -O%s -o %s %s", settings->opt,
 		 output, file);
@@ -123,9 +121,9 @@ char *compile_c_object(settings_t *settings, char *file)
 
 static void import_builtins(settings_t *settings, expr_t *module)
 {
-	module_std_import(settings, module, "/builtin/stacktrace");
-	module_std_import(settings, module, "/builtin/string");
-	module_std_import(settings, module, "/builtin/print");
+	module_std_import(settings, module, "/std/builtin/stacktrace");
+	module_std_import(settings, module, "/std/builtin/string");
+	module_std_import(settings, module, "/std/builtin/print");
 }
 
 void compile(settings_t *settings)
@@ -148,8 +146,11 @@ void compile(settings_t *settings)
 
 	module_name = make_modname(settings->input);
 
+	/* Initialize the top-level module */
 	ast = calloc(1, sizeof(*ast));
 	ast->data = calloc(1, sizeof(mod_expr_t));
+	E_AS_MOD(ast->data)->c_objects = calloc(1, sizeof(c_objects_t));
+
 	import_builtins(settings, ast);
 
 	ast = parse(NULL, ast, settings, list, module_name);
@@ -163,11 +164,21 @@ void compile(settings_t *settings)
 	emit_module(settings, ast, module_path, true);
 
 	build_and_link(settings, module_path, settings->output,
-		       E_AS_MOD(ast->data)->c_objects,
-		       E_AS_MOD(ast->data)->n_c_objects);
+		       E_AS_MOD(ast->data)->c_objects);
 
-	free(E_AS_MOD(ast->data)->std_modules->modules);
-	free(E_AS_MOD(ast->data)->std_modules);
+	/* Free everything */
+	mod_expr_t *main = ast->data;
+
+	for (int i = 0; i < main->c_objects->n; i++)
+		free(main->c_objects->objects[i]);
+
+	for (int i = 0; i < main->std_modules->n_modules; i++)
+		expr_destroy(main->std_modules->modules[i]);
+
+	free(main->c_objects->objects);
+	free(main->c_objects);
+	free(main->std_modules->modules);
+	free(main->std_modules);
 	expr_destroy(ast);
 	file_destroy(source);
 	token_list_destroy(list);

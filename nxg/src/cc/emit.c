@@ -500,9 +500,19 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 	name = call->func->name;
 	if (!(call->func->flags & FN_NOMANGLE))
 		name = nxg_mangle(call->func);
+
+#if 0
+	LLVMValueRef iter = LLVMGetFirstFunction(context->llvm_mod);
+	LLVMValueRef f = LLVMGetNextFunction(iter);
+	while ((f = LLVMGetNextFunction(f))) {
+		LLVMDumpValue(f);
+	}
+#endif
+
 	func = LLVMGetNamedFunction(context->llvm_mod, name);
 	if (!func)
 		error("emit: missing named func %s", name);
+
 	ret = LLVMBuildCall2(builder,
 			     gen_function_type(context->llvm_mod, call->func),
 			     func, args, n_args, "");
@@ -846,8 +856,16 @@ void emit_module(settings_t *settings, expr_t *module, const char *out,
 
 	add_builtin_types(mod);
 
+	/* Emit standard modules first */
+	for (int i = 0; i < mod_data->std_modules->n_modules; i++) {
+		emit_module_contents(settings, mod,
+				     mod_data->std_modules->modules[i]);
+	}
+
+	/* Then, emit all imported modules. */
 	for (int i = 0; i < mod_data->n_imported; i++)
 		emit_module_contents(settings, mod, mod_data->imported[i]);
+
 	emit_module_contents(settings, mod, module);
 
 	emit_main_function(mod);

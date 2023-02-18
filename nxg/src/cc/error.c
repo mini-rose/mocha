@@ -30,9 +30,9 @@ void error(const char *format, ...)
 void indent(int tabs, int spaces)
 {
 	for (int i = 0; i < tabs; i++)
-		fputc('\t', stderr);
+		fputc('\t', stdout);
 	for (int i = 0; i < spaces; i++)
-		fputc(' ', stderr);
+		fputc(' ', stdout);
 }
 
 typedef struct

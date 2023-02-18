@@ -108,14 +108,14 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 {
 	char *tmp;
 
-	if (mod->n_c_objects) {
+	if (mod->c_objects->n) {
 		indent(0, 2 * (level));
-		printf("\e[95mObjects to link (%d):\e[0m\n", mod->n_c_objects);
+		printf("\e[95mObjects to link (%d):\e[0m\n", mod->c_objects->n);
 	}
 
-	for (int i = 0; i < mod->n_c_objects; i++) {
+	for (int i = 0; i < mod->c_objects->n; i++) {
 		indent(0, 2 * (level + 1));
-		printf("%s\n", mod->c_objects[i]);
+		printf("%s\n", mod->c_objects->objects[i]);
 	}
 
 	if (mod->n_local_decls) {
