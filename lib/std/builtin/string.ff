@@ -13,3 +13,10 @@ __builtin_decl_mangled("len", i64, &str)
 fn len(__s: str) -> i64 {
 	ret len(&__s)
 }
+
+
+/* Type to string cast */
+__builtin_decl_mangled("str", &str, i8)
+__builtin_decl_mangled("str", &str, i32)
+__builtin_decl_mangled("str", &str, i64)
+__builtin_decl_mangled("str", &str, bool)

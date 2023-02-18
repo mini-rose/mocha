@@ -10,3 +10,18 @@ __builtin_decl_mangled("print", null, bool)
 fn print(__s: str) -> null {
 	print(&__s)
 }
+
+__builtin_decl_mangled("write", null, &i8, &str)
+
+fn write(__f: &i8, __s: str) -> null {
+	write(__f, &__s)
+}
+
+
+__builtin_decl_mangled("open", &i8, &str, &str)
+
+fn open(path: str, mode: str) -> &i8 {
+	ret open(&path, &mode)
+}
+
+__builtin_decl_mangled("close", null, &i8)

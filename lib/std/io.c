@@ -1,6 +1,9 @@
 #include "coffee.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 cf_null _C5printi(cf_i32 num)
 {
@@ -30,4 +33,26 @@ cf_null _C5printP3str(cf_str *string)
 cf_null _C5print3str(cf_str string)
 {
 	printf("%.*s\n", (int) string.len, string.ptr);
+}
+
+cf_null _C5writePaP3str(cf_i8 *file, cf_str *string)
+{
+	fprintf((FILE *) file, "%.*s", (int) string->len, string->ptr);
+}
+
+cf_i8 *_C4openP3strP3str(cf_str *path, cf_str *mode)
+{
+	char *p = strndup(path->ptr, path->len);
+	char *m = strndup(mode->ptr, mode->len);
+
+	FILE *fp = fopen(p, m);
+
+	free(p);
+	free(m);
+	return (cf_i8 *) fp;
+}
+
+cf_null _C5closePa(cf_i8 *file)
+{
+	fclose((FILE *) file);
 }

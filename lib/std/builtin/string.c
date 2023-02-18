@@ -33,3 +33,52 @@ cf_i64 _C3lenP3str(cf_str *self)
 {
 	return self->len;
 }
+
+cf_str *_C3stri(cf_i32 num)
+{
+	char buf[128];
+	cf_str *self = (cf_str *) malloc(sizeof(cf_str));
+
+	snprintf(buf, sizeof(buf), "%d", num);
+
+	self->ptr = strdup(buf);
+	self->len = strlen(self->ptr);
+
+	return self;
+}
+
+cf_str *_C3strl(cf_i64 num)
+{
+	char buf[128];
+	cf_str *self = (cf_str *) malloc(sizeof(cf_str));
+
+	snprintf(buf, sizeof(buf), "%ld", num);
+
+	self->ptr = strdup(buf);
+	self->len = strlen(self->ptr);
+
+	return self;
+}
+
+cf_str *_C3stra(cf_i8 num)
+{
+	char buf[128];
+	cf_str *self = (cf_str *) malloc(sizeof(cf_str));
+
+	snprintf(buf, sizeof(buf), "%hhd", num);
+
+	self->ptr = strdup(buf);
+	self->len = strlen(self->ptr);
+
+	return self;
+}
+
+cf_str *_C3strb(cf_bool b)
+{
+	cf_str *self = (cf_str *) malloc(sizeof(cf_str));
+
+	self->ptr = strdup((b) ? "true" : "false");
+	self->len = strlen(self->ptr);
+
+	return self;
+}

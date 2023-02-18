@@ -20,3 +20,9 @@ __builtin_decl_mangled("getenv", str, &str)
 fn getenv(name: str) -> str {
 	ret getenv(&name)
 }
+
+
+/* The version of this interpreter as a string */
+fn version {
+	ret "0.1"
+}
