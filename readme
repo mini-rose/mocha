@@ -21,7 +21,17 @@ fn add(a: i32, b: i32) -> i32 {
 }
 
 
-Documentaion
+Build
+-----
+
+- nxg
+```sh
+   > cd nxg
+   > meson setup build
+   > meson compile -C build
+```
+
+Documentation
 ------------
 
 You can read the documentation here on GitHub in the doc/ directory, or you can
