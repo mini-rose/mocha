@@ -853,21 +853,19 @@ static void skip_block(token_list *tokens, token *tok)
 	} while (depth);
 }
 
-static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
-		      token *tok)
+static void parse_single_use(settings_t *settings, expr_t *module,
+			     token_list *tokens, token *tok)
 {
 	token *tmp_tok;
 	token *start, *end;
 	char *path;
+	int offset = 0;
 
-	tok = next_tok(tokens);
 	start = tok;
 
-	int offset = 0;
 	while ((end = index_tok(tokens, tokens->iter + offset))->type
-	       != T_NEWLINE) {
+	       != T_NEWLINE)
 		offset++;
-	}
 
 	int n = end->value - start->value;
 
@@ -882,10 +880,9 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 		return;
 	}
 
-	if (tok->type != T_IDENT) {
+	if (tok->type != T_IDENT)
 		error_at(tokens->source, tok->value, tok->len,
 			 "expected module name or path");
-	}
 
 	/* Collect path */
 	path = calloc(512, 1);
@@ -925,6 +922,27 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 	}
 
 	free(path);
+}
+
+static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
+		      token *tok)
+{
+	tok = next_tok(tokens);
+
+
+	if (tok->type == T_IDENT || tok->type == T_STRING) {
+		parse_single_use(settings, module, tokens, tok);
+	} else if (tok->type == T_LBRACE) {
+		while ((tok = next_tok(tokens))->type != T_RBRACE) {
+			if (tok->type == T_NEWLINE)
+				continue;
+
+			parse_single_use(settings, module, tokens, tok);
+
+			while (tok->type != T_NEWLINE)
+				tok = next_tok(tokens);
+		}
+	}
 }
 
 static void parse_object_fields(expr_t *module, type_t *ty, token_list *tokens,
