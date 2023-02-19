@@ -96,8 +96,8 @@ Here is an example::
         // mod.ff
 
         type User {
-                str name
-                i32 id
+                name: str
+                id: i32
         }
 
         /* The jump-pad function to C land. */

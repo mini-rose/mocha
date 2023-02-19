@@ -13,7 +13,6 @@ Integers
 - ``f32`` ±3.40282347 x 10^38 and a precision of around 7 decimal digits.
 - ``f64`` ±1.7976931348623157 x 10^308 and a precision of around 15 decimal digits.
 
-Note: unsigned versions of i8-i128 are called i<n>
 
 String
 ------
@@ -68,8 +67,8 @@ is basically the same as the C struct. You can create an object type using the
 ``type`` keyword::
 
         type User {
-                str name
-                i32 id
+                name: str
+                id: i32
         }
 
 This type has two fields, a name and id, which can both be accessed by anyone,

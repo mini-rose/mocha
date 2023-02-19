@@ -7,60 +7,11 @@ be even included, only the std.builtin part. Calls to functions from builtin
 are emitted by the compiler itself, to support it with basic operations like
 implementing the ``str`` type.
 
-**Note:** All modules from the std.builtin path are imported automatically,
-meaning you get access to stuff like ``print`` without the need to include
-it.
-
-
-std.builtin
------------
-
-* ``__LINE__ -> i32``
-        Compiler will change it with current line number.
-
-std.builtin.string
-------------------
-
-Calls to these functions are emitted by the compiler for basic string
-operations. For user-side string manipulation, see std.string instead.
-
-* ``copy(&str, &str) -> null``
-        Called by the compiler, when assigning one string to another. This
-        means that all assignments are actually copies.
-
-* ``len(&str) -> i64``
-        Returns the string length.
-
-* ``drop(&str) -> null``
-        Called when a string goes out of scope.
-
-
-std.builtin.list
-----------------
-
-* ``copy(&list, &list) -> null``
-        Called by the compiler, when assigning one list to another. This means
-        that all assignments are actually copies.
-
-* ``len(&list) -> i64``
-        Returns the list length.
-
-* ``drop(&list) -> null``
-        Called when a list goes out of scope.
-
-* ``append(&list, &list) -> null``
-        Append list by list.
-
-* ``clear(&list) -> null``
-        Removes all list items.
-
-* ``remove(&list, u32) -> null``
-        Removes item at given position.
 
 std.io
 ------
 
-Printing routines.
+Routines for operating input/output streams.
 
 * ``print(i8) -> null``
 * ``print(i32) -> null``
@@ -68,15 +19,17 @@ Printing routines.
 * ``print(&str) -> null``
 * ``print(bool) -> null``
 
-Opening file.
 * ``open(filepath: &str, mode: &str) -> &i8``
+        Open a file, the mode is either "r" or "w".
+
 * ``open(filepath: str, mode: str) -> &i8``
+        Open a file, the mode is either "r" or "w".
 
-Writing to file.
 * ``write(file: &i8, &str) -> null``
+        Write a string into a file.
 
-Closing file.
 * ``close(file: &i8) -> null``
+        Close a file.
 
 
 std.os
@@ -100,3 +53,34 @@ std.sys
 
 * ``version() -> &str``
         The version of compiler as a string
+
+
+std.builtin.string
+------------------
+
+Calls to these functions are emitted by the compiler for basic string
+operations. For user-side string manipulation, see std.string instead.
+
+* ``copy(&str, &str) -> null``
+        Called by the compiler, when assigning one string to another. This
+        means that all assignments are actually copies.
+
+* ``len(&str) -> i64``
+        Returns the string length.
+
+* ``drop(&str) -> null``
+        Called when a string goes out of scope.
+
+
+std.builtin.stacktrace
+----------------------
+
+Used by the compiler to emit stack information in the prologues and epilogues
+of functions. These are not emitted if ``-Eno-stack`` is passed.
+
+* ``__cf_stackpush(func: &i8, file: &i8) -> null #nomangle``
+        Emitted at the start of a function.
+
+* ``__cf_stackpop() -> null #nomangle``
+        Emitted at the end of the function, just before the final ret
+        instruction.
