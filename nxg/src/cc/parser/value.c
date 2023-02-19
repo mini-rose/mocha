@@ -1,5 +1,9 @@
+#include "nxg/cc/tokenize.h"
+
 #include <nxg/cc/parser.h>
 #include <nxg/cc/type.h>
+#include <nxg/utils/utils.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -192,6 +196,57 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	return node;
 }
 
+static bool is_operator_left_to_right(token *op)
+{
+	struct {
+		token_t operator;
+		bool right_to_left;
+	} operators[] = {{T_EQ, false},  {T_NEQ, false}, {T_ASS, true},
+			 {T_ADD, false}, {T_ADDA, true}, {T_DEC, true},
+			 {T_INC, true},  {T_SUBA, true}, {T_DIV, false},
+			 {T_MOD, false}, {T_DIVA, true}, {T_MODA, true},
+			 {T_MUL, false}, {T_SUB, false}};
+
+	for (int i = 0; i < LEN(operators); i++)
+		if (operators[i].operator == op->type)
+			return operators[i].right_to_left;
+
+	return false;
+}
+
+static bool is_operator_priority(token *op, token *other)
+{
+	// see more at: https://en.cppreference.com/w/cpp/language/operator_precedence
+	struct precedense {
+		token_t operator;
+		int precedence;
+	} priority[] = {{T_EQ, 10},   {T_NEQ, 10}, {T_ASS, 16},  {T_ADD, 6},
+			{T_ADDA, 16}, {T_DEC, 3},  {T_INC, 3},   {T_SUBA, 16},
+			{T_DIV, 5},   {T_MOD, 5},  {T_DIVA, 16}, {T_MODA, 16},
+			{T_MUL, 5},   {T_SUB, 6}};
+
+	struct precedense first;
+	struct precedense second;
+
+	for (int i = 0; i < LEN(priority); i++)
+		if (priority[i].operator == op->type)
+			first = priority[i];
+
+	for (int i = 0; i < LEN(priority); i++)
+		if (priority[i].operator == other->type)
+			second = priority[i];
+
+	return first.precedence > second.precedence;
+}
+
+static value_expr_t *parse_math_value_expr(expr_t *context, expr_t *mod,
+					   value_expr_t *node,
+					   token_list *tokens, token *tok)
+{
+	// TODO: parse math
+	return parse_twoside_value_expr(context, mod, node, tokens, tok);
+}
+
 /**
  * literal      ::= string | integer | float | "null"
  * reference    ::= ident
@@ -218,12 +273,9 @@ value_expr_t *parse_value_expr(expr_t *context, expr_t *mod, value_expr_t *node,
 	token *next;
 
 	next = index_tok(tokens, tokens->iter);
-	if (is_operator(next)) {
-		/* TODO: this operator parser can only do single chain of
-		   values, without any parenthesis or operator precendence */
-		return parse_twoside_value_expr(context, mod, node, tokens,
+	if (is_operator(next))
+		return parse_math_value_expr(context, mod, node, tokens,
 						tok);
-	}
 
 	if (is_single_value(tokens, tok)) {
 		if (parse_single_value(context, mod, node, tokens, tok)

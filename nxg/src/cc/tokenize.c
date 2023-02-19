@@ -221,7 +221,7 @@ token_list *tokens(file_t *source)
 				tok = token_new(last = T_FALSE, p, p - q);
 			} else if (is_keyword(str)) {
 				tok = token_new(last = T_KEYWORD, p, q - p);
-			} else if (!strcmp("__LINE__", str)) {
+			} else if (!strncmp("__LINE__", str, 8)) {
 				int line = 1;
 				static char buf[12];
 
