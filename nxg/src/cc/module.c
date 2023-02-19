@@ -280,10 +280,13 @@ fn_candidates_t *module_find_fn_candidates(expr_t *module, char *name)
 	return module_find_fn_candidates_impl(module, name, 0);
 }
 
-type_t *module_find_named_type(expr_t *module, char *name)
+type_t *module_find_named_type_impl(expr_t *module, char *name, int level)
 {
 	mod_expr_t *this = module->data;
 	type_t *tmp;
+
+	if (level > 3)
+		return NULL;
 
 	for (int i = 0; i < this->n_type_decls; i++) {
 		tmp = this->type_decls[i];
@@ -310,11 +313,16 @@ type_t *module_find_named_type(expr_t *module, char *name)
 
 	/* Maybe the standard libraries? */
 	for (int i = 0; i < this->std_modules->n_modules; i++) {
-		tmp =
-		    module_find_named_type(this->std_modules->modules[i], name);
+		tmp = module_find_named_type_impl(this->std_modules->modules[i],
+						  name, level + 1);
 		if (tmp)
 			return tmp;
 	}
 
 	return NULL;
+}
+
+type_t *module_find_named_type(expr_t *module, char *name)
+{
+	return module_find_named_type_impl(module, name, 0);
 }

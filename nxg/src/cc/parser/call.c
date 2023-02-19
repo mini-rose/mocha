@@ -291,7 +291,7 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 			char *fix;
 
-			if (data->args[j]->type != VE_REF) {
+			if (data->args[j]->type == VE_REF) {
 				fix = calloc(64, 1);
 				snprintf(fix, 64, "&%.*s",
 					 arg_tokens.tokens[j]->len,

@@ -37,8 +37,6 @@ typedef struct
 	char *dyn_linker;
 } settings_t;
 
-#define __unused __attribute__((unused))
-
 /* Compile all input files into a single binary. */
 void compile(settings_t *settings);
 

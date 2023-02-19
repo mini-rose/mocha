@@ -162,6 +162,8 @@ static LLVMValueRef gen_local_value(LLVMBuilderRef builder,
 		}
 
 		tmp = LLVMBuildAlloca(builder, o_type, alloca_name);
+		free(alloca_name);
+
 		LLVMBuildStore(
 		    builder,
 		    gen_zero_value_for(builder, context->llvm_mod, decl->type),
@@ -230,17 +232,22 @@ static LLVMValueRef gen_deref(LLVMBuilderRef builder, fn_context_t *context,
 			      const char *name, LLVMTypeRef deref_to)
 {
 	LLVMValueRef local = fn_find_local(context, name);
+	LLVMValueRef val;
+	LLVMValueRef ret;
 
 	/* If local is a pointer, we need to dereference it twice, because we
 	   alloca the pointer too. */
 	var_decl_expr_t *var = node_resolve_local(context->func, name, 0);
 	if (var->type->kind == TY_POINTER) {
-		return LLVMBuildLoad2(
-		    builder, deref_to,
-		    LLVMBuildLoad2(builder,
-				   gen_type(context->llvm_mod, var->type),
-				   local, ""),
-		    "");
+		val = LLVMBuildLoad2(
+		    builder, gen_type(context->llvm_mod, var->type), local, "");
+
+		if (LLVMIsAAllocaInst(val))
+			ret = LLVMBuildLoad2(builder, deref_to, val, "");
+		else
+			ret = val;
+
+		return ret;
 	}
 
 	return LLVMBuildLoad2(builder, deref_to, local, "");
@@ -373,8 +380,8 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 
 	results = module_find_fn_candidates(context->module, "copy");
 	if (!results->n_candidates) {
-		error("emit: missing `fn copy(&%s, &%s)`", type_name(ty),
-		      type_name(ty));
+		error("emit[no-copy]: missing `fn copy(&%s, &%s)`",
+		      type_name(ty), type_name(ty));
 	}
 
 	/* match a copy<T>(&T, &T) */
@@ -397,8 +404,8 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 	}
 
 	if (!match) {
-		error("emit: missing `fn copy(&%s, &%s)`", type_name(ty),
-		      type_name(ty));
+		error("emit[no-copy]: missing `fn copy(&%s, &%s)`",
+		      type_name(ty), type_name(ty));
 	}
 
 	symbol = nxg_mangle(match);
@@ -424,8 +431,10 @@ static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 	char *symbol;
 
 	results = module_find_fn_candidates(context->module, "drop");
-	if (!results->n_candidates)
-		error("emit: missing `fn drop(&%s)`", type_name(rule->type));
+	if (!results->n_candidates) {
+		error("emit[no-drop]: missing `fn drop(&%s)`",
+		      type_name(rule->type));
+	}
 
 	/* match a drop<T>(&T) */
 
@@ -444,8 +453,10 @@ static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 		break;
 	}
 
-	if (!match)
-		error("emit: missing `fn drop(&%s)`", type_name(rule->type));
+	if (!match) {
+		error("emit[no-drop]: missing `fn drop(&%s)`",
+		      type_name(rule->type));
+	}
 
 	symbol = nxg_mangle(match);
 	func = LLVMGetNamedFunction(context->llvm_mod, symbol);
@@ -527,8 +538,8 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 
 	/* Check for matching types on left & right side. */
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
-		error("emit: mismatched types on left and right side of "
-		      "assignment to %s",
+		error("emit[type-mismatch]: mismatched types on left and right "
+		      "side of assignment to %s",
 		      data->to->name);
 	}
 

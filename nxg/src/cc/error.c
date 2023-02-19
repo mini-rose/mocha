@@ -10,7 +10,7 @@ void warning(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	fputs("\e[33mWARNING\e[0m: ", stderr);
+	fputs("\e[33mwarning\e[0m: ", stderr);
 	vfprintf(stderr, format, ap);
 	fputc('\n', stderr);
 	va_end(ap);
@@ -20,7 +20,7 @@ void error(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	fputs("\e[31mERROR\e[0m: ", stderr);
+	fputs("\e[31merror\e[0m: ", stderr);
 	vfprintf(stderr, format, ap);
 	fputc('\n', stderr);
 	va_end(ap);

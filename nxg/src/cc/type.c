@@ -269,14 +269,7 @@ char *type_name(type_t *ty)
 	} else if (is_str_type(ty)) {
 		snprintf(name, 512, "str");
 	} else if (ty->kind == TY_OBJECT) {
-		snprintf(name, 512, "%s { ", ty->v_object->name);
-		for (int i = 0; i < ty->v_object->n_fields; i++) {
-			tmp = type_name(ty->v_object->fields[i]);
-			strcat(name, tmp);
-			strcat(name, " ");
-			free(tmp);
-		}
-		strcat(name, "}");
+		snprintf(name, 512, "%s", ty->v_object->name);
 	} else if (ty->kind == TY_ALIAS) {
 		tmp = type_name(ty->v_base);
 		snprintf(name, 512, "alias[%s = %s]", ty->alias, tmp);
