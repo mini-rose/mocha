@@ -40,6 +40,21 @@ cf_null _C5writePaP3str(cf_i8 *file, cf_str *string)
 	fprintf((FILE *) file, "%.*s", (int) string->len, string->ptr);
 }
 
+cf_null _C5writeiP3str(cf_i32 stream, cf_str *string)
+{
+	switch (stream) {
+		case 0:
+			fprintf(stdin, "%.*s", (int) string->len, string->ptr);
+			break;
+		case 1:
+			fprintf(stdout, "%.*s", (int) string->len, string->ptr);
+			break;
+		case 2:
+			fprintf(stderr, "%.*s", (int) string->len, string->ptr);
+			break;
+	}
+}
+
 cf_i8 *_C4openP3strP3str(cf_str *path, cf_str *mode)
 {
 	char *p = strndup(path->ptr, path->len);

@@ -160,6 +160,7 @@ token_list *tokens(file_t *source)
 	char *p = f->content;
 
 	while (*p) {
+		/* Skip long comment */
 		if (!strncmp(p, "/*", 2)) {
 			char *q = strstr(p + 2, "*/");
 
@@ -170,11 +171,14 @@ token_list *tokens(file_t *source)
 			continue;
 		}
 
+		/* Skip oneline comment */
 		if (!strncmp(p, "//", 2)) {
 			char *q = strstr(p + 2, "\n");
 			p += q - p;
 		}
 
+		/* Parse newline token,
+		   but skip when previous token is newline */
 		if (*p == '\n') {
 			if (last == T_NEWLINE) {
 				p++;
@@ -187,11 +191,13 @@ token_list *tokens(file_t *source)
 			}
 		}
 
+		/* Skip space */
 		if (isspace(*p)) {
 			p++;
 			continue;
 		}
 
+		/* Tokenize quoted string */
 		if (*p == '\'' || *p == '"') {
 			token *tok;
 			char *q = strend(p++);
@@ -207,6 +213,7 @@ token_list *tokens(file_t *source)
 			continue;
 		}
 
+		/* Tokenize string and quess it type */
 		if (isalpha(*p) || *p == '_') {
 			token *tok = NULL;
 			char *str;
@@ -238,6 +245,7 @@ token_list *tokens(file_t *source)
 			continue;
 		}
 
+		/* Tokenize number */
 		if (isdigit(*p) || (*p == '.' && isdigit(*(p + 1)))) {
 			token *tok;
 			char *q = p;
@@ -255,6 +263,7 @@ token_list *tokens(file_t *source)
 			continue;
 		}
 
+		/* Tokenize punct and quess it type */
 		if (ispunct(*p)) {
 			token *tok = NULL;
 
@@ -339,6 +348,7 @@ token_list *tokens(file_t *source)
 		p++;
 	}
 
+	/* Add end token */
 	token *tok = token_new(T_END, p, 0);
 	token_list_append(list, tok);
 

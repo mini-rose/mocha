@@ -1051,7 +1051,6 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 
 			/* skip the function body for now */
 			skip_block(tokens, current);
-
 		} else if (current->type == T_NEWLINE) {
 			continue;
 		} else if (TOK_IS(current, T_KEYWORD, "use")) {

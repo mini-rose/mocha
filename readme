@@ -12,9 +12,9 @@ Coffee syntax excels at being simple, legible, and fast to type. An example
 function that adds two 32-bit integers:
 
    function name          return type
-   ˅                      v
+   ⌄                      ⌄
 fn add(a: i32, b: i32) -> i32 {
-       ˄
+       ⌃
        32-bit integer argument
 
     ret a + b

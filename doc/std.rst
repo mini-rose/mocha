@@ -12,6 +12,12 @@ meaning you get access to stuff like ``print`` without the need to include
 it.
 
 
+std.builtin
+-----------
+
+* ``__LINE__ -> i32``
+        Compiler will change it with current line number.
+
 std.builtin.string
 ------------------
 
@@ -62,6 +68,16 @@ Printing routines.
 * ``print(&str) -> null``
 * ``print(bool) -> null``
 
+Opening file.
+* ``open(filepath: &str, mode: &str) -> &i8``
+* ``open(filepath: str, mode: str) -> &i8``
+
+Writing to file.
+* ``write(file: &i8, &str) -> null``
+
+Closing file.
+* ``close(file: &i8) -> null``
+
 
 std.os
 ------
@@ -81,3 +97,6 @@ std.sys
 
 * ``sleep(i32) -> i32``
         Sleep for a specified number of seconds.
+
+* ``version() -> &str``
+        The version of compiler as a string

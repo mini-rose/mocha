@@ -17,6 +17,13 @@ fn write(__f: &i8, __s: str) -> null {
 	write(__f, &__s)
 }
 
+// For stdin, stdout, stderr
+__builtin_decl_mangled("write", null, i32, &str)
+
+fn write(stream: i32, __s: str) -> null {
+	write(stream, &__s)
+}
+
 
 __builtin_decl_mangled("open", &i8, &str, &str)
 
