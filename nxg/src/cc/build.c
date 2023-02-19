@@ -106,8 +106,13 @@ char *compile_c_object(settings_t *settings, char *file)
 {
 	char *output = calloc(512, 1);
 	char cmd[512];
+	int len;
 
-	snprintf(output, 512, "%s.o", file);
+	len = snprintf(output, 512, "/tmp/nxg/C%s.o", file);
+	for (int i = 10; i < len; i++) {
+		if (output[i] == '/')
+			output[i] = '.';
+	}
 
 	snprintf(cmd, 512, "/usr/bin/clang -c -O%s -o %s %s", settings->opt,
 		 output, file);
@@ -120,9 +125,9 @@ char *compile_c_object(settings_t *settings, char *file)
 
 static void import_builtins(settings_t *settings, expr_t *module)
 {
-	module_std_import(settings, module, "/std/builtin/stacktrace");
-	module_std_import(settings, module, "/std/builtin/string");
-	module_std_import(settings, module, "/std/builtin/print");
+	module_std_import(settings, module, "std/builtin/stacktrace");
+	module_std_import(settings, module, "std/builtin/string");
+	module_std_import(settings, module, "std/builtin/print");
 }
 
 void compile(settings_t *settings)
@@ -132,6 +137,8 @@ void compile(settings_t *settings)
 	token_list *list;
 	char *module_name;
 	expr_t *ast;
+
+	mkdir("/tmp/nxg", 0777);
 
 	if (settings->jit)
 		source = file_stdin();
@@ -154,8 +161,6 @@ void compile(settings_t *settings)
 	import_builtins(settings, ast);
 
 	ast = parse(NULL, ast, settings, list, module_name);
-
-	mkdir("/tmp/nxg", 0777);
 
 	if (settings->show_ast)
 		expr_print(ast);

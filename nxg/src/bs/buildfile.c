@@ -22,8 +22,8 @@ static inline void push_to_settings(file_t *f, settings_t *settings, char *key,
 		settings->input = strndup(val, val_len);
 	else if (!strncmp("output", key, key_len))
 		settings->output = strndup(val, val_len);
-	else if (!strncmp("libpath", key, key_len))
-		settings->libpath = strndup(val, val_len);
+	else if (!strncmp("sysroot", key, key_len))
+		settings->sysroot = strndup(val, val_len);
 	else
 		error_at(f, key, key_len, "invalid key: '%.*s'", key_len, key);
 }

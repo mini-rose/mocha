@@ -26,13 +26,13 @@ static inline void full_help()
 	    ")\n"
 	    "  -O <level>      optimization level, one of: 0 1 2 3 s\n"
 	    "  -p              show generated AST\n"
-	    "  -s <path>       library path (default: " NXG_LIB ")\n"
+	    "  -r, --root <path> coffee root path (default: " NXG_ROOT ")\n"
 	    "  -t              show generated tokens\n"
 	    "  -v, --version   show the compiler version\n"
 	    "  -V              be verbose, show ran shell commands\n"
 	    "\nLink:\n"
 	    "  -M, --musl      use musl instead of glibc\n"
-	    "  -L, --ld <path> dynamic linker to use (default: " DEFAULT_LD
+	    "  -L, --ldd <path> dynamic linker to use (default: " DEFAULT_LD
 	    ")\n"
 	    "\nEmit:\n"
 	    "  -Eno-stack      disable stacktrace\n"
@@ -46,12 +46,13 @@ static inline void full_help()
 static inline void version()
 {
 	printf("nxg %d.%d\n", NXG_MAJOR, NXG_MINOR);
-	printf("lib %s\n", NXG_LIB);
+	printf("target: x86_64\n");
+	printf("root: %s\n", NXG_ROOT);
 	exit(0);
 }
 
 void default_settings(settings_t *settings) {
-	settings->libpath = strdup(NXG_LIB);
+	settings->sysroot = strdup(NXG_ROOT);
 	settings->output = strdup(DEFAULT_OUT);
 	settings->global = false;
 	settings->input = NULL;
@@ -77,11 +78,14 @@ void parse_opt(settings_t *settings, const char *option, char *arg)
 		settings->dyn_linker = strdup(LD_MUSL);
 	}
 
-	if (!strncmp(option, "ld", 4)) {
-		if (!arg)
-			error("missing argument for --ld <path>");
+	if (!strncmp(option, "ldd", 3)) {
 		free(settings->dyn_linker);
 		settings->dyn_linker = strdup(arg);
+	}
+
+	if (!strncmp(option, "root", 4)) {
+		free(settings->sysroot);
+		settings->sysroot = strdup(arg);
 	}
 }
 
@@ -106,11 +110,11 @@ int main(int argc, char **argv)
 	static struct option longopts[] = {{"help", no_argument, 0, 0},
 					   {"version", no_argument, 0, 0},
 					   {"musl", no_argument, 0, 0},
-					   {"ld", required_argument, 0, 0},
-					   {"Dstack", no_argument, 0, 0}};
+					   {"ldd", required_argument, 0, 0},
+					   {"root", required_argument, 0, 0}};
 
 	while (1) {
-		c = getopt_long(argc, argv, "o:s:L:O:E:hvptMV", longopts,
+		c = getopt_long(argc, argv, "o:r:L:O:E:hvptMV", longopts,
 				&optindx);
 
 		if (c == -1)
@@ -124,9 +128,9 @@ int main(int argc, char **argv)
 		case 'o':
 			settings.output = strdup(optarg);
 			break;
-		case 's':
-			free(settings.libpath);
-			settings.libpath = strdup(optarg);
+		case 'r':
+			free(settings.sysroot);
+			settings.sysroot = strdup(optarg);
 			break;
 		case 'L':
 			free(settings.dyn_linker);
@@ -180,16 +184,16 @@ int main(int argc, char **argv)
 	if (settings.input == NULL)
 		settings.input = strdup(argv[optind]);
 
-	int n = strlen(settings.libpath);
-	if (settings.libpath[n - 1] == '/')
-		settings.libpath[n - 1] = 0;
+	int n = strlen(settings.sysroot);
+	if (settings.sysroot[n - 1] == '/')
+		settings.sysroot[n - 1] = 0;
 
 	compile(&settings);
 
 	free(settings.dyn_linker);
 	free(settings.output);
 	free(settings.input);
-	free(settings.libpath);
+	free(settings.sysroot);
 	free(settings.opt);
 	return 0;
 }
