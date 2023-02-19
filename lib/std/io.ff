@@ -1,6 +1,67 @@
 /* io.ff - standard input/output
    Copyright (c) 2023 mini-rose */
 
+type File {
+	fp: &i8
+	path: str
+	is_open: bool
+}
+
+/**
+ * Open a file.
+ *
+ * @param path: path to the file
+ * @param mode: either "w" for write or "r" for read
+ */
+fn open(path: &str, mode: &str) -> File {
+	f: File
+
+	__builtin_decl("_open", &i8, &str, &str)
+	f.fp = _open(path, mode)
+	f.is_open = false
+	f.path = *path
+
+	ret f
+}
+
+fn open(path: str, mode: str) -> File {
+	ret open(&path, &mode)
+}
+
+/**
+ * Close a file.
+ *
+ * @param self: the file to close
+ */
+fn close(self: &File) {
+	__builtin_decl("_close", null, &i8)
+	_close(self.fp)
+}
+
+/**
+ * Write a string into the file.
+ *
+ * @param self: file to write to
+ * @param buf: string to write
+ */
+fn write(self: &File, buf: str) -> null {
+	__builtin_decl("_write", null, &i8, &i8, i64)
+	_write(self.fp, buf.ptr, buf.len)
+}
+
+/**
+ * Write a string into a stream, which is marked as a file descriptor.
+ *
+ * @param stream: 1 for stdout, 2 for stderr
+ * @param buf: string to write
+ */
+fn write_stream(stream: i32, buf: str) -> null {
+	__builtin_decl("_write_stream", null, i32, &i8, i64)
+	_write_stream(stream, buf.ptr, buf.len)
+}
+
+/* These printing routines print the object and a newline. */
+
 __builtin_decl_mangled("print", null, i8)
 __builtin_decl_mangled("print", null, i32)
 __builtin_decl_mangled("print", null, i64)
@@ -11,24 +72,11 @@ fn print(__s: str) -> null {
 	print(&__s)
 }
 
-__builtin_decl_mangled("write", null, &i8, &str)
-
-fn write(__f: &i8, __s: str) -> null {
-	write(__f, &__s)
+fn copy(self: &File, other: &File) -> null {
+	self.fp = other.fp
+	self.is_open = other.is_open
 }
 
-// For stdin, stdout, stderr
-__builtin_decl_mangled("write", null, i32, &str)
-
-fn write(stream: i32, __s: str) -> null {
-	write(stream, &__s)
+fn drop(self: &File) -> null {
+	// TODO: close the file if open
 }
-
-
-__builtin_decl_mangled("open", &i8, &str, &str)
-
-fn open(path: str, mode: str) -> &i8 {
-	ret open(&path, &mode)
-}
-
-__builtin_decl_mangled("close", null, &i8)

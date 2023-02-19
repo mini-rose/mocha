@@ -13,23 +13,24 @@ std.io
 
 Routines for operating input/output streams.
 
+Types
+
+* ``type File``
+
+Functions
+
+* ``open(path: &str, mode: &str) -> File``
+* ``open(path: str, mode: str) -> File``
+* ``close(self: &File) -> null``
+
+* ``write(self: &File, buf: str) -> null``
+* ``write_stream(stream: i32, buf: str) -> null``
+
 * ``print(i8) -> null``
 * ``print(i32) -> null``
 * ``print(i64) -> null``
 * ``print(&str) -> null``
 * ``print(bool) -> null``
-
-* ``open(filepath: &str, mode: &str) -> &i8``
-        Open a file, the mode is either "r" or "w".
-
-* ``open(filepath: str, mode: str) -> &i8``
-        Open a file, the mode is either "r" or "w".
-
-* ``write(file: &i8, &str) -> null``
-        Write a string into a file.
-
-* ``close(file: &i8) -> null``
-        Close a file.
 
 
 std.os

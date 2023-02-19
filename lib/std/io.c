@@ -35,27 +35,17 @@ cf_null _C5print3str(cf_str string)
 	printf("%.*s\n", (int) string.len, string.ptr);
 }
 
-cf_null _C5writePaP3str(cf_i8 *file, cf_str *string)
+cf_null _write(cf_i8 *file, cf_i8 *buf, cf_i64 len)
 {
-	fprintf((FILE *) file, "%.*s", (int) string->len, string->ptr);
+	fwrite(buf, 1, len, (FILE *) file);
 }
 
-cf_null _C5writeiP3str(cf_i32 stream, cf_str *string)
+cf_null _write_stream(cf_i32 stream, cf_i8 *buf, cf_i64 len)
 {
-	switch (stream) {
-		case 0:
-			fprintf(stdin, "%.*s", (int) string->len, string->ptr);
-			break;
-		case 1:
-			fprintf(stdout, "%.*s", (int) string->len, string->ptr);
-			break;
-		case 2:
-			fprintf(stderr, "%.*s", (int) string->len, string->ptr);
-			break;
-	}
+	write(stream, buf, len);
 }
 
-cf_i8 *_C4openP3strP3str(cf_str *path, cf_str *mode)
+cf_i8 *_open(cf_str *path, cf_str *mode)
 {
 	char *p = strndup(path->ptr, path->len);
 	char *m = strndup(mode->ptr, mode->len);
@@ -67,7 +57,7 @@ cf_i8 *_C4openP3strP3str(cf_str *path, cf_str *mode)
 	return (cf_i8 *) fp;
 }
 
-cf_null _C5closePa(cf_i8 *file)
+cf_null _close(cf_i8 *file)
 {
 	fclose((FILE *) file);
 }
