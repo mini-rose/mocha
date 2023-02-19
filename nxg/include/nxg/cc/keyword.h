@@ -7,11 +7,6 @@ typedef enum
 	// Function declaration keyword
 	K_FUNCTION = 0,
 
-	// Control flow statements
-	K_IF = 1,
-	K_ELIF = 2,
-	K_ELSE = 3,
-
 	// Loops
 	K_FOR = 4,
 	K_WHILE = 5,
