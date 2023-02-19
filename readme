@@ -25,11 +25,9 @@ Build
 -----
 
 - nxg
-```sh
-   > cd nxg
-   > meson setup build
-   > meson compile -C build
-```
+   $ cd nxg
+   $ meson setup build
+   $ meson compile -C build
 
 Documention
 -----------
