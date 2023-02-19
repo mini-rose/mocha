@@ -136,21 +136,6 @@ static char *strend(char *p)
 	return p;
 }
 
-char *getlineof(file_t *f, char *p)
-{
-	int line = 1;
-	char buf[12];
-	char *cont = f->content;
-
-	for (char *q = cont; q < p; q++)
-		if (*q == '\n')
-			line++;
-
-	snprintf(buf, sizeof(buf), "%i", line);
-
-	return strdup(buf);
-}
-
 token_list *tokens(file_t *source)
 {
 	token_t last = T_NEWLINE;
@@ -227,12 +212,39 @@ token_list *tokens(file_t *source)
 			if (is_keyword(str)) {
 				tok = token_new(last = T_KEYWORD, p, q - p);
 			} else if (!strcmp("__LINE__", str)) {
-				char *line = getlineof(f, p);
-				tok = token_new(last = T_NUMBER, line,
-						strlen(line));
+				int line = 1;
+				static char buf[12];
+
+				for (char *c = f->content; c < p; c++)
+					if (*c == '\n')
+						line++;
+
+				snprintf(buf, sizeof(buf), "%i", line);
+
+				tok = token_new(last = T_NUMBER, buf,
+						strlen(buf));
+
 				token_list_append(list, tok);
 
 				p += 8;
+				continue;
+			} else if (!strncmp("stdin", str, 6)) {
+				char *n = "0";
+				tok = token_new(last = T_NUMBER, n, 1);
+				token_list_append(list, tok);
+				p += 5;
+				continue;
+			} else if (!strncmp("stdout", str, 6)) {
+				char *n = "1";
+				tok = token_new(last = T_NUMBER, n, 1);
+				token_list_append(list, tok);
+				p += 6;
+				continue;
+			} else if (!strncmp("stderr", str, 6)) {
+				char *n = "2";
+				tok = token_new(last = T_NUMBER, n, 1);
+				token_list_append(list, tok);
+				p += 6;
 				continue;
 			} else if (is_plain_type(str)) {
 				tok = token_new(last = T_DATATYPE, p, q - p);
