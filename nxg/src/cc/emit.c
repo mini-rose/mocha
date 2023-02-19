@@ -574,7 +574,7 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		to = gen_ptr_to_member(builder, context, data->to);
 
 	} else {
-		error("emit: cannot emit assign to %s",
+		error("emit[assign-dest]: cannot emit assign to %s",
 		      value_expr_type_name(data->to->type));
 	}
 
@@ -624,7 +624,7 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 
 	func = LLVMGetNamedFunction(context->llvm_mod, name);
 	if (!func)
-		error("emit: missing named func %s", name);
+		error("emit[no-func]: missing named func %s", name);
 
 	ret = LLVMBuildCall2(builder,
 			     gen_function_type(context->llvm_mod, call->func),
@@ -717,7 +717,7 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 	case E_SKIP:
 		break;
 	default:
-		warning("undefined emit semantics for node");
+		error("emit[node-emit]: undefined emit semantics for node");
 	}
 }
 
@@ -854,7 +854,7 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 
 #if 0
 	if (LLVMVerifyFunction(func, LLVMPrintMessageAction)) {
-		error("emit: something is wrong with the emitted `%s` function",
+		error("emit[llvm-ir]: something is wrong with the emitted `%s` function",
 		      name);
 	}
 #endif
@@ -961,7 +961,7 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 
 #if 0
 	if (LLVMVerifyModule(mod, LLVMPrintMessageAction, &err_msg)) {
-		error("emit: LLVM failed to generate the `%s` module",
+		error("emit[llvm-ir]: LLVM failed to generate the `%s` module",
 		      mod_data->name);
 	}
 #endif

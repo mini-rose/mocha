@@ -96,7 +96,7 @@ expr_t *module_import(settings_t *settings, expr_t *module, char *file)
 expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 {
 	char *path = calloc(512, 1);
-	char *modname = strdup(file + 1);
+	char *modname = strdup(file);
 	mod_expr_t *mod;
 	expr_t *imported;
 	int n;
