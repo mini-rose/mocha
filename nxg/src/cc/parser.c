@@ -151,6 +151,14 @@ void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 		return;
 	}
 
+	if (tok->type == T_TRUE || tok->type == T_FALSE) {
+		node->literal = calloc(1, sizeof(*node->literal));
+		node->return_type = type_new_plain(PT_BOOL);
+		node->literal->type = type_new_plain(PT_BOOL);
+		node->literal->v_bool = (tok->type == T_TRUE) ? true : false;
+		return;
+	}
+
 	/* "null" */
 	if (TOK_IS(tok, T_DATATYPE, "null")) {
 		node->return_type = type_new_null();

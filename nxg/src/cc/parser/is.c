@@ -63,6 +63,7 @@ bool is_call(token_list *tokens, token *tok)
 bool is_literal(token *tok)
 {
 	return tok->type == T_NUMBER || tok->type == T_STRING
+	    || tok->type == T_TRUE || tok->type == T_FALSE
 	    || TOK_IS(tok, T_DATATYPE, "null");
 }
 
