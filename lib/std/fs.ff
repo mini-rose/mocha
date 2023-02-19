@@ -2,7 +2,11 @@
    Copyright (c) 2023 mini-rose */
 
 __builtin_decl_mangled("mkdir", null, &str, i32)
-
 fn mkdir(path: str, mode: i32) {
 	mkdir(&path, mode)
+}
+
+__builtin_decl_mangled("touch", null, &str, i32)
+fn touch(path: str, mode: i32) {
+	touch(&path, mode)
 }
