@@ -136,6 +136,21 @@ static char *strend(char *p)
 	return p;
 }
 
+char *getlineof(file_t *f, char *p)
+{
+	int line = 1;
+	char buf[12];
+	char *cont = f->content;
+
+	for (char *q = cont; q < p; q++)
+		if (*q == '\n')
+			line++;
+
+	snprintf(buf, sizeof(buf), "%i", line);
+
+	return strdup(buf);
+}
+
 token_list *tokens(file_t *source)
 {
 	token_t last = T_NEWLINE;
@@ -153,6 +168,11 @@ token_list *tokens(file_t *source)
 
 			p += q - p + 2;
 			continue;
+		}
+
+		if (!strncmp(p, "//", 2)) {
+			char *q = strstr(p + 2, "\n");
+			p += q - p;
 		}
 
 		if (*p == '\n') {
@@ -199,6 +219,14 @@ token_list *tokens(file_t *source)
 
 			if (is_keyword(str)) {
 				tok = token_new(last = T_KEYWORD, p, q - p);
+			} else if (!strcmp("__LINE__", str)) {
+				char *line = getlineof(f, p);
+				tok = token_new(last = T_NUMBER, line,
+						strlen(line));
+				token_list_append(list, tok);
+
+				p += 8;
+				continue;
 			} else if (is_plain_type(str)) {
 				tok = token_new(last = T_DATATYPE, p, q - p);
 			} else

@@ -209,7 +209,18 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		/* Check if maybe the user missed an import */
 		char *fix = NULL;
 
-		if (!strcmp(data->name, "print"))
+		if (!strcmp(data->name, "print") || !strcmp(data->name, "write")
+		    || !strcmp(data->name, "close")
+		    || !strcmp(data->name, "open"))
+			fix = ", did you mean to `use std.io`?";
+
+		if (!strcmp(data->name, "system")
+		    || !strcmp(data->name, "sleep")
+		    || !strcmp(data->name, "getenv")
+		    || !strcmp(data->name, "version"))
+			fix = ", did you mean to `use std.sys`?";
+
+		if (!strcmp(data->name, "write"))
 			fix = ", did you mean to `use std.io`?";
 
 		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
