@@ -105,7 +105,7 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 
 	fprintf(stderr, " %s", settings->message_color);
 	vfprintf(stderr, format, ap);
-	fputs("\e[0m\n", stderr);
+	fputs("\e[0m\n\n", stderr);
 
 	va_end(ap);
 }

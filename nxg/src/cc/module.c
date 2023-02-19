@@ -1,3 +1,5 @@
+#include "nxg/cc/type.h"
+
 #include <libgen.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
@@ -276,4 +278,43 @@ check_decls:
 fn_candidates_t *module_find_fn_candidates(expr_t *module, char *name)
 {
 	return module_find_fn_candidates_impl(module, name, 0);
+}
+
+type_t *module_find_named_type(expr_t *module, char *name)
+{
+	mod_expr_t *this = module->data;
+	type_t *tmp;
+
+	for (int i = 0; i < this->n_type_decls; i++) {
+		tmp = this->type_decls[i];
+
+		if (tmp->kind == TY_ALIAS) {
+			if (!strcmp(tmp->alias, name))
+				return type_copy(tmp->v_base);
+		}
+
+		/* Other than aliases, only objects have names. */
+		if (tmp->kind != TY_OBJECT)
+			continue;
+
+		if (!strcmp(tmp->v_object->name, name))
+			return type_copy(tmp);
+	}
+
+	/* If we don't find anything, try the imported modules. */
+	for (int i = 0; i < this->n_imported; i++) {
+		tmp = module_find_named_type(this->imported[i], name);
+		if (tmp)
+			return tmp;
+	}
+
+	/* Maybe the standard libraries? */
+	for (int i = 0; i < this->std_modules->n_modules; i++) {
+		tmp =
+		    module_find_named_type(this->std_modules->modules[i], name);
+		if (tmp)
+			return tmp;
+	}
+
+	return NULL;
 }

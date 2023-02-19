@@ -1,6 +1,7 @@
 /* parser.c - parse a token list into an AST
    Copyright (c) 2023 mini-rose */
 
+#include <ctype.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
 #include <nxg/cc/tokenize.h>
@@ -173,13 +174,19 @@ void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 static void parse_type_err(token_list *tokens, token *tok)
 {
 	char *fix = NULL;
+	char *type = strndup(tok->value, tok->len);
 
-	if (!strncmp("int", tok->value, tok->len))
+	for (int i = 0; i < tok->len; i++)
+		type[i] = tolower(type[i]);
+
+	if (!strcmp("int", type))
 		fix = "i32";
-	if (!strncmp("string", tok->value, tok->len))
+	if (!strcmp("string", type))
 		fix = "str";
-	if (!strncmp("long", tok->value, tok->len))
+	if (!strcmp("long", type))
 		fix = "i64";
+
+	free(type);
 
 	if (!fix)
 		error_at(tokens->source, tok->value, tok->len, "unknown type");
@@ -189,7 +196,6 @@ static void parse_type_err(token_list *tokens, token *tok)
 
 type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
 {
-	mod_expr_t *mod = context->data;
 	type_t *ty = NULL;
 
 	if (context->type != E_MODULE)
@@ -210,35 +216,14 @@ type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
 			goto array_part;
 		}
 
-		/* Find any matching types */
-		for (int i = 0; i < mod->n_type_decls; i++) {
-			if (mod->type_decls[i]->kind == TY_ALIAS) {
-				/* Alias to type */
-				if (strncmp(mod->type_decls[i]->alias,
-					    tok->value, tok->len)) {
-					continue;
-				}
+		char *name = strndup(tok->value, tok->len);
+		ty = module_find_named_type(context, name);
+		free(name);
 
-				ty = type_copy(mod->type_decls[i]->v_base);
-				goto array_part;
+		if (!ty)
+			parse_type_err(tokens, tok);
 
-			} else if (mod->type_decls[i]->kind == TY_OBJECT) {
-				/* Object type */
-				if (strncmp(mod->type_decls[i]->v_object->name,
-					    tok->value, tok->len)) {
-					continue;
-				}
-
-				ty = type_copy(mod->type_decls[i]);
-				goto array_part;
-
-			} else {
-				error_at(tokens->source, tok->value, tok->len,
-					 "unknown type kind");
-			}
-		}
-
-		parse_type_err(tokens, tok);
+		goto array_part;
 	}
 
 	if (tok->type == T_DATATYPE)

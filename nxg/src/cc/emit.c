@@ -570,11 +570,20 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 	/* Call copy for assignment. */
 	if (data->to->return_type->kind == TY_OBJECT) {
 		LLVMValueRef tmp;
-		if (data->value->type == VE_REF)
-			tmp = gen_addr(builder, context, data->value->name);
-		else
-			tmp = gen_new_value(builder, context, data->value);
-		emit_copy(builder, context, to, tmp, data->to->return_type);
+		LLVMValueRef alloca;
+
+		tmp = gen_new_value(builder, context, data->value);
+
+		if (!LLVMIsAAllocaInst(tmp)) {
+			alloca = LLVMBuildAlloca(builder, LLVMTypeOf(tmp), "");
+			LLVMBuildStore(builder, tmp, alloca);
+			emit_copy(builder, context, to, alloca,
+				  data->to->return_type);
+		} else {
+			emit_copy(builder, context, to, tmp,
+				  data->to->return_type);
+		}
+
 		return;
 	}
 

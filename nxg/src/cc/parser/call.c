@@ -289,10 +289,17 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			if (match->params[j]->type->kind != TY_POINTER)
 				continue;
 
+			char *fix;
+
 			if (data->args[j]->type != VE_REF) {
-				error_at(
+				fix = calloc(64, 1);
+				snprintf(fix, 64, "&%.*s",
+					 arg_tokens.tokens[j]->len,
+					 arg_tokens.tokens[j]->value);
+
+				error_at_with_fix(
 				    tokens->source, arg_tokens.tokens[j]->value,
-				    arg_tokens.tokens[j]->len,
+				    arg_tokens.tokens[j]->len, fix,
 				    "%s takes a reference to `%s` here",
 				    match->name,
 				    type_name(match->params[j]->type->v_base));
@@ -304,7 +311,6 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 				continue;
 			}
 
-			char *fix;
 			fix = calloc(64, 1);
 			snprintf(fix, 64, "&%.*s", arg_tokens.tokens[j]->len,
 				 arg_tokens.tokens[j]->value);
