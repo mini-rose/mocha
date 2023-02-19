@@ -10,6 +10,8 @@ typedef enum
 	T_KEYWORD,
 	T_NUMBER,
 	T_STRING,
+	T_TRUE,  // true
+	T_FALSE, // false
 	T_IDENT,
 	T_PUNCT,
 	T_LPAREN, // (

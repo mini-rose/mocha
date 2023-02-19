@@ -66,6 +66,8 @@ void token_print(token *tok)
 					[T_ADDA] = "ADDA",
 					[T_ARROW] = "ARROW",
 					[T_DEC] = "DEC",
+					[T_TRUE] = "TRUE",
+					[T_FALSE] = "FALSE",
 					[T_INC] = "INC",
 					[T_SUBA] = "SUBA",
 					[T_ADD] = "ADD",
@@ -86,6 +88,10 @@ void token_print(token *tok)
 		printf(" \033[37m%s\033[0m", tok_str[tok->type]);
 	else if (tok->type == T_END)
 		printf(" %s ", tok_str[tok->type]);
+	else if (tok->type == T_TRUE)
+		printf(" %s", tok_str[tok->type]);
+	else if (tok->type == T_FALSE)
+		printf(" %s", tok_str[tok->type]);
 	else if (tok->type == T_KEYWORD)
 		printf(" \033[31m%s\033[0m: \033[32m'%.*s'\033[0m",
 		       tok_str[tok->type], tok->len, tok->value);
@@ -209,7 +215,11 @@ token_list *tokens(file_t *source)
 
 			str = push_str(p, q);
 
-			if (is_keyword(str)) {
+			if (!strncmp("true", str, 4)) {
+				tok = token_new(last = T_TRUE, p, p - q);
+			} else if (!strncmp("false", str, 5)) {
+				tok = token_new(last = T_FALSE, p, p - q);
+			} else if (is_keyword(str)) {
 				tok = token_new(last = T_KEYWORD, p, q - p);
 			} else if (!strcmp("__LINE__", str)) {
 				int line = 1;
