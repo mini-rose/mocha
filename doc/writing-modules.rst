@@ -38,7 +38,7 @@ and takes 2 arguments, both being plain i32::
 
         __builtin_decl_mangled("add", i32, i32, i32)
 
-**Note**: it is recommended to use the _mangled variant of the __builtin_decl
+**Note**: It is recommended to use the _mangled variant of the __builtin_decl
 call, so that you may still use overloading writing C modules.
 
 You can now create a C file, which will implement the add functions we just

@@ -29,8 +29,8 @@ Build
    $ meson setup build
    $ meson compile -C build
 
-Documention
------------
+Documentation
+-------------
 
 You can read the documentation here on GitHub in the doc/ directory, or you can
 generate a HTML page by running ./generate-html.py in the doc/ directory, which

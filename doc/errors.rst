@@ -21,7 +21,7 @@ This is a list of all error IDs:
         drop function.
 
 * ``[type-mismatch]``
-        An operation using atleast 2 types, for example assigning, cannot be
+        An operation using at least 2 types, for example assigning, cannot be
         emitted as the types do not match exactly (casting should be done on
         the compiling level, not by the emitter).
 

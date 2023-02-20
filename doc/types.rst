@@ -22,7 +22,7 @@ and destroying strings is handled by the compiler, so it can seem like a simple
 type you can use without thinking about allocating enough memory for it.
 
 The implementation should call different methods depending on the operation.
-Assigning a value to a newly created variable generates 2 seperate expressions
+Assigning a value to a newly created variable generates 2 separate expressions
 internally, an E_VARDECL and E_ASSIGN. This means that declaring the variable
 basically creates an ``alloca`` to store the struct, and then initializes it.
 
@@ -38,7 +38,7 @@ The assignment will then make a copy of the object on the right::
           ^
           which will then get copied into the `x` value
 
-This is roughly how it should look like in LLVM IR, in reality there would more
+This is roughly how it should look like in LLVM IR, in reality there would be more
 metadata about the variables itself, like the alignment::
 
         ; Allocate space for the str instance
