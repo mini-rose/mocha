@@ -3,3 +3,35 @@
 
 /* Cause normal process termination */
 __builtin_decl("exit", null, i32)
+
+/* Execute a shell command */
+__builtin_decl_mangled("execute", i32, &str)
+fn execute(cmd: str) -> i32 {
+	ret execute(&cmd)
+}
+
+/* Get an environment variable */
+__builtin_decl_mangled("getenv", str, &str)
+fn getenv(name: str) -> str {
+	ret getenv(&name)
+}
+
+__builtin_decl_mangled("chmod", i32, &str, i32)
+fn chmod(path: str, mode: i32) -> i32 {
+	ret chmod(&path, mode)
+}
+
+__builtin_decl_mangled("mkdir", i32, &str)
+fn mkdir(path: str) -> i32 {
+	ret mkdir(&path)
+}
+
+__builtin_decl_mangled("touch", i32, &str)
+fn touch(path: str) -> i32 {
+	ret touch(&path)
+}
+
+__builtin_decl_mangled("rename", i32, &str, &str)
+fn rename(old: str, new: str) -> i32 {
+	ret rename(&old, &new)
+}

@@ -60,18 +60,6 @@ fn write_stream(stream: i32, buf: str) -> null {
 	_write_stream(stream, buf.ptr, buf.len)
 }
 
-/* These printing routines print the object and a newline. */
-
-__builtin_decl_mangled("print", null, i8)
-__builtin_decl_mangled("print", null, i32)
-__builtin_decl_mangled("print", null, i64)
-__builtin_decl_mangled("print", null, &str)
-__builtin_decl_mangled("print", null, bool)
-
-fn print(__s: str) -> null {
-	print(&__s)
-}
-
 fn copy(self: &file_t, other: &file_t) -> null {
 	self.fp = other.fp
 	self.is_open = other.is_open
