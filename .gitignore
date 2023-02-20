@@ -1,8 +1,15 @@
 # clang cache
 .cache/
 
-# c objects
+# binary files
 *.o
+a.out
 
 # test directory
 test/
+
+/doc/html
+*.html
+
+.coffee
+/nxg/*.ff
