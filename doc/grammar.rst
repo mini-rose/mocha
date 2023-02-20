@@ -17,7 +17,7 @@ expressions. Syntax parsers can be built using this specification::
         use-path ::= string
                  ::= symbol ('.' symbol)*
 
-        function-decl ::= 'fn' symbol [function-params] ['->' type] '{' (statement)* '}'
+        function-decl ::= 'fn' symbol [function-params] ['->' type] block
         function-params ::= '(' [function-param (',' function-param)*] ')'
         function-param ::= symbol ':' type
 
@@ -42,8 +42,11 @@ expressions. Syntax parsers can be built using this specification::
         call ::= symbol '(' [rvalue (',' rvalue)*] ')'
         ret ::= 'ret' rvalue
 
-        condition ::= '(' rvalue ')' '?' (block | rvalue) ':' (block | rvalue)
-        block ::= (statement)*
+        condition ::= '(' (comparison | rvalue) ')' '?' (block | rvalue) [':' (block | rvalue)]
+        block ::= '{' (statement)* '}'
+
+        comparison ::= rvalue '==' rvalue
+                   ::= rvalue '!=' rvalue
 
         rvalue ::= literal
                ::= symbol
@@ -68,7 +71,10 @@ expressions. Syntax parsers can be built using this specification::
 
         literal ::= string
                 ::= number
+                ::= boolean
 
         symbol ::= /[A-z_]\w*/
         string ::= /('[^']*'|"[^"]*")/
         number ::= /\d+(\.\d+)?/
+        boolean ::= 'true'
+                ::= 'false'

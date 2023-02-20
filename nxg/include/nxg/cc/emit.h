@@ -14,6 +14,7 @@ typedef struct
 {
 	expr_t *module;
 	expr_t *func;
+	expr_t *current_block;
 	LLVMModuleRef llvm_mod;
 	LLVMValueRef llvm_func;
 	LLVMValueRef *locals;

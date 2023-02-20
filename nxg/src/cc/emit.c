@@ -25,6 +25,9 @@ void emit_stackpop(LLVMBuilderRef builder, LLVMModuleRef mod);
 static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
 				      fn_context_t *context,
 				      value_expr_t *node);
+static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
+				  value_expr_t *value);
+void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node);
 
 static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
 				 char *name)
@@ -147,8 +150,11 @@ static LLVMValueRef gen_local_value(LLVMBuilderRef builder,
 	LLVMTypeRef o_type;
 	var_decl_expr_t *decl;
 
-	decl = node_resolve_local(context->func, name, 0);
+	decl = node_resolve_local(context->current_block, name, 0);
 	val = fn_find_local(context, name);
+
+	if (!decl)
+		error("emit[no-local]: no ref to local");
 
 	if (decl->type->kind == TY_OBJECT) {
 		o_type = gen_type(context->llvm_mod, decl->type);
@@ -193,7 +199,8 @@ static LLVMValueRef gen_member_value(LLVMBuilderRef builder,
 	type_t *field_type;
 
 	ptr = gen_ptr_to_member(builder, context, node);
-	local_type = node_resolve_local(context->func, node->name, 0)->type;
+	local_type =
+	    node_resolve_local(context->current_block, node->name, 0)->type;
 
 	if (local_type->kind == TY_POINTER)
 		local_type = local_type->v_base;
@@ -237,7 +244,8 @@ static LLVMValueRef gen_deref(LLVMBuilderRef builder, fn_context_t *context,
 
 	/* If local is a pointer, we need to dereference it twice, because we
 	   alloca the pointer too. */
-	var_decl_expr_t *var = node_resolve_local(context->func, name, 0);
+	var_decl_expr_t *var =
+	    node_resolve_local(context->current_block, name, 0);
 	if (var->type->kind == TY_POINTER) {
 		val = LLVMBuildLoad2(
 		    builder, gen_type(context->llvm_mod, var->type), local, "");
@@ -282,6 +290,14 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 	return NULL;
 }
 
+static LLVMValueRef gen_cmp(LLVMBuilderRef builder, fn_context_t *context,
+			    value_expr_t *value, LLVMIntPredicate op)
+{
+	return LLVMBuildICmp(builder, op,
+			     gen_new_value(builder, context, value->left),
+			     gen_new_value(builder, context, value->right), "");
+}
+
 /**
  * Generate a new value in the block from the value expression given. It can be
  * a reference to a variable, a literal value, a call or two-hand-side
@@ -310,6 +326,10 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 		return gen_deref(
 		    builder, context, value->name,
 		    gen_type(context->llvm_mod, value->return_type));
+	case VE_EQ:
+		return gen_cmp(builder, context, value, LLVMIntEQ);
+	case VE_NEQ:
+		return gen_cmp(builder, context, value, LLVMIntNE);
 	default:
 		if (!value->left || !value->right) {
 			error("emit: undefined value: two-side op with only "
@@ -343,15 +363,22 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name)
 {
+	var_decl_expr_t *local;
+
 	for (int i = 0; i < context->n_locals; i++) {
 		if (!strcmp(context->local_names[i], name)) {
-			node_resolve_local(context->func, name, 0)
-			    ->used_by_emit = true;
+			local =
+			    node_resolve_local(context->current_block, name, 0);
+			if (!local)
+				goto end;
+
+			local->used_by_emit = true;
 			return context->locals[i];
 		}
 	}
 
-	error("emit: could not find local `%s` in `%s`", name,
+end:
+	error("emit[no-local]: could not find local `%s` in `%s`", name,
 	      E_AS_FN(context->func->data)->name);
 }
 
@@ -503,7 +530,7 @@ static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
 	if (node->type != VE_MREF && node->type != VE_MPTR)
 		error("emit: trying to getelementptr into non-object ref");
 
-	local = node_resolve_local(context->func, node->name, 0);
+	local = node_resolve_local(context->current_block, node->name, 0);
 	local_type = local->type;
 	if (local_type->kind == TY_POINTER)
 		local_type = local_type->v_base;
@@ -699,6 +726,62 @@ void emit_var_decl(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 	fn_context_add_local(context, alloca, decl->name);
 }
 
+static void emit_condition_node(LLVMBuilderRef builder, fn_context_t *context,
+				expr_t *node)
+{
+	condition_expr_t *cond;
+	LLVMValueRef cond_value;
+	LLVMBasicBlockRef if_block;
+	LLVMBasicBlockRef else_block;
+	LLVMBasicBlockRef pass_block;
+	expr_t *walker;
+	expr_t *previous_block;
+
+	cond = node->data;
+	previous_block = context->current_block;
+
+	/* Prepare the basic blocks. */
+	cond_value = gen_new_value(builder, context, cond->cond);
+	if_block = LLVMInsertBasicBlock(context->end, "");
+
+	else_block = NULL;
+	if (cond->else_block)
+		else_block = LLVMInsertBasicBlock(context->end, "");
+
+	pass_block = LLVMInsertBasicBlock(context->end, "");
+
+	LLVMBuildCondBr(builder, cond_value, if_block,
+			cond->else_block ? else_block : pass_block);
+
+	/* if {} */
+	LLVMPositionBuilderAtEnd(builder, if_block);
+
+	walker = cond->if_block->child;
+	context->current_block = cond->if_block;
+	do {
+		emit_node(builder, context, walker);
+	} while ((walker = walker->next));
+
+	LLVMBuildBr(builder, pass_block);
+
+	/* else {} */
+	if (cond->else_block) {
+		LLVMPositionBuilderAtEnd(builder, else_block);
+
+		walker = cond->else_block->child;
+		context->current_block = cond->else_block;
+		do {
+			emit_node(builder, context, walker);
+		} while ((walker = walker->next));
+
+		LLVMBuildBr(builder, pass_block);
+	}
+
+	/* go back */
+	LLVMPositionBuilderAtEnd(builder, pass_block);
+	context->current_block = previous_block;
+}
+
 void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 {
 	switch (node->type) {
@@ -714,6 +797,8 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 	case E_CALL:
 		emit_call_node(builder, context, node->data);
 		break;
+	case E_CONDITION:
+		emit_condition_node(builder, context, node);
 	case E_SKIP:
 		break;
 	default:
@@ -760,6 +845,7 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 	context.llvm_func = func;
 	context.llvm_mod = mod;
 	context.settings = settings;
+	context.current_block = fn;
 
 	LLVMBasicBlockRef args_block, code_block, end_block;
 	LLVMBuilderRef builder;
@@ -810,8 +896,8 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 				    settings->emit_varnames ? "ret" : "");
 	}
 
-	/* args -> code */
-	code_block = LLVMAppendBasicBlock(func, "code");
+	/* args -> start */
+	code_block = LLVMAppendBasicBlock(func, "start");
 	LLVMBuildBr(builder, code_block);
 
 	/* end block with return statement */

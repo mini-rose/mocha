@@ -61,32 +61,48 @@ var_decl_expr_t *node_resolve_local_touch(expr_t *node, const char *name,
 	if (len == 0)
 		len = strlen(name);
 
-	/* only support functions now */
-	if (node->type != E_FUNCTION)
-		return NULL;
+	if (node->type == E_FUNCTION) {
+		fn_expr_t *fn = node->data;
 
-	fn_expr_t *fn = node->data;
+		for (int i = 0; i < fn->n_params; i++) {
+			if (strlen(fn->params[i]->name) != len)
+				continue;
 
-	for (int i = 0; i < fn->n_params; i++) {
-		if (strlen(fn->params[i]->name) != len)
-			continue;
-
-		if (!strncmp(fn->params[i]->name, name, len)) {
-			if (touch)
-				fn->params[i]->used = true;
-			return fn->params[i];
+			if (!strncmp(fn->params[i]->name, name, len)) {
+				if (touch)
+					fn->params[i]->used = true;
+				return fn->params[i];
+			}
 		}
-	}
 
-	for (int i = 0; i < fn->n_locals; i++) {
-		if (strlen(fn->locals[i]->name) != len)
-			continue;
+		for (int i = 0; i < fn->n_locals; i++) {
+			if (strlen(fn->locals[i]->name) != len)
+				continue;
 
-		if (!strncmp(fn->locals[i]->name, name, len)) {
-			if (touch)
-				fn->locals[i]->used = true;
-			return fn->locals[i];
+			if (!strncmp(fn->locals[i]->name, name, len)) {
+				if (touch)
+					fn->locals[i]->used = true;
+				return fn->locals[i];
+			}
 		}
+	} else if (node->type == E_BLOCK) {
+		block_expr_t *block = node->data;
+
+		for (int i = 0; i < block->n_locals; i++) {
+			if (strlen(block->locals[i]->name) != len)
+				continue;
+
+			if (!strncmp(block->locals[i]->name, name, len)) {
+				if (touch)
+					block->locals[i]->used = true;
+				return block->locals[i];
+			}
+		}
+
+		/* If we don't find anything in our local up, propage the
+		   request up. */
+		return node_resolve_local_touch(block->parent, name, len,
+						touch);
 	}
 
 	return NULL;
@@ -267,7 +283,7 @@ array_part:
 	}
 
 	return type_new_null();
-	}
+}
 
 static void fn_add_local_var(fn_expr_t *func, var_decl_expr_t *var)
 {
@@ -276,10 +292,17 @@ static void fn_add_local_var(fn_expr_t *func, var_decl_expr_t *var)
 	func->locals[func->n_locals++] = var;
 }
 
+static void block_add_local_var(block_expr_t *block, var_decl_expr_t *var)
+{
+	block->locals = realloc(block->locals, sizeof(var_decl_expr_t *)
+						   * (block->n_locals + 1));
+	block->locals[block->n_locals++] = var;
+}
+
 /**
  * name: type
  */
-static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens,
+static err_t parse_var_decl(expr_t *parent, expr_t *module, token_list *tokens,
 			    token *tok)
 {
 	var_decl_expr_t *data;
@@ -298,14 +321,17 @@ static err_t parse_var_decl(expr_t *parent, fn_expr_t *fn, token_list *tokens,
 
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
-	data->type = parse_type(E_AS_FN(parent->data)->module, tokens, tok);
+	data->type = parse_type(module, tokens, tok);
 
 	node = expr_add_child(parent);
 	node->type = E_VARDECL;
 	node->data = data;
 	node->data_free = (expr_free_handle) var_decl_expr_free;
 
-	fn_add_local_var(fn, data);
+	if (parent->type == E_FUNCTION)
+		fn_add_local_var(parent->data, data);
+	else if (parent->type == E_BLOCK)
+		block_add_local_var(parent->data, data);
 
 	return ERR_OK;
 }
@@ -336,7 +362,7 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 
 	/* defined variable type, meaning we declare a new variable */
 	if (is_var_decl(tokens, tok)) {
-		parse_var_decl(parent, fn, tokens, tok);
+		parse_var_decl(parent, mod, tokens, tok);
 	} else if (!node_has_named_local(parent, name->value, name->len)) {
 		if (deref) {
 			error_at(tokens->source, name->value, name->len,
@@ -740,6 +766,7 @@ static void parse_condition(expr_t *parent, expr_t *module, fn_expr_t *fn,
 
 	node->type = E_CONDITION;
 	node->data = cond;
+	node->data_free = (expr_free_handle) condition_expr_free;
 	cond->cond = calloc(1, sizeof(*cond->cond));
 
 	/* Parse the condition, and ensure it returns bool. */
@@ -785,12 +812,17 @@ skip_bool_check:
 	if (tok->type == T_LBRACE) {
 		/* Block */
 		cond->if_block->type = E_BLOCK;
+		cond->if_block->data = calloc(1, sizeof(block_expr_t));
+		cond->if_block->data_free = (expr_free_handle) block_expr_free;
+
+		E_AS_BLOCK(cond->if_block->data)->parent = parent;
+
 		parse_block(parent, module, fn, cond->if_block, tokens, tok);
 
 	} else {
 		/* Single value */
 		cond->if_block->type = E_VALUE;
-		cond->if_block->data = calloc(1, sizeof(value_expr_t *));
+		cond->if_block->data = calloc(1, sizeof(value_expr_t));
 		cond->if_block->data_free = (expr_free_handle) value_expr_free;
 
 		cond->if_block->data = parse_value_expr(
@@ -811,12 +843,18 @@ skip_bool_check:
 	if (tok->type == T_LBRACE) {
 		/* Block */
 		cond->else_block->type = E_BLOCK;
+		cond->else_block->data = calloc(1, sizeof(block_expr_t));
+		cond->else_block->data_free =
+		    (expr_free_handle) block_expr_free;
+
+		E_AS_BLOCK(cond->else_block->data)->parent = parent;
+
 		parse_block(parent, module, fn, cond->else_block, tokens, tok);
 
 	} else {
 		/* Single value */
 		cond->else_block->type = E_VALUE;
-		cond->else_block->data = calloc(1, sizeof(value_expr_t *));
+		cond->else_block->data = calloc(1, sizeof(value_expr_t));
 		cond->else_block->data_free =
 		    (expr_free_handle) value_expr_free;
 
@@ -871,7 +909,7 @@ static void parse_block(expr_t *parent, expr_t *module, fn_expr_t *fn,
 		if (is_var_assign(tokens, tok))
 			parse_assign(node, module, fn, tokens, tok);
 		else if (is_var_decl(tokens, tok))
-			parse_var_decl(node, fn, tokens, tok);
+			parse_var_decl(node, module, tokens, tok);
 		else if (is_call(tokens, tok))
 			parse_call(node, module, tokens, tok);
 		else if (tok->type == T_LPAREN)

@@ -1,3 +1,5 @@
+#include "nxg/cc/tokenize.h"
+
 #include <ctype.h>
 #include <nxg/cc/parser.h>
 #include <stdio.h>
@@ -94,6 +96,26 @@ bool is_member(token_list *tokens, token *tok)
 	return true;
 }
 
+bool is_member_deref(token_list *tokens, token *tok)
+{
+	if (tok->type != T_MUL)
+		return false;
+
+	tok = index_tok(tokens, tokens->iter);
+	if (tok->type != T_IDENT)
+		return false;
+
+	tok = index_tok(tokens, tokens->iter + 1);
+	if (tok->type != T_DOT)
+		return false;
+
+	tok = index_tok(tokens, tokens->iter + 2);
+	if (tok->type != T_IDENT)
+		return false;
+
+	return true;
+}
+
 /**
  * member-ptr ::= &ident.ident
  */
@@ -164,6 +186,33 @@ bool is_operator(token *tok)
 {
 	/* TODO: make this better and safer */
 	return tok->type >= T_EQ && tok->type <= T_SUB;
+}
+
+/*
+ * comparison ::= rvalue == rvalue
+ *            ::= rvalue != rvalue
+ */
+bool is_comparison(token_list *tokens, token *tok)
+{
+	int offset = 0;
+
+	if (is_pointer_to(tokens, tok)) {
+		offset = 1;
+	} else if (is_member(tokens, tok)) {
+		offset = 2;
+	} else if (is_dereference(tokens, tok)) {
+		offset = 1;
+	} else if (is_pointer_to_member(tokens, tok)) {
+		offset = 3;
+	} else if (is_member_deref(tokens, tok)) {
+		offset = 3;
+	}
+
+	tok = index_tok(tokens, tokens->iter + offset);
+	if (tok->type == T_EQ || tok->type == T_NEQ)
+		return true;
+
+	return false;
 }
 
 bool is_integer(token *tok)

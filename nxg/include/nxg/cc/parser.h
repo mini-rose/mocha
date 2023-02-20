@@ -123,6 +123,13 @@ typedef struct
 	expr_t *else_block;
 } condition_expr_t;
 
+typedef struct
+{
+	var_decl_expr_t **locals;
+	int n_locals;
+	expr_t *parent;
+} block_expr_t;
+
 #define FN_NOMANGLE 1
 
 /* function definition */
@@ -181,6 +188,7 @@ struct literal_expr
 #define E_AS_VAL(DATAPTR)   ((value_expr_t *) DATAPTR)
 #define E_AS_CALL(DATAPTR)  ((call_expr_t *) DATAPTR)
 #define E_AS_COND(DATAPTR)  ((condition_expr_t *) DATAPTR)
+#define E_AS_BLOCK(DATAPTR) ((block_expr_t *) DATAPTR)
 
 expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 	      token_list *list, const char *module_id);
@@ -207,6 +215,8 @@ void value_expr_free(value_expr_t *value);
 void call_expr_free(call_expr_t *call);
 void assign_expr_free(assign_expr_t *assign);
 void var_decl_expr_free(var_decl_expr_t *variable);
+void condition_expr_free(condition_expr_t *value);
+void block_expr_free(block_expr_t *value);
 
 token *index_tok(token_list *list, int index);
 token *next_tok(token_list *list);
@@ -222,6 +232,7 @@ bool is_dereference(token_list *tokens, token *tok);
 bool is_pointer_to(token_list *tokens, token *tok);
 bool is_single_value(token_list *tokens, token *tok);
 bool is_operator(token *tok);
+bool is_comparison(token_list *tokens, token *tok);
 bool is_builtin_function(token *name);
 bool is_integer(token *tok);
 bool is_float(token *tok);

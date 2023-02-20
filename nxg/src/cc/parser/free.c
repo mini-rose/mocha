@@ -75,6 +75,8 @@ void value_expr_free(value_expr_t *value)
 		call_expr_free(value->call);
 		free(value->call);
 		break;
+	case VE_EQ:
+	case VE_NEQ:
 	default:
 		value_expr_free(value->left);
 		free(value->left);
@@ -107,4 +109,18 @@ void var_decl_expr_free(var_decl_expr_t *variable)
 {
 	type_destroy(variable->type);
 	free(variable->name);
+}
+
+void condition_expr_free(condition_expr_t *value)
+{
+	value_expr_free(value->cond);
+	free(value->cond);
+
+	expr_destroy(value->if_block);
+	expr_destroy(value->else_block);
+}
+
+void block_expr_free(block_expr_t *value)
+{
+	free(value->locals);
 }

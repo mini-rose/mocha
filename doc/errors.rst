@@ -32,6 +32,9 @@ This is a list of all error IDs:
 * ``[no-func]``
         There is no function with this name in the module or imported modules.
 
+* ``[no-local]``
+        Could not find a named local in this block or any parent blocks.
+
 * ``[node-emit]``
         The emitter does not know how to emit a specific AST node. This is
         usually just a "not implemented yet" error.

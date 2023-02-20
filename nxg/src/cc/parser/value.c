@@ -197,7 +197,7 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	return node;
 }
 
-static bool is_operator_left_to_right(token *op)
+static bool __attribute__((unused)) is_operator_left_to_right(token *op)
 {
 	struct {
 		token_t operator;
@@ -215,7 +215,8 @@ static bool is_operator_left_to_right(token *op)
 	return false;
 }
 
-static bool is_operator_priority(token *op, token *other)
+static bool __attribute__((unused))
+is_operator_priority(token *op, token *other)
 {
 	// see more at: https://en.cppreference.com/w/cpp/language/operator_precedence
 	struct precedense {
@@ -306,12 +307,11 @@ value_expr_t *parse_value_expr(expr_t *context, expr_t *mod, value_expr_t *node,
 {
 	token *next;
 
-	next = index_tok(tokens, tokens->iter);
-
-	if (next->type == T_EQ || next->type == T_NEQ) {
+	if (is_comparison(tokens, tok)) {
 		return parse_comparison(context, mod, node, tokens, tok);
 	}
 
+	next = index_tok(tokens, tokens->iter);
 	if (is_operator(next)) {
 		return parse_math_value_expr(context, mod, node, tokens,
 						tok);
