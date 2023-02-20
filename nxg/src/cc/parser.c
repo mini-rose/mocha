@@ -13,6 +13,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+static void parse_block(expr_t *parent, expr_t *module, fn_expr_t *fn,
+			expr_t *node, token_list *tokens, token *tok);
+
 token *index_tok(token_list *list, int index)
 {
 	static token end_token = {.type = T_END, .value = "", .len = 0};
@@ -720,34 +723,123 @@ static void fn_warn_unused(file_t *source, expr_t *fn)
 }
 
 /**
- * {
- *   [expression]...
- * }
+ * (expr) ? { ... }
  */
-static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
+static void parse_condition(expr_t *parent, expr_t *module, fn_expr_t *fn,
+			    token_list *tokens, token *tok)
 {
+	condition_expr_t *cond;
 	expr_t *node;
-	token *tok;
-
-	node = expr_add_child(module);
-
-	node->type = E_FUNCTION;
-	node->data = decl;
-	node->data_free = (expr_free_handle) fn_expr_free;
+	token *start_tok;
 
 	tok = next_tok(tokens);
+	node = expr_add_child(parent);
+	cond = calloc(1, sizeof(*cond));
 
-	/* opening & closing braces */
-	while (tok->type == T_NEWLINE)
-		tok = next_tok(tokens);
+	start_tok = tok;
+
+	node->type = E_CONDITION;
+	node->data = cond;
+	cond->cond = calloc(1, sizeof(*cond->cond));
+
+	/* Parse the condition, and ensure it returns bool. */
+	cond->cond = parse_value_expr(parent, module, cond->cond, tokens, tok);
+
+	tok = index_tok(tokens, tokens->iter - 1);
+	if (cond->cond->type == VE_NULL) {
+		error_at(tokens->source, start_tok->value,
+			 tok->value - start_tok->value + 1,
+			 "this not a valid condition");
+	}
+
+	if (cond->cond->return_type->kind == TY_PLAIN) {
+		if (cond->cond->return_type->v_plain == PT_BOOL)
+			goto skip_bool_check;
+	}
+
+	error_at(tokens->source, start_tok->value,
+		 tok->value - start_tok->value + 1,
+		 "expression does not return a boolean value");
+
+skip_bool_check:
+
+	tok = next_tok(tokens);
+	if (tok->type != T_RPAREN) {
+		error_at_with_fix(
+		    tokens->source, tok->value, tok->len, ")",
+		    "expected closing parenthesis after condition");
+	}
+
+	tok = next_tok(tokens);
+	if (!TOK_IS(tok, T_PUNCT, "?")) {
+		error_at_with_fix(tokens->source, tok->value, tok->len, "?",
+				  "expected `?` sign after condition");
+	}
+
+	/* Now, we can either have a block '{ ... }' or a single value in the
+	   truth block. */
+
+	cond->if_block = calloc(1, sizeof(*cond->if_block));
+
+	tok = next_tok(tokens);
+	if (tok->type == T_LBRACE) {
+		/* Block */
+		cond->if_block->type = E_BLOCK;
+		parse_block(parent, module, fn, cond->if_block, tokens, tok);
+
+	} else {
+		/* Single value */
+		cond->if_block->type = E_VALUE;
+		cond->if_block->data = calloc(1, sizeof(value_expr_t *));
+		cond->if_block->data_free = (expr_free_handle) value_expr_free;
+
+		cond->if_block->data = parse_value_expr(
+		    parent, module, cond->if_block->data, tokens, tok);
+	}
+
+	/* Have a peek if we have an else block. */
+	tok = index_tok(tokens, tokens->iter);
+	if (!TOK_IS(tok, T_PUNCT, ":")) {
+		return;
+	}
+
+	/* else block ': { ... }' */
+	cond->else_block = calloc(1, sizeof(*cond->else_block));
+
+	tok = next_tok(tokens);
+	tok = next_tok(tokens);
+	if (tok->type == T_LBRACE) {
+		/* Block */
+		cond->else_block->type = E_BLOCK;
+		parse_block(parent, module, fn, cond->else_block, tokens, tok);
+
+	} else {
+		/* Single value */
+		cond->else_block->type = E_VALUE;
+		cond->else_block->data = calloc(1, sizeof(value_expr_t *));
+		cond->else_block->data_free =
+		    (expr_free_handle) value_expr_free;
+
+		cond->else_block->data = parse_value_expr(
+		    parent, module, cond->else_block->data, tokens, tok);
+	}
+}
+
+/**
+ * {
+ *   [statement]...
+ * }
+ */
+static void parse_block(expr_t *parent, expr_t *module, fn_expr_t *fn,
+			expr_t *node, token_list *tokens, token *tok)
+{
+	int brace_level = 1;
 
 	if (tok->type != T_LBRACE) {
 		error_at(tokens->source, tok->value, tok->len,
-			 "missing opening brace for `%s`", decl->name);
-		return ERR_SYNTAX;
+			 "missing opening brace for block");
 	}
 
-	int brace_level = 1;
 	while (brace_level != 0) {
 		tok = next_tok(tokens);
 
@@ -774,14 +866,16 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 			continue;
 		}
 
-		/* statements inside the function */
+		/* Statements inside a block */
 
 		if (is_var_assign(tokens, tok))
-			parse_assign(node, module, decl, tokens, tok);
+			parse_assign(node, module, fn, tokens, tok);
 		else if (is_var_decl(tokens, tok))
-			parse_var_decl(node, decl, tokens, tok);
+			parse_var_decl(node, fn, tokens, tok);
 		else if (is_call(tokens, tok))
 			parse_call(node, module, tokens, tok);
+		else if (tok->type == T_LPAREN)
+			parse_condition(node, module, fn, tokens, tok);
 		else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, module, tokens, tok);
 		else if (TOK_IS(tok, T_IDENT, "return"))
@@ -791,6 +885,26 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 			error_at(tokens->source, tok->value, tok->len,
 				 "unparsable");
 	}
+}
+
+static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
+{
+	expr_t *node;
+	token *tok;
+
+	node = expr_add_child(module);
+
+	node->type = E_FUNCTION;
+	node->data = decl;
+	node->data_free = (expr_free_handle) fn_expr_free;
+
+	tok = next_tok(tokens);
+
+	/* opening & closing braces */
+	while (tok->type == T_NEWLINE)
+		tok = next_tok(tokens);
+
+	parse_block(node, module, decl, node, tokens, tok);
 
 	/* always add a return statement */
 	if (!fn_has_return(node)) {
@@ -1110,16 +1224,6 @@ void expr_destroy(expr_t *expr)
 	free(expr);
 }
 
-const char *expr_typename(expr_type type)
-{
-	static const char *names[] = {"SKIP",   "MODULE",  "FUNCTION", "CALL",
-				      "RETURN", "VARDECL", "ASSIGN",   "VALUE"};
-
-	if (type >= 0 && type < LEN(names))
-		return names[type];
-	return "<EXPR>";
-}
-
 char *fn_str_signature(fn_expr_t *func, bool with_colors)
 {
 	char *sig = calloc(1024, 1);
@@ -1189,17 +1293,6 @@ char *stringify_literal(literal_expr_t *literal)
 	}
 
 	return NULL;
-}
-
-const char *value_expr_type_name(value_expr_type t)
-{
-	static const char *names[] = {"NULL", "REF",  "LIT",   "CALL", "ADD",
-				      "SUB",  "MUL",  "DIV",   "PTR",  "DEREF",
-				      "MREF", "MPTR", "MDEREF"};
-
-	if (t >= 0 && t < LEN(names))
-		return names[t];
-	return "<value expr type>";
 }
 
 value_expr_type value_expr_type_from_op(token *op)

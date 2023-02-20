@@ -33,6 +33,7 @@ expressions. Syntax parsers can be built using this specification::
         statement ::= var-decl
                   ::= var-assign
                   ::= builtin-call
+                  ::= condition
                   ::= call
                   ::= ret
 
@@ -40,6 +41,9 @@ expressions. Syntax parsers can be built using this specification::
         var-assign ::= lvalue '=' rvalue
         call ::= symbol '(' [rvalue (',' rvalue)*] ')'
         ret ::= 'ret' rvalue
+
+        condition ::= '(' rvalue ')' '?' (block | rvalue) ':' (block | rvalue)
+        block ::= (statement)*
 
         rvalue ::= literal
                ::= symbol

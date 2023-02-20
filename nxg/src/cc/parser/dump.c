@@ -3,14 +3,40 @@
 
 #include <nxg/cc/parser.h>
 #include <nxg/utils/error.h>
+#include <nxg/utils/utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+static void expr_print_value_expr(value_expr_t *val, int level);
+static void expr_print_level(expr_t *expr, int level, bool with_next);
 
 static void indent(int levels)
 {
 	for (int i = 0; i < (levels * 2); i++)
 		fputc(' ', stdout);
+}
+
+const char *expr_typename(expr_type type)
+{
+	static const char *names[] = {
+	    "SKIP",    "MODULE", "FUNCTION", "CALL",      "RETURN",
+	    "VARDECL", "ASSIGN", "VALUE",    "CONDITION", "BLOCK"};
+
+	if (type >= 0 && type < LEN(names))
+		return names[type];
+	return "<EXPR>";
+}
+
+const char *value_expr_type_name(value_expr_type t)
+{
+	static const char *names[] = {"NULL", "REF",  "LIT",    "CALL", "ADD",
+				      "SUB",  "MUL",  "DIV",    "PTR",  "DEREF",
+				      "MREF", "MPTR", "MDEREF", "EQ",   "NEQ"};
+
+	if (t >= 0 && t < LEN(names))
+		return names[t];
+	return "<value expr type>";
 }
 
 static const char *expr_info(expr_t *expr)
@@ -86,8 +112,6 @@ static const char *expr_info(expr_t *expr)
 	return info;
 }
 
-static void expr_print_level(expr_t *expr, int level, bool with_next);
-
 static void expr_print_value_expr(value_expr_t *val, int level)
 {
 	char *lit_str;
@@ -136,6 +160,16 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 			expr_print_value_expr(val->left, level + 1);
 		if (val->right)
 			expr_print_value_expr(val->right, level + 1);
+		break;
+	case VE_EQ:
+		printf("comparison `==`:\n");
+		expr_print_value_expr(val->left, level + 1);
+		expr_print_value_expr(val->right, level + 1);
+		break;
+	case VE_NEQ:
+		printf("comparison `!=`:\n");
+		expr_print_value_expr(val->left, level + 1);
+		expr_print_value_expr(val->right, level + 1);
 		break;
 	default:
 		error("dump: cannot dump VE_%s value expr",
@@ -239,6 +273,20 @@ static void expr_print_level(expr_t *expr, int level, bool with_next)
 
 	if (expr->type == E_ASSIGN)
 		expr_print_value_expr(E_AS_ASS(expr->data)->value, level + 1);
+
+	if (expr->type == E_CONDITION) {
+		condition_expr_t *cond = expr->data;
+		expr_print_value_expr(cond->cond, level + 1);
+		indent(level + 1);
+		fputs("IF: \n", stdout);
+		expr_print_level(cond->if_block, level + 1, true);
+
+		if (cond->else_block) {
+			indent(level + 1);
+			fputs("ELSE: \n", stdout);
+			expr_print_level(cond->else_block, level + 1, true);
+		}
+	}
 
 	if (expr->type == E_CALL) {
 		for (int i = 0; i < E_AS_CALL(expr->data)->n_args; i++) {

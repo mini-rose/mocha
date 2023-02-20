@@ -1,4 +1,5 @@
 #include "nxg/cc/tokenize.h"
+#include "nxg/utils/error.h"
 
 #include <nxg/cc/parser.h>
 #include <nxg/cc/type.h>
@@ -247,6 +248,39 @@ static value_expr_t *parse_math_value_expr(expr_t *context, expr_t *mod,
 	return parse_twoside_value_expr(context, mod, node, tokens, tok);
 }
 
+static value_expr_t *parse_comparison(expr_t *context, expr_t *mod,
+				      value_expr_t *node, token_list *tokens,
+				      token *tok)
+{
+	node->left = calloc(1, sizeof(*node->left));
+	node->right = calloc(1, sizeof(*node->right));
+	node->return_type = type_new_plain(PT_BOOL);
+
+	if (!is_single_value(tokens, tok)) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "left side of comparison is not a valid rvalue");
+	}
+
+	parse_single_value(context, mod, node->left, tokens, tok);
+
+	tok = next_tok(tokens);
+	if (tok->type == T_EQ)
+		node->type = VE_EQ;
+	if (tok->type == T_NEQ)
+		node->type = VE_NEQ;
+
+	tok = next_tok(tokens);
+
+	if (!is_single_value(tokens, tok)) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "right side of comparison is not a valid rvalue");
+	}
+
+	parse_single_value(context, mod, node->right, tokens, tok);
+
+	return node;
+}
+
 /**
  * literal      ::= string | integer | float | "null"
  * reference    ::= ident
@@ -273,9 +307,15 @@ value_expr_t *parse_value_expr(expr_t *context, expr_t *mod, value_expr_t *node,
 	token *next;
 
 	next = index_tok(tokens, tokens->iter);
-	if (is_operator(next))
+
+	if (next->type == T_EQ || next->type == T_NEQ) {
+		return parse_comparison(context, mod, node, tokens, tok);
+	}
+
+	if (is_operator(next)) {
 		return parse_math_value_expr(context, mod, node, tokens,
 						tok);
+	}
 
 	if (is_single_value(tokens, tok)) {
 		if (parse_single_value(context, mod, node, tokens, tok)

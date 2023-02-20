@@ -111,7 +111,7 @@ char *compile_c_object(settings_t *settings, char *file)
 	len = snprintf(output, 512, "/tmp/nxg/C%s.o", file);
 	for (int i = 10; i < len; i++) {
 		if (output[i] == '/')
-			output[i] = '.';
+			output[i] = '_';
 	}
 
 	snprintf(cmd, 512, "/usr/bin/clang -c -O%s -o %s %s", settings->opt,

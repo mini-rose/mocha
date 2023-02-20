@@ -16,6 +16,8 @@ typedef enum
 	E_VARDECL,
 	E_ASSIGN,
 	E_VALUE,
+	E_CONDITION,
+	E_BLOCK, /* just a {} block */
 } expr_type;
 
 typedef void (*expr_free_handle)(void *expr);
@@ -85,6 +87,8 @@ typedef enum
 	VE_MREF,   /* name.member */
 	VE_MPTR,   /* &name.member */
 	VE_MDEREF, /* *name.member */
+	VE_EQ,     /* left == right */
+	VE_NEQ,    /* left != right */
 } value_expr_type;
 
 struct value_expr
@@ -111,6 +115,13 @@ typedef struct
 	bool used_by_emit;
 	token *decl_location;
 } var_decl_expr_t;
+
+typedef struct
+{
+	value_expr_t *cond;
+	expr_t *if_block;
+	expr_t *else_block;
+} condition_expr_t;
 
 #define FN_NOMANGLE 1
 
@@ -169,6 +180,7 @@ struct literal_expr
 #define E_AS_LIT(DATAPTR)   ((literal_expr_t *) DATAPTR)
 #define E_AS_VAL(DATAPTR)   ((value_expr_t *) DATAPTR)
 #define E_AS_CALL(DATAPTR)  ((call_expr_t *) DATAPTR)
+#define E_AS_COND(DATAPTR)  ((condition_expr_t *) DATAPTR)
 
 expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 	      token_list *list, const char *module_id);
