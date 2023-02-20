@@ -6,7 +6,7 @@ they are in the parsing stage. The emit stage cannot produce pretty errors as
 it does not have enough information. So, instead, it provides an error ID right
 after "emit", which may look like this::
 
-        error: emit[no-drop]: missing `fn drop(&File)`
+        error: emit[no-drop]: missing `fn drop(&file_t)`
 
 This is a list of all error IDs:
 

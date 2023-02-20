@@ -15,15 +15,15 @@ Routines for operating input/output streams.
 
 Types
 
-* ``type File``
+* ``type file_t``
 
 Functions
 
-* ``open(path: &str, mode: &str) -> File``
-* ``open(path: str, mode: str) -> File``
-* ``close(self: &File) -> null``
+* ``open(path: &str, mode: &str) -> file_t``
+* ``open(path: str, mode: str) -> file_t``
+* ``close(self: &file_t) -> null``
 
-* ``write(self: &File, buf: str) -> null``
+* ``write(self: &file_t, buf: str) -> null``
 * ``write_stream(stream: i32, buf: str) -> null``
 
 * ``print(i8) -> null``
@@ -79,7 +79,7 @@ std.builtin.stacktrace
 Used by the compiler to emit stack information in the prologues and epilogues
 of functions. These are not emitted if ``-Eno-stack`` is passed.
 
-* ``__cf_stackpush(func: &i8, file: &i8) -> null #nomangle``
+* ``__cf_stackpush(func: &i8, file_t: &i8) -> null #nomangle``
         Emitted at the start of a function.
 
 * ``__cf_stackpop() -> null #nomangle``

@@ -2,6 +2,7 @@
 #include <nxg/cc/parser.h>
 #include <nxg/cc/tokenize.h>
 #include <nxg/utils/error.h>
+#include <nxg/utils/utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,9 +25,8 @@ bool is_builtin_function(token *name)
 {
 	static const char *builtins[] = {"__builtin_decl",
 					 "__builtin_decl_mangled"};
-	static const int n = sizeof(builtins) / sizeof(*builtins);
 
-	for (int i = 0; i < n; i++) {
+	for (int i = 0; i < LEN(builtins); i++) {
 		if (!strncmp(builtins[i], name->value, name->len))
 			return true;
 	}
