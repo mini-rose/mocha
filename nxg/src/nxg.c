@@ -109,20 +109,14 @@ void parse_emit_opt(settings_t *settings, const char *option)
 		warning("unknown emit option `%s`", option);
 }
 
-void _at_exit(int c, void *settings)
-{
-	settings_destory(settings);
-}
-
 int main(int argc, char **argv)
 {
 	settings_t settings = {0};
 	int c, optindx = 0;
 
-	default_settings(&settings);
-	on_exit(_at_exit, &settings);
-
 	settings.jit = argc == 1;
+
+	default_settings(&settings);
 
 	static struct option longopts[] = {{"help", no_argument, 0, 0},
 					   {"version", no_argument, 0, 0},
