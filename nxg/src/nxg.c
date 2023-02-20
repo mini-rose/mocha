@@ -51,7 +51,8 @@ static inline void version()
 	exit(0);
 }
 
-void default_settings(settings_t *settings) {
+static inline void default_settings(settings_t *settings)
+{
 	settings->sysroot = strdup(NXG_ROOT);
 	settings->output = strdup(DEFAULT_OUT);
 	settings->global = false;
@@ -63,6 +64,15 @@ void default_settings(settings_t *settings) {
 	settings->emit_stacktrace = true;
 	settings->emit_varnames = false;
 	settings->opt = strdup("0");
+}
+
+static inline void settings_destory(settings_t *settings)
+{
+	free(settings->dyn_linker);
+	free(settings->output);
+	free(settings->input);
+	free(settings->sysroot);
+	free(settings->opt);
 }
 
 void parse_opt(settings_t *settings, const char *option, char *arg)
@@ -178,7 +188,7 @@ int main(int argc, char **argv)
 	if (optind >= argc) {
 		fprintf(stderr,
 			"\e[91merror\e[0m: missing source file argument\n");
-		return 1;
+		goto destroy;
 	}
 
 	if (settings.input == NULL)
@@ -190,10 +200,7 @@ int main(int argc, char **argv)
 
 	compile(&settings);
 
-	free(settings.dyn_linker);
-	free(settings.output);
-	free(settings.input);
-	free(settings.sysroot);
-	free(settings.opt);
+destroy:
+	settings_destory(&settings);
 	return 0;
 }

@@ -1,0 +1,8 @@
+# clang cache
+.cache/
+
+# c objects
+*.o
+
+# test directory
+test/

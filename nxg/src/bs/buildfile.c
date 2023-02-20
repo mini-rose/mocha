@@ -18,14 +18,17 @@ static inline char *skip_comment(char *p)
 static inline void push_to_settings(file_t *f, settings_t *settings, char *key,
 				    int key_len, char *val, int val_len)
 {
-	if (!strncmp("source", key, key_len))
+	if (!strncmp("source", key, key_len)) {
 		settings->input = strndup(val, val_len);
-	else if (!strncmp("output", key, key_len))
+	} else if (!strncmp("output", key, key_len)) {
+		free(settings->output);
 		settings->output = strndup(val, val_len);
-	else if (!strncmp("sysroot", key, key_len))
+	} else if (!strncmp("sysroot", key, key_len)) {
+		free(settings->sysroot);
 		settings->sysroot = strndup(val, val_len);
-	else
+	} else {
 		error_at(f, key, key_len, "invalid key: '%.*s'", key_len, key);
+	}
 }
 
 static inline void push_flag_to_settings(file_t *f, settings_t *settings,
@@ -34,24 +37,27 @@ static inline void push_flag_to_settings(file_t *f, settings_t *settings,
 {
 	printf("VALUE: '%.*s'\n", val_len, val);
 
-	if (!strncmp("-p", val, val_len))
+	if (!strncmp("-p", val, val_len)) {
 		settings->show_ast = true;
-	else if (!strncmp("-O", val, val_len - 1))
+	} else if (!strncmp("-O", val, val_len - 1)) {
+		free(settings->opt);
 		settings->opt = strndup(val + 2, 1);
-	else if (!strncmp("-L", val, 2))
-		settings->opt = strndup(val + 2, val_len - 2);
-	else if (!strncmp("-t", val, val_len))
+	} else if (!strncmp("-L", val, 2)) {
+		free(settings->dyn_linker);
+		settings->dyn_linker = strndup(val + 2, val_len - 2);
+	} else if (!strncmp("-t", val, val_len)) {
 		settings->show_tokens = true;
-	else if (!strncmp("-M", val, val_len))
+	} else if (!strncmp("-M", val, val_len)) {
 		settings->dyn_linker = strdup("/lib/ld-musl-x86_64.so.1");
-	else if (!strncmp("-V", val, val_len))
+	} else if (!strncmp("-V", val, val_len)) {
 		settings->verbose = true;
-	else if (!strncmp("-Eno-stack", val, val_len))
+	} else if (!strncmp("-Eno-stack", val, val_len)) {
 		settings->emit_stacktrace = false;
-	else if (!strncmp("-Ekeep-var-names", val, val_len))
+	} else if (!strncmp("-Ekeep-var-names", val, val_len)) {
 		settings->emit_varnames = true;
-	else
+	} else {
 		error_at(f, val, val_len, "invalid flag: '%.*s'", val_len, val);
+	}
 }
 
 static inline void parse_list(file_t *f, settings_t *settings, char *key,

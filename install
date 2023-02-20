@@ -1,0 +1,15 @@
+#!/bin/sh
+
+[ `basename $PWD` = coffee ] || {
+	echo "\033[32mERROR:\033[0m must be ran from coffee directory"
+	exit 1
+}
+
+mkdir -p /usr/lib/coffee
+cp -r lib /usr/lib/coffee
+
+cd nxg
+[ -d build ] || meson setup build
+meson compile -C build
+meson install -C build
+cd ..
