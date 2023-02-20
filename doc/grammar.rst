@@ -10,9 +10,12 @@ expressions. Syntax parsers can be built using this specification::
                ::= type-alias
                ::= builtin-call
 
-        use-expr ::= 'use' (use-block | use-path)
+        use-expr ::= 'use' use-block
+                 ::= 'use' use-path
+
         use-block ::= '{' (use-path)+ '}'
-        use-path ::= string | (symbol ('.' symbol)*)
+        use-path ::= string
+                 ::= symbol ('.' symbol)*
 
         function-decl ::= 'fn' symbol [function-params] ['->' type] '{' (statement)* '}'
         function-params ::= '(' [function-param (',' function-param)*] ')'
@@ -23,18 +26,19 @@ expressions. Syntax parsers can be built using this specification::
 
         type-alias ::= 'type' symbol '=' type
 
-        builtin-call ::= symbol '(' (rvalue | type) (',' (rvalue | type))* ')'
+        builtin-call ::= symbol '(' [(rvalue | type) (',' (rvalue | type))*] ')'
 
         type ::= ['&'] symbol ['[' number ']']
 
         statement ::= var-decl
                   ::= var-assign
+                  ::= builtin-call
                   ::= call
                   ::= ret
 
         var-decl ::= symbol ':' type ['=' rvalue]
         var-assign ::= lvalue '=' rvalue
-        call ::= symbol '(' rvalue (',' rvalue)* ')'
+        call ::= symbol '(' [rvalue (',' rvalue)*] ')'
         ret ::= 'ret' rvalue
 
         rvalue ::= literal
@@ -61,6 +65,6 @@ expressions. Syntax parsers can be built using this specification::
         literal ::= string
                 ::= number
 
-        symbol ::= /[A-z_][\w\d]*/
+        symbol ::= /[A-z_]\w*/
         string ::= /('[^']*'|"[^"]*")/
         number ::= /\d+(\.\d+)?/
