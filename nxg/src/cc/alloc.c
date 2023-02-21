@@ -240,14 +240,16 @@ void alloc_dump_stats()
 	int total = 0;
 	int total_ptrs = 0;
 
-	printf("alloc: Slab allocators in use:\n");
-	printf("alloc: %10s %10s %8s %6s %6s %6s %9s\n", "block-size",
+	printf("alloc: Slab allocators:\n");
+	printf("alloc:   slab size: %d (%d KB)\n", SLAB_SIZE, SLAB_SIZE / 1024);
+	printf("alloc:   allocators in use: %d\n", global_slabs.n_slabs);
+	printf("alloc:\nalloc: %10s %10s %8s %6s %6s %6s %9s\n", "block-size",
 	       "slabs-used", "blocks", "used", "pad", "avg", "total");
 
 	for (int i = 0; i < global_slabs.n_slabs; i++)
 		total += slab_dump(&global_slabs.slabs[i]);
 
-	printf("alloc:\nalloc: %53s: %d KB\n", "allocated", total);
+	printf("alloc:\nalloc: % 58d KB\n", total);
 
 	printf("alloc:\nalloc: Oversized allocations:\n");
 	printf("alloc: %d instance(s)\n", global_alloc.n_allocs);

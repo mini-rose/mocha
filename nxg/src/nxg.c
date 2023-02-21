@@ -25,6 +25,7 @@ static inline void full_help()
 	    "  -h, --help      show this page\n"
 	    "  -o <path>       output binary file name (default: " DEFAULT_OUT
 	    ")\n"
+	    "  -a, --alloc     dump allocation stats\n"
 	    "  -O <level>      optimization level, one of: 0 1 2 3 s\n"
 	    "  -p              show generated AST\n"
 	    "  -r, --root <path> coffee root path (default: " NXG_ROOT ")\n"
@@ -64,6 +65,7 @@ static inline void default_settings(settings_t *settings)
 	settings->verbose = false;
 	settings->emit_stacktrace = true;
 	settings->emit_varnames = false;
+	settings->dump_alloc = false;
 	settings->opt = slab_strdup("0");
 }
 
@@ -75,17 +77,17 @@ void parse_opt(settings_t *settings, const char *option, char *arg)
 	if (!strncmp(option, "version", 8))
 		version();
 
-	if (!strncmp(option, "musl", 4)) {
+	if (!strncmp(option, "musl", 4))
 		settings->dyn_linker = slab_strdup(LD_MUSL);
-	}
 
-	if (!strncmp(option, "ldd", 3)) {
+	if (!strncmp(option, "ldd", 3))
 		settings->dyn_linker = slab_strdup(arg);
-	}
 
-	if (!strncmp(option, "root", 4)) {
+	if (!strncmp(option, "root", 4))
 		settings->sysroot = slab_strdup(arg);
-	}
+
+	if (!strncmp(option, "alloc", 5))
+		settings->dump_alloc = true;
 }
 
 void parse_emit_opt(settings_t *settings, const char *option)
@@ -116,7 +118,7 @@ int main(int argc, char **argv)
 					   {"root", required_argument, 0, 0}};
 
 	while (1) {
-		c = getopt_long(argc, argv, "o:r:L:O:E:hvptMV", longopts,
+		c = getopt_long(argc, argv, "o:r:L:O:E:ahvptMV", longopts,
 				&optindx);
 
 		if (c == -1)
@@ -126,6 +128,9 @@ int main(int argc, char **argv)
 		case 0:
 			parse_opt(&settings, longopts[optindx].name,
 				  optarg);
+			break;
+		case 'a':
+			settings.dump_alloc = true;
 			break;
 		case 'o':
 			settings.output = slab_strdup(optarg);
@@ -190,6 +195,9 @@ int main(int argc, char **argv)
 	compile(&settings);
 
 destroy:
+	if (settings.dump_alloc)
+		alloc_dump_stats();
+
 	slab_deinit_global();
 	return 0;
 }

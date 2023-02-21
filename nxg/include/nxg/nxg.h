@@ -30,6 +30,7 @@ typedef struct
 	bool verbose;
 	bool emit_stacktrace;
 	bool emit_varnames;
+	bool dump_alloc;
 	char *opt;
 	char *output;
 	char *input;
