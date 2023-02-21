@@ -1,6 +1,7 @@
 /* parser/dump.c - dump expr trees
    Copyright (c) 2023 mini-rose */
 
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/parser.h>
 #include <nxg/utils/error.h>
 #include <nxg/utils/utils.h>
@@ -82,16 +83,15 @@ static const char *expr_info(expr_t *expr)
 
 		char *field;
 		if (var->to->member) {
-			field = calloc(512, 1);
+			field = slab_alloc(512);
 			snprintf(field, 512, ".%s", var->to->member);
 		} else {
-			field = strdup("");
+			field = slab_strdup("");
 		}
 
 		snprintf(info, 512, "%c%s%s = (\e[33m%s\e[0m) %s", marker,
 			 var->to->name, field, tmp,
 			 value_expr_type_name(var->value->type));
-		free(field);
 
 		break;
 	case E_RETURN:
@@ -108,7 +108,6 @@ static const char *expr_info(expr_t *expr)
 		info[0] = 0;
 	}
 
-	free(tmp);
 	return info;
 }
 
@@ -131,7 +130,6 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 		lit_str = stringify_literal(val->literal);
 		tmp = type_name(val->literal->type);
 		printf("literal: \e[33m%s\e[0m %s\n", tmp, lit_str);
-		free(lit_str);
 		break;
 	case VE_CALL:
 		printf("call: `%s` n_args=%d\n", val->call->name,
@@ -175,8 +173,6 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 		error("dump: cannot dump VE_%s value expr",
 		      value_expr_type_name(val->type));
 	}
-
-	free(tmp);
 }
 
 static void expr_print_mod_expr(mod_expr_t *mod, int level)
@@ -203,7 +199,6 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 		indent(level + 1);
 		tmp = fn_str_signature(mod->local_decls[i], true);
 		printf("%s\n", tmp);
-		free(tmp);
 	}
 
 	if (mod->n_decls) {
@@ -215,7 +210,6 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 		indent(level + 1);
 		tmp = fn_str_signature(mod->decls[i], true);
 		printf("%s\n", tmp);
-		free(tmp);
 	}
 
 	if (mod->n_type_decls) {
@@ -228,7 +222,6 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 		indent(level + 1);
 		tmp = type_name(mod->type_decls[i]);
 		printf("%s\n", tmp);
-		free(tmp);
 	}
 
 	if (mod->n_imported) {

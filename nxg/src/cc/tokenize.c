@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <memory.h>
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/keyword.h>
 #include <nxg/cc/tokenize.h>
 #include <nxg/cc/type.h>
@@ -11,39 +12,24 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void token_destroy(token *tok);
-
 void token_list_append(token_list *list, token *tok)
 {
-	list->tokens = realloc(list->tokens, ++list->length * sizeof(token));
+	list->tokens = realloc_ptr_array(list->tokens, ++list->length);
 	list->tokens[list->length - 1] = tok;
 }
 
 token_list *token_list_new()
 {
-	token_list *list = (token_list *) malloc(sizeof(token_list));
+	token_list *list = (token_list *) slab_alloc(sizeof(token_list));
 	list->tokens = NULL;
 	list->length = 0;
 	list->iter = 0;
 	return list;
 }
 
-void token_list_destroy(token_list *list)
-{
-	for (int i = 0; i < list->length; i++)
-		token_destroy(list->tokens[i]);
-	free(list->tokens);
-	free(list);
-}
-
-void token_destroy(token *tok)
-{
-	free(tok);
-}
-
 token *token_new(token_t type, const char *value, int len)
 {
-	token *tok = malloc(sizeof(token));
+	token *tok = slab_alloc(sizeof(token));
 	tok->type = type;
 	tok->value = value;
 	tok->len = len;
@@ -122,7 +108,7 @@ void token_list_print(token_list *list)
 static char *push_str(const char *start, const char *end)
 {
 	size_t size = end - start + 1;
-	char *buf = calloc(1, size);
+	char *buf = slab_alloc(size);
 	snprintf(buf, size, "%.*s", (int) (end - start), start);
 	return buf;
 }
@@ -262,7 +248,6 @@ token_list *tokens(file_t *source)
 				tok = token_new(last = T_IDENT, p, q - p);
 
 			token_list_append(list, tok);
-			free(str);
 			p += q - p;
 			continue;
 		}

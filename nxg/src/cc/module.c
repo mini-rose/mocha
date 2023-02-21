@@ -1,9 +1,9 @@
-#include "nxg/cc/type.h"
-
 #include <libgen.h>
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
 #include <nxg/cc/tokenize.h>
+#include <nxg/cc/type.h>
 #include <nxg/nxg.h>
 #include <nxg/utils/error.h>
 #include <nxg/utils/file.h>
@@ -14,16 +14,15 @@
 
 static void add_module_import(mod_expr_t *module, expr_t *ast)
 {
-	module->imported = realloc(module->imported,
-				   sizeof(expr_t *) * (module->n_imported + 1));
+	module->imported =
+	    realloc_ptr_array(module->imported, module->n_imported + 1);
 	module->imported[module->n_imported++] = ast;
 }
 
 static void add_module_c_object(mod_expr_t *module, char *object)
 {
-	module->c_objects->objects =
-	    realloc(module->c_objects->objects,
-		    sizeof(char *) * (module->c_objects->n + 1));
+	module->c_objects->objects = realloc_ptr_array(
+	    module->c_objects->objects, module->c_objects->n + 1);
 	module->c_objects->objects[module->c_objects->n++] = object;
 }
 
@@ -39,30 +38,27 @@ expr_t *module_import_impl(settings_t *settings, expr_t *module_expr,
 	file_t *fil;
 
 	if (module->source_name) {
-		working_dir = strdup(module->source_name);
+		working_dir = slab_strdup(module->source_name);
 		if (!strchr(working_dir, '/')) {
-			free(working_dir);
-			working_dir = strdup(".");
+			working_dir = slab_strdup(".");
 		} else {
 			dirname(working_dir);
 		}
 	} else {
-		working_dir = strdup(".");
+		working_dir = slab_strdup(".");
 	}
 
 	snprintf(pathbuf, 512, "%s.ff", file);
 
 	fil = file_new_null(pathbuf);
-	if (!fil) {
-		free(working_dir);
+	if (!fil)
 		return NULL;
-	}
 
 	parsed_tokens = tokens(fil);
 
 	modname = make_modname(pathbuf);
-	parsed = calloc(1, sizeof(*parsed));
-	parsed->data = calloc(1, sizeof(mod_expr_t));
+	parsed = slab_alloc(sizeof(*parsed));
+	parsed->data = slab_alloc(sizeof(mod_expr_t));
 
 	parsed = parse(module_expr, parsed, settings, parsed_tokens, modname);
 
@@ -74,11 +70,6 @@ expr_t *module_import_impl(settings_t *settings, expr_t *module_expr,
 		add_module_c_object(module,
 				    compile_c_object(settings, pathbuf));
 	}
-
-	free(modname);
-	free(working_dir);
-	file_destroy(fil);
-	token_list_destroy(parsed_tokens);
 
 	return parsed;
 }
@@ -95,8 +86,8 @@ expr_t *module_import(settings_t *settings, expr_t *module, char *file)
 
 expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 {
-	char *path = calloc(512, 1);
-	char *modname = strdup(file);
+	char *path = slab_alloc(512);
+	char *modname = slab_strdup(file);
 	mod_expr_t *mod;
 	expr_t *imported;
 	int n;
@@ -105,18 +96,14 @@ expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 		 *file == '/' ? "" : "/", file);
 	imported = module_import_impl(settings, module, path);
 
-	if (!imported) {
-		free(path);
-		free(modname);
+	if (!imported)
 		return NULL;
-	}
 
 	/* Add the module to the module's std. */
 	mod_expr_t *parent = module->data;
 
-	parent->std_modules->modules =
-	    realloc(parent->std_modules->modules,
-		    sizeof(expr_t *) * (parent->std_modules->n_modules + 1));
+	parent->std_modules->modules = realloc_ptr_array(
+	    parent->std_modules->modules, parent->std_modules->n_modules + 1);
 	parent->std_modules->modules[parent->std_modules->n_modules++] =
 	    imported;
 
@@ -127,9 +114,6 @@ expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 		if (modname[i] == '/')
 			modname[i] = '.';
 	}
-
-	free(mod->name);
-	free(path);
 
 	mod->name = modname;
 	mod->origin = MO_STD;
@@ -142,9 +126,8 @@ fn_expr_t *module_add_decl(expr_t *module)
 	mod_expr_t *mod = module->data;
 	fn_expr_t *decl;
 
-	mod->decls =
-	    realloc(mod->decls, sizeof(fn_expr_t *) * (mod->n_decls + 1));
-	mod->decls[mod->n_decls++] = decl = calloc(1, sizeof(fn_expr_t));
+	mod->decls = realloc_ptr_array(mod->decls, mod->n_decls + 1);
+	mod->decls[mod->n_decls++] = decl = slab_alloc(sizeof(fn_expr_t));
 
 	decl->module = module;
 
@@ -156,10 +139,10 @@ fn_expr_t *module_add_local_decl(expr_t *module)
 	mod_expr_t *mod = module->data;
 	fn_expr_t *decl;
 
-	mod->local_decls = realloc(
-	    mod->local_decls, sizeof(fn_expr_t *) * (mod->n_local_decls + 1));
+	mod->local_decls =
+	    realloc_ptr_array(mod->local_decls, mod->n_local_decls + 1);
 	mod->local_decls[mod->n_local_decls++] = decl =
-	    calloc(1, sizeof(fn_expr_t));
+	    slab_alloc(sizeof(fn_expr_t));
 
 	decl->module = module;
 
@@ -170,8 +153,8 @@ type_t *module_add_type_decl(expr_t *module)
 {
 	mod_expr_t *mod = module->data;
 
-	mod->type_decls = realloc(mod->type_decls,
-				  sizeof(type_t *) * (mod->n_type_decls + 1));
+	mod->type_decls =
+	    realloc_ptr_array(mod->type_decls, mod->n_type_decls + 1);
 	mod->type_decls[mod->n_type_decls] = type_new();
 	return mod->type_decls[mod->n_type_decls++];
 }
@@ -185,8 +168,7 @@ void add_candidate(fn_candidates_t *resolved, fn_expr_t *ptr)
 	}
 
 	resolved->candidate =
-	    realloc(resolved->candidate,
-		    sizeof(fn_expr_t *) * (resolved->n_candidates + 1));
+	    realloc_ptr_array(resolved->candidate, resolved->n_candidates + 1);
 	resolved->candidate[resolved->n_candidates++] = ptr;
 }
 
@@ -198,7 +180,7 @@ fn_candidates_t *module_find_fn_candidates_impl(expr_t *module, char *name,
 	fn_expr_t *fn;
 	expr_t *walker;
 
-	resolved = calloc(1, sizeof(*resolved));
+	resolved = slab_alloc(sizeof(*resolved));
 
 	if (depth > 1)
 		return resolved;
@@ -242,9 +224,6 @@ check_decls:
 
 		for (int j = 0; j < imported->n_candidates; j++)
 			add_candidate(resolved, imported->candidate[j]);
-
-		free(imported->candidate);
-		free(imported);
 	}
 
 	if (mod->std_modules) {
@@ -266,9 +245,6 @@ check_decls:
 
 			for (int j = 0; j < imported->n_candidates; j++)
 				add_candidate(resolved, imported->candidate[j]);
-
-			free(imported->candidate);
-			free(imported);
 		}
 	}
 

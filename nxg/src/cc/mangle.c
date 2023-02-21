@@ -1,6 +1,7 @@
 /* nxg/mangle.c
    Copyright (c) 2023 mini-rose */
 
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/mangle.h>
 #include <nxg/utils/error.h>
 #include <stdio.h>
@@ -29,7 +30,7 @@ char *mangled_type_str(type_t *ty, char *buf)
 	int offt;
 
 	if (!buf)
-		buf = calloc(512, 1);
+		buf = slab_alloc(512);
 
 	if (ty->kind == TY_PLAIN) {
 		buf[0] = mangled_type_char(ty->v_plain);
@@ -53,7 +54,7 @@ char *mangled_type_str(type_t *ty, char *buf)
 
 char *nxg_mangle(const fn_expr_t *func)
 {
-	char *name = calloc(512, 1);
+	char *name = slab_alloc(512);
 
 	snprintf(name, 512, "_C%d%s", (int) strlen(func->name), func->name);
 

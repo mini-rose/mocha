@@ -2,6 +2,7 @@
    Copyright (c) 2023 mini-rose */
 
 #include <libgen.h>
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/emit.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
@@ -26,15 +27,14 @@ char *make_modname(char *file)
 {
 	char *start, *modname;
 
-	file = strdup(file);
+	file = slab_strdup(file);
 	if (!(start = strrchr(file, '/')))
 		start = file;
 	else
 		start++;
 
 	remove_extension(file);
-	modname = strdup(start);
-	free(file);
+	modname = slab_strdup(start);
 
 	return modname;
 }
@@ -46,7 +46,7 @@ static void build_and_link(settings_t *settings, const char *input_,
 	char *input;
 	FILE *proc;
 
-	input = strdup(input_);
+	input = slab_strdup(input_);
 	remove_extension(input);
 
 	/* mod.ll -> mod.bc */
@@ -99,12 +99,11 @@ static void build_and_link(settings_t *settings, const char *input_,
 	}
 
 	pclose(proc);
-	free(input);
 }
 
 char *compile_c_object(settings_t *settings, char *file)
 {
-	char *output = calloc(512, 1);
+	char *output = slab_alloc(512);
 	char cmd[512];
 	int len;
 
@@ -153,10 +152,10 @@ void compile(settings_t *settings)
 	module_name = make_modname(settings->input);
 
 	/* Initialize the top-level module */
-	ast = calloc(1, sizeof(*ast));
-	ast->data = calloc(1, sizeof(mod_expr_t));
-	E_AS_MOD(ast->data)->c_objects = calloc(1, sizeof(c_objects_t));
-	E_AS_MOD(ast->data)->std_modules = calloc(1, sizeof(std_modules_t));
+	ast = slab_alloc(sizeof(*ast));
+	ast->data = slab_alloc(sizeof(mod_expr_t));
+	E_AS_MOD(ast->data)->c_objects = slab_alloc(sizeof(c_objects_t));
+	E_AS_MOD(ast->data)->std_modules = slab_alloc(sizeof(std_modules_t));
 
 	import_builtins(settings, ast);
 
@@ -170,22 +169,4 @@ void compile(settings_t *settings)
 
 	build_and_link(settings, module_path, settings->output,
 		       E_AS_MOD(ast->data)->c_objects);
-
-	/* Free everything */
-	mod_expr_t *main = ast->data;
-
-	for (int i = 0; i < main->c_objects->n; i++)
-		free(main->c_objects->objects[i]);
-
-	for (int i = 0; i < main->std_modules->n_modules; i++)
-		expr_destroy(main->std_modules->modules[i]);
-
-	free(main->c_objects->objects);
-	free(main->c_objects);
-	free(main->std_modules->modules);
-	free(main->std_modules);
-	expr_destroy(ast);
-	file_destroy(source);
-	token_list_destroy(list);
-	free(module_name);
 }

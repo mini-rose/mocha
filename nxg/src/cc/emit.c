@@ -1,6 +1,7 @@
 #include <llvm-c/Analysis.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/Types.h>
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/emit.h>
 #include <nxg/cc/mangle.h>
 #include <nxg/cc/module.h>
@@ -32,35 +33,19 @@ void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node);
 static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
 				 char *name)
 {
-	context->locals = realloc(
-	    context->locals, sizeof(LLVMValueRef) * (context->n_locals + 1));
-	context->local_names = realloc(
-	    context->local_names, sizeof(char *) * (context->n_locals + 1));
+	context->locals =
+	    realloc_ptr_array(context->locals, context->n_locals + 1);
+	context->local_names =
+	    realloc_ptr_array(context->local_names, context->n_locals + 1);
 
 	context->locals[context->n_locals] = ref;
-	context->local_names[context->n_locals++] = strdup(name);
-}
-
-static void fn_context_destroy(fn_context_t *context)
-{
-	for (int i = 0; i < context->n_auto_drops; i++) {
-		type_destroy(context->auto_drops[i]->type);
-		free(context->auto_drops[i]);
-	}
-
-	for (int i = 0; i < context->n_locals; i++)
-		free(context->local_names[i]);
-
-	free(context->locals);
-	free(context->local_names);
-	free(context->auto_drops);
+	context->local_names[context->n_locals++] = slab_strdup(name);
 }
 
 static void fn_add_auto_drop(fn_context_t *context, auto_drop_rule_t *rule)
 {
 	context->auto_drops =
-	    realloc(context->auto_drops,
-		    sizeof(auto_drop_rule_t *) * (context->n_auto_drops + 1));
+	    realloc_ptr_array(context->auto_drops, context->n_auto_drops + 1);
 	context->auto_drops[context->n_auto_drops++] = rule;
 }
 
@@ -127,18 +112,18 @@ LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty)
 
 LLVMTypeRef gen_function_type(LLVMModuleRef mod, fn_expr_t *func)
 {
-	LLVMTypeRef *param_types;
+	LLVMTypeRef *param_types = NULL;
 	LLVMTypeRef func_type;
 
-	param_types = calloc(func->n_params, sizeof(LLVMTypeRef));
+	if (func->n_params) {
+		param_types = slab_alloc(func->n_params * sizeof(LLVMTypeRef));
 
-	for (int i = 0; i < func->n_params; i++)
-		param_types[i] = gen_type(mod, func->params[i]->type);
+		for (int i = 0; i < func->n_params; i++)
+			param_types[i] = gen_type(mod, func->params[i]->type);
+	}
 
 	func_type = LLVMFunctionType(gen_type(mod, func->return_type),
 				     param_types, func->n_params, 0);
-	free(param_types);
-
 	return func_type;
 }
 
@@ -161,14 +146,13 @@ static LLVMValueRef gen_local_value(LLVMBuilderRef builder,
 
 		char *alloca_name;
 		if (context->settings->emit_varnames) {
-			alloca_name = calloc(128, 1);
+			alloca_name = slab_alloc(128);
 			snprintf(alloca_name, 128, "copy.%s", name);
 		} else {
-			alloca_name = strdup("");
+			alloca_name = slab_strdup("");
 		}
 
 		tmp = LLVMBuildAlloca(builder, o_type, alloca_name);
-		free(alloca_name);
 
 		LLVMBuildStore(
 		    builder,
@@ -221,7 +205,6 @@ static LLVMValueRef gen_member_value(LLVMBuilderRef builder,
 
 	ret = LLVMBuildLoad2(builder, member_type, ptr, "");
 
-	type_destroy(field_type);
 	return ret;
 }
 
@@ -391,9 +374,6 @@ void emit_function_decl(LLVMModuleRef mod, mod_expr_t *module, fn_expr_t *fn,
 	ident = fn->flags & FN_NOMANGLE ? fn->name : nxg_mangle(fn);
 	f = LLVMAddFunction(mod, ident, gen_function_type(mod, fn));
 	LLVMSetLinkage(f, linkage);
-
-	if (!(fn->flags & FN_NOMANGLE))
-		free(ident);
 }
 
 static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
@@ -443,10 +423,6 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 
 	LLVMBuildCall2(builder, gen_function_type(context->llvm_mod, match),
 		       func, args, 2, "");
-
-	free(results->candidate);
-	free(results);
-	free(symbol);
 }
 
 static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
@@ -490,10 +466,6 @@ static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 
 	LLVMBuildCall2(builder, gen_function_type(context->llvm_mod, match),
 		       func, &rule->value, 1, "");
-
-	free(results->candidate);
-	free(results);
-	free(symbol);
 }
 
 void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
@@ -525,7 +497,6 @@ static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
 	LLVMValueRef obj;
 	var_decl_expr_t *local;
 	type_t *local_type;
-	type_t *field_type;
 
 	if (node->type != VE_MREF && node->type != VE_MPTR)
 		error("emit: trying to getelementptr into non-object ref");
@@ -538,8 +509,6 @@ static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
 	if (local_type->kind != TY_OBJECT)
 		error("emit: non-object type for MREF");
 
-	field_type = type_object_field_type(local_type->v_object, node->member);
-
 	indices[0] = LLVMConstInt(LLVMInt32Type(), 0, false);
 	indices[1] = LLVMConstInt(
 	    LLVMInt32Type(),
@@ -548,8 +517,6 @@ static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
 	obj = fn_find_local(context, node->name);
 	ptr = LLVMBuildGEP2(builder, gen_type(context->llvm_mod, local_type),
 			    obj, indices, 2, "");
-
-	type_destroy(field_type);
 
 	return ptr;
 }
@@ -588,7 +555,6 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		}
 
 		to = ptr;
-		type_destroy(ptr_type);
 
 	} else if (data->to->type == VE_REF) {
 
@@ -639,7 +605,7 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 	char *name;
 	int n_args;
 
-	args = calloc(call->n_args, sizeof(LLVMValueRef));
+	args = slab_alloc(call->n_args * sizeof(LLVMValueRef));
 	n_args = call->n_args;
 
 	for (int i = 0; i < n_args; i++)
@@ -657,11 +623,6 @@ static LLVMValueRef emit_call_node(LLVMBuilderRef builder,
 			     gen_function_type(context->llvm_mod, call->func),
 			     func, args, n_args, "");
 
-	free(args);
-
-	if (!(call->func->flags & FN_NOMANGLE))
-		free(name);
-
 	return ret;
 }
 
@@ -674,7 +635,7 @@ static LLVMValueRef gen_zero_value_for(LLVMBuilderRef builder,
 		object_type_t *o = ty->v_object;
 		LLVMValueRef object;
 		LLVMValueRef *init_values =
-		    calloc(o->n_fields, sizeof(LLVMValueRef));
+		    slab_alloc(o->n_fields * sizeof(LLVMValueRef));
 
 		for (int i = 0; i < o->n_fields; i++) {
 			init_values[i] =
@@ -682,7 +643,6 @@ static LLVMValueRef gen_zero_value_for(LLVMBuilderRef builder,
 		}
 
 		object = LLVMConstStruct(init_values, o->n_fields, false);
-		free(init_values);
 		return object;
 	} else if (ty->kind == TY_POINTER) {
 		return LLVMConstPointerNull(gen_type(mod, ty));
@@ -699,15 +659,13 @@ void emit_var_decl(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 	char *varname;
 
 	decl = node->data;
-	varname = calloc(strlen(decl->name) + 7, 1);
+	varname = slab_alloc(strlen(decl->name) + 7);
 	strcpy(varname, "local.");
 	strcat(varname, decl->name);
 
 	alloca =
 	    LLVMBuildAlloca(builder, gen_type(context->llvm_mod, decl->type),
 			    context->settings->emit_varnames ? varname : "");
-
-	free(varname);
 
 	/* If it's an object, zero-initialize it & add any automatic drops. */
 	if (decl->type->kind == TY_OBJECT) {
@@ -716,7 +674,7 @@ void emit_var_decl(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 		    gen_zero_value_for(builder, context->llvm_mod, decl->type),
 		    alloca);
 
-		auto_drop_rule_t *drop = calloc(1, sizeof(*drop));
+		auto_drop_rule_t *drop = slab_alloc(sizeof(*drop));
 		drop->type = type_copy(decl->type);
 		drop->value = alloca;
 
@@ -864,7 +822,7 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 			arg = LLVMGetParam(func, i);
 		} else {
 			char *varname =
-			    calloc(strlen(data->params[i]->name) + 7, 1);
+			    slab_alloc(strlen(data->params[i]->name) + 7);
 			strcpy(varname, "local.");
 			strcat(varname, data->params[i]->name);
 
@@ -872,15 +830,13 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 			    builder, gen_type(mod, data->params[i]->type),
 			    settings->emit_varnames ? varname : "");
 			LLVMBuildStore(builder, LLVMGetParam(func, i), arg);
-
-			free(varname);
 		}
 
 		fn_context_add_local(&context, arg, data->params[i]->name);
 
 		/* If a parameter is a copied object, drop it. */
 		if (data->params[i]->type->kind == TY_OBJECT) {
-			auto_drop_rule_t *drop = calloc(1, sizeof(*drop));
+			auto_drop_rule_t *drop = slab_alloc(sizeof(*drop));
 
 			drop->value = arg;
 			drop->type = type_copy(data->params[i]->type);
@@ -946,8 +902,6 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 #endif
 
 	LLVMDisposeBuilder(builder);
-	fn_context_destroy(&context);
-	free(name);
 }
 
 void emit_main_function(LLVMModuleRef mod)
@@ -1008,7 +962,8 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 
 		object_type_t *o = mod_data->type_decls[i]->v_object;
 		LLVMTypeRef o_type;
-		LLVMTypeRef *fields = calloc(o->n_fields, sizeof(LLVMTypeRef));
+		LLVMTypeRef *fields =
+		    slab_alloc(o->n_fields * sizeof(LLVMTypeRef));
 
 		o_type =
 		    LLVMStructCreateNamed(LLVMGetModuleContext(mod), o->name);
@@ -1017,8 +972,6 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 			fields[j] = gen_type(mod, o->fields[j]);
 
 		LLVMStructSetBody(o_type, fields, o->n_fields, false);
-
-		free(fields);
 	}
 
 	/* For emitting functions we need to make 2 passes. The first time we

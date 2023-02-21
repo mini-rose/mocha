@@ -1,3 +1,4 @@
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/type.h>
 #include <nxg/utils/error.h>
 #include <nxg/utils/utils.h>
@@ -47,7 +48,7 @@ type_t *type_from_string(const char *str)
 {
 	type_t *ty;
 
-	ty = calloc(1, sizeof(*ty));
+	ty = slab_alloc(sizeof(*ty));
 
 	for (size_t i = 0; i < LEN(plain_types); i++) {
 		if (strcmp(plain_types[i], str))
@@ -73,15 +74,14 @@ type_t *type_from_string(const char *str)
 
 type_t *type_from_sized_string(const char *str, int len)
 {
-	char *ty_str = strndup(str, len);
+	char *ty_str = slab_strndup(str, len);
 	type_t *ty = type_from_string(ty_str);
-	free(ty_str);
 	return ty;
 }
 
 type_t *type_new()
 {
-	return calloc(1, sizeof(type_t));
+	return slab_alloc(sizeof(type_t));
 }
 
 type_t *type_new_null()
@@ -106,21 +106,21 @@ type_t *type_build_str()
 	object_type_t *o;
 
 	ty->kind = TY_OBJECT;
-	ty->v_object = calloc(1, sizeof(*ty->v_object));
+	ty->v_object = slab_alloc(sizeof(*ty->v_object));
 	o = ty->v_object;
 
 	/*
 	 * obj { len: i64, ptr: &i8, flags: i32 }
 	 */
 
-	o->name = strdup("str");
+	o->name = slab_strdup("str");
 	o->n_fields = 3;
-	o->field_names = calloc(3, sizeof(char *));
-	o->fields = calloc(3, sizeof(type_t *));
+	o->field_names = slab_alloc(3 * sizeof(char *));
+	o->fields = slab_alloc(3 * sizeof(type_t *));
 
-	o->field_names[0] = strdup("len");
-	o->field_names[1] = strdup("ptr");
-	o->field_names[2] = strdup("flags");
+	o->field_names[0] = slab_strdup("len");
+	o->field_names[1] = slab_strdup("ptr");
+	o->field_names[2] = slab_strdup("flags");
 
 	i8 = type_new_plain(PT_I8);
 
@@ -128,15 +128,12 @@ type_t *type_build_str()
 	o->fields[1] = type_pointer_of(i8);
 	o->fields[2] = type_new_plain(PT_I32);
 
-	type_destroy(i8);
-
 	return ty;
 }
 
 void object_type_add_field(object_type_t *obj, type_t *ty)
 {
-	obj->fields =
-	    realloc(obj->fields, sizeof(type_t *) * (obj->n_fields + 1));
+	obj->fields = realloc_ptr_array(obj->fields, obj->n_fields + 1);
 	obj->fields[obj->n_fields++] = ty;
 }
 
@@ -144,16 +141,16 @@ static object_type_t *object_type_copy(object_type_t *ty)
 {
 	object_type_t *new;
 
-	new = calloc(1, sizeof(*new));
-	new->fields = calloc(3, sizeof(type_t *));
-	new->field_names = calloc(3, sizeof(char *));
-	new->name = strdup(ty->name);
+	new = slab_alloc(sizeof(*new));
+	new->fields = slab_alloc(ty->n_fields * sizeof(type_t *));
+	new->field_names = slab_alloc(ty->n_fields * sizeof(char *));
+	new->name = slab_strdup(ty->name);
 
 	new->n_fields = ty->n_fields;
 
 	for (int i = 0; i < new->n_fields; i++) {
 		new->fields[i] = type_copy(ty->fields[i]);
-		new->field_names[i] = strdup(ty->field_names[i]);
+		new->field_names[i] = slab_strdup(ty->field_names[i]);
 	}
 
 	return new;
@@ -163,7 +160,7 @@ type_t *type_copy(type_t *ty)
 {
 	type_t *new_ty;
 
-	new_ty = calloc(1, sizeof(*new_ty));
+	new_ty = slab_alloc(sizeof(*new_ty));
 
 	new_ty->kind = ty->kind;
 	new_ty->len = ty->len;
@@ -248,7 +245,7 @@ bool type_cmp(type_t *left, type_t *right)
 
 char *type_name(type_t *ty)
 {
-	char *name = calloc(512, 1);
+	char *name = slab_alloc(512);
 	char *tmp;
 
 	if (!ty || ty->kind == TY_NULL) {
@@ -261,11 +258,9 @@ char *type_name(type_t *ty)
 	} else if (ty->kind == TY_POINTER) {
 		tmp = type_name(ty->v_base);
 		snprintf(name, 512, "&%s", tmp);
-		free(tmp);
 	} else if (ty->kind == TY_ARRAY) {
 		tmp = type_name(ty->v_base);
 		snprintf(name, 512, "%s[%zu]", tmp, ty->len);
-		free(tmp);
 	} else if (is_str_type(ty)) {
 		snprintf(name, 512, "str");
 	} else if (ty->kind == TY_OBJECT) {
@@ -273,46 +268,11 @@ char *type_name(type_t *ty)
 	} else if (ty->kind == TY_ALIAS) {
 		tmp = type_name(ty->v_base);
 		snprintf(name, 512, "alias[%s = %s]", ty->alias, tmp);
-		free(tmp);
 	} else {
 		snprintf(name, 512, "<type>");
 	}
 
 	return name;
-}
-
-void type_destroy(type_t *ty)
-{
-	if (!ty)
-		return;
-
-	if (ty->kind == TY_NULL || ty->kind == TY_PLAIN) {
-		/* do nothing */
-	} else if (ty->kind == TY_POINTER || ty->kind == TY_ARRAY) {
-		type_destroy(ty->v_base);
-	} else if (ty->kind == TY_OBJECT) {
-		type_object_destroy(ty->v_object);
-	} else if (ty->kind == TY_ALIAS) {
-		free(ty->alias);
-		type_destroy(ty->v_base);
-	} else {
-		error("type: cannot destroy type %s", type_name(ty));
-	}
-
-	free(ty);
-}
-
-void type_object_destroy(object_type_t *obj)
-{
-	for (int i = 0; i < obj->n_fields; i++) {
-		type_destroy(obj->fields[i]);
-		free(obj->field_names[i]);
-	}
-
-	free(obj->fields);
-	free(obj->field_names);
-	free(obj->name);
-	free(obj);
 }
 
 const char *type_example_varname(type_t *ty)
@@ -330,12 +290,11 @@ const char *type_example_varname(type_t *ty)
 
 void type_object_add_field(object_type_t *o, char *name, type_t *ty)
 {
-	o->fields = realloc(o->fields, sizeof(type_t *) * (o->n_fields + 1));
-	o->field_names =
-	    realloc(o->field_names, sizeof(char *) * (o->n_fields + 1));
+	o->fields = realloc_ptr_array(o->fields, o->n_fields + 1);
+	o->field_names = realloc_ptr_array(o->field_names, o->n_fields + 1);
 
 	o->fields[o->n_fields] = type_copy(ty);
-	o->field_names[o->n_fields++] = strdup(name);
+	o->field_names[o->n_fields++] = slab_strdup(name);
 }
 
 type_t *type_object_field_type(object_type_t *o, char *name)

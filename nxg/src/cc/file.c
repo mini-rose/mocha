@@ -1,3 +1,4 @@
+#include <nxg/cc/alloc.h>
 #include <nxg/utils/error.h>
 #include <nxg/utils/file.h>
 #include <stdio.h>
@@ -11,11 +12,10 @@ file_t *file_new_null(const char *path)
 	file_t *self;
 	FILE *input;
 
-	if ((self = (file_t *) malloc(sizeof(file_t))) == NULL)
+	if ((self = (file_t *) slab_alloc(sizeof(file_t))) == NULL)
 		error("Cannot allocate memory.");
 
 	if ((input = fopen(path, "r")) == NULL) {
-		free(self);
 		return NULL;
 	}
 
@@ -23,7 +23,7 @@ file_t *file_new_null(const char *path)
 	size = ftell(input);
 	rewind(input);
 
-	buf = calloc(1, size + 1);
+	buf = slab_alloc(size + 1);
 
 	if (buf == NULL) {
 		fclose(input);
@@ -34,7 +34,7 @@ file_t *file_new_null(const char *path)
 
 	fclose(input);
 
-	self->path = calloc(1, strlen(path) * sizeof(char) + 1);
+	self->path = slab_alloc(strlen(path) * sizeof(char) + 1);
 	strcpy(self->path, path);
 	self->content = buf;
 
@@ -55,12 +55,16 @@ file_t *file_stdin()
 	char buf[256];
 	int n, amount;
 
-	if ((self = (file_t *) malloc(sizeof(file_t))) == NULL)
-		error("failed to malloc mem for file");
+	if ((self = (file_t *) slab_alloc(sizeof(file_t))) == NULL)
+		error("failed to slab_alloc mem for file");
 
 	self->path = NULL;
 	self->content = NULL;
 	amount = 0;
+
+	/* Keep using regular realloc() here, as we don't allocate an array but
+	   a contiguous memory block. After collecting everything move it into
+	   a controlled slab alloc. */
 
 	while ((fgets(buf, 256, stdin))) {
 		n = strlen(buf);
@@ -70,15 +74,13 @@ file_t *file_stdin()
 		amount += n;
 	}
 
-	self->content = realloc(self->content, (amount + 1) * sizeof(char));
+	char *old_content = self->content;
+
+	self->content = slab_alloc(amount + 1);
+	memcpy(self->content, old_content, amount);
 	self->content[amount] = 0;
 
-	return self;
-}
+	free(old_content);
 
-void file_destroy(file_t *f)
-{
-	free(f->path);
-	free(f->content);
-	free(f);
+	return self;
 }

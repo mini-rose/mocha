@@ -1,3 +1,4 @@
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
 #include <nxg/cc/tokenize.h>
@@ -9,14 +10,13 @@
 
 static void call_push_arg(call_expr_t *call, value_expr_t *node)
 {
-	call->args =
-	    realloc(call->args, sizeof(value_expr_t *) * (call->n_args + 1));
+	call->args = realloc_ptr_array(call->args, call->n_args + 1);
 	call->args[call->n_args++] = node;
 }
 
 static value_expr_t *call_add_arg(call_expr_t *call)
 {
-	value_expr_t *node = calloc(1, sizeof(*node));
+	value_expr_t *node = slab_alloc(sizeof(*node));
 	call_push_arg(call, node);
 	return node;
 }
@@ -42,7 +42,6 @@ static void collect_builtin_decl_arguments(fn_expr_t *decl, token_list *tokens)
 	while ((arg = next_tok(tokens))->type != T_NEWLINE) {
 		type_t *ty = parse_type(decl->module, tokens, arg);
 		fn_add_param(decl, "_", 1, ty);
-		type_destroy(ty);
 
 		arg = next_tok(tokens);
 		if (arg->type == T_RPAREN)
@@ -66,7 +65,7 @@ typedef struct
 static void add_arg_token(arg_tokens_t *tokens, token *tok)
 {
 	tokens->tokens =
-	    realloc(tokens->tokens, sizeof(token *) * (tokens->n_tokens + 1));
+	    realloc_ptr_array(tokens->tokens, tokens->n_tokens + 1);
 	tokens->tokens[tokens->n_tokens++] = tok;
 }
 
@@ -98,7 +97,7 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 				 "string with the function name");
 		}
 
-		decl->name = strndup(arg->value, arg->len);
+		decl->name = slab_strndup(arg->value, arg->len);
 
 		arg = next_tok(tokens);
 		if (arg->type != T_COMMA) {
@@ -151,7 +150,7 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	if (is_builtin_function(tok))
 		return parse_builtin_call(parent, mod, tokens, tok);
 
-	data->name = strndup(tok->value, tok->len);
+	data->name = slab_strndup(tok->value, tok->len);
 	fn_name_tok = tok;
 
 	tok = next_tok(tokens);
@@ -165,14 +164,14 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			add_arg_token(&arg_tokens, tok);
 
 			arg->type = VE_CALL;
-			arg->call = calloc(1, sizeof(*arg->call));
+			arg->call = slab_alloc(sizeof(*arg->call));
 			parse_inline_call(parent, mod, arg->call, tokens, tok);
 
 			arg->return_type =
 			    type_copy(arg->call->func->return_type);
 
 		} else if (is_single_value(tokens, tok)) {
-			arg = calloc(1, sizeof(*arg));
+			arg = slab_alloc(sizeof(*arg));
 			add_arg_token(&arg_tokens, tok);
 			arg = parse_value_expr(parent, mod, arg, tokens, tok);
 			call_push_arg(data, arg);
@@ -253,8 +252,6 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		/* We found a match! */
 		data->func = match;
 
-		free(resolved->candidate);
-		free(resolved);
 		goto end;
 	}
 
@@ -265,7 +262,6 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 	for (int i = 0; i < resolved->n_candidates; i++) {
 		char *sig = fn_str_signature(resolved->candidate[i], true);
 		fprintf(stderr, "  %s\n", sig);
-		free(sig);
 	}
 
 	int max_params, min_params;
@@ -292,7 +288,7 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			char *fix;
 
 			if (data->args[j]->type == VE_REF) {
-				fix = calloc(64, 1);
+				fix = slab_alloc(64);
 				snprintf(fix, 64, "&%.*s",
 					 arg_tokens.tokens[j]->len,
 					 arg_tokens.tokens[j]->value);
@@ -311,7 +307,7 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 				continue;
 			}
 
-			fix = calloc(64, 1);
+			fix = slab_alloc(64);
 			snprintf(fix, 64, "&%.*s", arg_tokens.tokens[j]->len,
 				 arg_tokens.tokens[j]->value);
 
@@ -339,7 +335,6 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		 "could not find a matching overload%s", more_info);
 
 end:
-	free(arg_tokens.tokens);
 	return ERR_OK;
 }
 
@@ -351,16 +346,14 @@ void parse_call(expr_t *parent, expr_t *mod, token_list *tokens, token *tok)
 	expr_t *node;
 	call_expr_t *data;
 
-	data = calloc(1, sizeof(*data));
+	data = slab_alloc(sizeof(*data));
 
 	node = expr_add_child(parent);
 	node->type = E_CALL;
 	node->data = data;
-	node->data_free = (expr_free_handle) call_expr_free;
 
 	if (parse_inline_call(parent, mod, data, tokens, tok)
 	    == ERR_WAS_BUILTIN) {
-		free(data);
 		memset(node, 0, sizeof(*node));
 		node->type = E_SKIP;
 	}

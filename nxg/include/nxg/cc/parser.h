@@ -20,7 +20,6 @@ typedef enum
 	E_BLOCK, /* just a {} block */
 } expr_type;
 
-typedef void (*expr_free_handle)(void *expr);
 typedef struct expr expr_t;
 typedef struct fn_expr fn_expr_t;
 typedef struct literal_expr literal_expr_t;
@@ -32,7 +31,6 @@ struct expr
 	expr_type type;
 	expr_t *next;
 	expr_t *child;
-	expr_free_handle data_free;
 	void *data;
 };
 
@@ -192,7 +190,6 @@ struct literal_expr
 
 expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 	      token_list *list, const char *module_id);
-void expr_destroy(expr_t *expr);
 void expr_print(expr_t *expr);
 const char *expr_typename(expr_type type);
 
@@ -208,15 +205,6 @@ bool node_has_named_local(expr_t *node, const char *name, int len);
 bool fn_sigcmp(fn_expr_t *first, fn_expr_t *other);
 void fn_add_param(fn_expr_t *fn, const char *name, int len, type_t *type);
 char *fn_str_signature(fn_expr_t *func, bool with_colors);
-
-void mod_expr_free(mod_expr_t *module);
-void fn_expr_free(fn_expr_t *fn);
-void value_expr_free(value_expr_t *value);
-void call_expr_free(call_expr_t *call);
-void assign_expr_free(assign_expr_t *assign);
-void var_decl_expr_free(var_decl_expr_t *variable);
-void condition_expr_free(condition_expr_t *value);
-void block_expr_free(block_expr_t *value);
 
 token *index_tok(token_list *list, int index);
 token *next_tok(token_list *list);

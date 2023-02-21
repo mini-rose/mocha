@@ -63,8 +63,5 @@ const char *tokname(token_t toktype);
 /* Tokenize file */
 token_list *tokens(file_t *source);
 
-/* Token list free */
-void token_list_destroy(token_list *tok);
-
 /* Prints token list */
 void token_list_print(token_list *list);

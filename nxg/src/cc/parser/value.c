@@ -1,8 +1,8 @@
-#include "nxg/cc/tokenize.h"
-#include "nxg/utils/error.h"
-
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/parser.h>
+#include <nxg/cc/tokenize.h>
 #include <nxg/cc/type.h>
+#include <nxg/utils/error.h>
 #include <nxg/utils/utils.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,7 +17,7 @@ static void parse_reference(value_expr_t *node, expr_t *context,
 	}
 
 	node->type = VE_REF;
-	node->name = strndup(tok->value, tok->len);
+	node->name = slab_strndup(tok->value, tok->len);
 
 	var_decl_expr_t *var =
 	    node_resolve_local(context, tok->value, tok->len);
@@ -44,7 +44,7 @@ static void parse_member(value_expr_t *node, expr_t *context,
 	tok = next_tok(tokens);
 
 	node->type = VE_MREF;
-	node->member = strndup(tok->value, tok->len);
+	node->member = slab_strndup(tok->value, tok->len);
 
 	temp_type = type_object_field_type(o_type->v_object, node->member);
 	if (temp_type->kind == TY_NULL) {
@@ -53,7 +53,6 @@ static void parse_member(value_expr_t *node, expr_t *context,
 			 o_type->v_object->name);
 	}
 
-	type_destroy(node->return_type);
 	node->return_type = temp_type;
 }
 
@@ -71,7 +70,7 @@ err_t parse_single_value(expr_t *context, expr_t *mod, value_expr_t *node,
 	/* call */
 	if (is_call(tokens, tok)) {
 		node->type = VE_CALL;
-		node->call = calloc(1, sizeof(*node->call));
+		node->call = slab_alloc(sizeof(*node->call));
 		parse_inline_call(context, mod, node->call, tokens, tok);
 		node->return_type = type_copy(node->call->func->return_type);
 		return ERR_OK;
@@ -91,7 +90,6 @@ err_t parse_single_value(expr_t *context, expr_t *mod, value_expr_t *node,
 		node->return_type = type_pointer_of(temp_type);
 		node->type = VE_MPTR;
 
-		type_destroy(temp_type);
 		return ERR_OK;
 	}
 
@@ -108,7 +106,6 @@ err_t parse_single_value(expr_t *context, expr_t *mod, value_expr_t *node,
 		node->type = VE_DEREF;
 		temp_type = node->return_type;
 		node->return_type = type_copy(node->return_type->v_base);
-		type_destroy(temp_type);
 		return ERR_OK;
 	}
 
@@ -119,7 +116,6 @@ err_t parse_single_value(expr_t *context, expr_t *mod, value_expr_t *node,
 		node->type = VE_PTR;
 		temp_type = node->return_type;
 		node->return_type = type_pointer_of(node->return_type);
-		type_destroy(temp_type);
 		return ERR_OK;
 	}
 
@@ -163,7 +159,7 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	/* if there is a left node defined, it means that is already has been
 	   parsed and we only want to parse the right hand side */
 	if (!node->left) {
-		node->left = calloc(1, sizeof(*node->left));
+		node->left = slab_alloc(sizeof(*node->left));
 		if (parse_single_value(context, mod, node->left, tokens,
 				       left)) {
 			error_at(tokens->source, left->value, op->len,
@@ -173,7 +169,7 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	}
 
 	/* right hand side */
-	node->right = calloc(1, sizeof(*node->right));
+	node->right = slab_alloc(sizeof(*node->right));
 	parse_single_value(context, mod, node->right, tokens, right);
 	next_tok(tokens);
 
@@ -187,7 +183,7 @@ static value_expr_t *parse_twoside_value_expr(expr_t *context, expr_t *mod,
 	   parse_twoside */
 	if (is_operator(after_right)) {
 		value_expr_t *new_node;
-		new_node = calloc(1, sizeof(*new_node));
+		new_node = slab_alloc(sizeof(*new_node));
 		new_node->left = node;
 		node = parse_twoside_value_expr(context, mod, new_node, tokens,
 						right);
@@ -253,8 +249,8 @@ static value_expr_t *parse_comparison(expr_t *context, expr_t *mod,
 				      value_expr_t *node, token_list *tokens,
 				      token *tok)
 {
-	node->left = calloc(1, sizeof(*node->left));
-	node->right = calloc(1, sizeof(*node->right));
+	node->left = slab_alloc(sizeof(*node->left));
+	node->right = slab_alloc(sizeof(*node->right));
 	node->return_type = type_new_plain(PT_BOOL);
 
 	if (!is_single_value(tokens, tok)) {

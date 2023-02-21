@@ -3,6 +3,7 @@
 
 #include <getopt.h>
 #include <nxg/bs/buildfile.h>
+#include <nxg/cc/alloc.h>
 #include <nxg/nxg.h>
 #include <nxg/utils/error.h>
 #include <stdio.h>
@@ -53,26 +54,17 @@ static inline void version()
 
 static inline void default_settings(settings_t *settings)
 {
-	settings->sysroot = strdup(NXG_ROOT);
-	settings->output = strdup(DEFAULT_OUT);
+	settings->sysroot = slab_strdup(NXG_ROOT);
+	settings->output = slab_strdup(DEFAULT_OUT);
 	settings->global = false;
 	settings->input = NULL;
 	settings->using_bs = false;
 	settings->show_tokens = false;
-	settings->dyn_linker = strdup(DEFAULT_LD);
+	settings->dyn_linker = slab_strdup(DEFAULT_LD);
 	settings->verbose = false;
 	settings->emit_stacktrace = true;
 	settings->emit_varnames = false;
-	settings->opt = strdup("0");
-}
-
-static inline void settings_destory(settings_t *settings)
-{
-	free(settings->dyn_linker);
-	free(settings->output);
-	free(settings->input);
-	free(settings->sysroot);
-	free(settings->opt);
+	settings->opt = slab_strdup("0");
 }
 
 void parse_opt(settings_t *settings, const char *option, char *arg)
@@ -84,18 +76,15 @@ void parse_opt(settings_t *settings, const char *option, char *arg)
 		version();
 
 	if (!strncmp(option, "musl", 4)) {
-		free(settings->dyn_linker);
-		settings->dyn_linker = strdup(LD_MUSL);
+		settings->dyn_linker = slab_strdup(LD_MUSL);
 	}
 
 	if (!strncmp(option, "ldd", 3)) {
-		free(settings->dyn_linker);
-		settings->dyn_linker = strdup(arg);
+		settings->dyn_linker = slab_strdup(arg);
 	}
 
 	if (!strncmp(option, "root", 4)) {
-		free(settings->sysroot);
-		settings->sysroot = strdup(arg);
+		settings->sysroot = slab_strdup(arg);
 	}
 }
 
@@ -113,6 +102,8 @@ int main(int argc, char **argv)
 {
 	settings_t settings = {0};
 	int c, optindx = 0;
+
+	slab_init_global();
 
 	settings.jit = argc == 1;
 
@@ -137,15 +128,13 @@ int main(int argc, char **argv)
 				  optarg);
 			break;
 		case 'o':
-			settings.output = strdup(optarg);
+			settings.output = slab_strdup(optarg);
 			break;
 		case 'r':
-			free(settings.sysroot);
-			settings.sysroot = strdup(optarg);
+			settings.sysroot = slab_strdup(optarg);
 			break;
 		case 'L':
-			free(settings.dyn_linker);
-			settings.dyn_linker = strdup(optarg);
+			settings.dyn_linker = slab_strdup(optarg);
 			break;
 		case 'h':
 			full_help();
@@ -157,8 +146,7 @@ int main(int argc, char **argv)
 			settings.show_tokens = true;
 			break;
 		case 'M':
-			free(settings.dyn_linker);
-			settings.dyn_linker = strdup(LD_MUSL);
+			settings.dyn_linker = slab_strdup(LD_MUSL);
 			break;
 		case 'v':
 			version();
@@ -167,7 +155,7 @@ int main(int argc, char **argv)
 			settings.verbose = true;
 			break;
 		case 'O':
-			settings.opt = strdup(optarg);
+			settings.opt = slab_strdup(optarg);
 			break;
 		case 'E':
 			/* emit options */
@@ -193,7 +181,7 @@ int main(int argc, char **argv)
 	}
 
 	if (settings.input == NULL)
-		settings.input = strdup(argv[optind]);
+		settings.input = slab_strdup(argv[optind]);
 
 	int n = strlen(settings.sysroot);
 	if (settings.sysroot[n - 1] == '/')
@@ -202,6 +190,6 @@ int main(int argc, char **argv)
 	compile(&settings);
 
 destroy:
-	settings_destory(&settings);
+	slab_deinit_global();
 	return 0;
 }

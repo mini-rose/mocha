@@ -1,3 +1,4 @@
+#include <nxg/cc/alloc.h>
 #include <nxg/cc/parser.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,9 +20,8 @@ bool fn_sigcmp(fn_expr_t *first, fn_expr_t *other)
 
 void fn_add_param(fn_expr_t *fn, const char *name, int len, type_t *type)
 {
-	fn->params =
-	    realloc(fn->params, sizeof(var_decl_expr_t) * ++fn->n_params);
-	fn->params[fn->n_params - 1] = malloc(sizeof(var_decl_expr_t));
-	fn->params[fn->n_params - 1]->name = strndup(name, len);
+	fn->params = realloc_ptr_array(fn->params, ++fn->n_params);
+	fn->params[fn->n_params - 1] = slab_alloc(sizeof(var_decl_expr_t));
+	fn->params[fn->n_params - 1]->name = slab_strndup(name, len);
 	fn->params[fn->n_params - 1]->type = type_copy(type);
 }

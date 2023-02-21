@@ -1,8 +1,9 @@
-#include "nxg/nxg.h"
 #include <ctype.h>
 #include <nxg/bs/buildfile.h>
-#include <nxg/utils/file.h>
+#include <nxg/cc/alloc.h>
+#include <nxg/nxg.h>
 #include <nxg/utils/error.h>
+#include <nxg/utils/file.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,13 +20,11 @@ static inline void push_to_settings(file_t *f, settings_t *settings, char *key,
 				    int key_len, char *val, int val_len)
 {
 	if (!strncmp("source", key, key_len)) {
-		settings->input = strndup(val, val_len);
+		settings->input = slab_strndup(val, val_len);
 	} else if (!strncmp("output", key, key_len)) {
-		free(settings->output);
-		settings->output = strndup(val, val_len);
+		settings->output = slab_strndup(val, val_len);
 	} else if (!strncmp("sysroot", key, key_len)) {
-		free(settings->sysroot);
-		settings->sysroot = strndup(val, val_len);
+		settings->sysroot = slab_strndup(val, val_len);
 	} else {
 		error_at(f, key, key_len, "invalid key: '%.*s'", key_len, key);
 	}
@@ -40,15 +39,13 @@ static inline void push_flag_to_settings(file_t *f, settings_t *settings,
 	if (!strncmp("-p", val, val_len)) {
 		settings->show_ast = true;
 	} else if (!strncmp("-O", val, val_len - 1)) {
-		free(settings->opt);
-		settings->opt = strndup(val + 2, 1);
+		settings->opt = slab_strndup(val + 2, 1);
 	} else if (!strncmp("-L", val, 2)) {
-		free(settings->dyn_linker);
-		settings->dyn_linker = strndup(val + 2, val_len - 2);
+		settings->dyn_linker = slab_strndup(val + 2, val_len - 2);
 	} else if (!strncmp("-t", val, val_len)) {
 		settings->show_tokens = true;
 	} else if (!strncmp("-M", val, val_len)) {
-		settings->dyn_linker = strdup("/lib/ld-musl-x86_64.so.1");
+		settings->dyn_linker = slab_strdup("/lib/ld-musl-x86_64.so.1");
 	} else if (!strncmp("-V", val, val_len)) {
 		settings->verbose = true;
 	} else if (!strncmp("-Eno-stack", val, val_len)) {
@@ -127,6 +124,4 @@ void buildfile(settings_t *settings)
 
 		p++;
 	}
-
-	file_destroy(f);
 }
