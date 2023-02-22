@@ -194,22 +194,20 @@ token_list *tokens(file_t *source)
 		if (isalpha(*p) || *p == '_') {
 			token *tok = NULL;
 			char *str;
-			int strl;
 			char *q = p;
 
 			while (isalnum(*q) || *q == '_')
 				q++;
 
 			str = push_str(p, q);
-			strl = strlen(str);
 
-			if (!strncmp("true", str, strl)) {
+			if (!strcmp("true", str)) {
 				tok = token_new(last = T_TRUE, p, p - q);
-			} else if (!strncmp("false", str, strl)) {
+			} else if (!strcmp("false", str)) {
 				tok = token_new(last = T_FALSE, p, p - q);
 			} else if (is_keyword(str)) {
 				tok = token_new(last = T_KEYWORD, p, q - p);
-			} else if (!strncmp("__LINE__", str, strl)) {
+			} else if (!strcmp("__LINE__", str)) {
 				int line = 1;
 				static char buf[12];
 
@@ -226,19 +224,19 @@ token_list *tokens(file_t *source)
 
 				p += 8;
 				continue;
-			} else if (!strncmp("stdin", str, strl)) {
+			} else if (!strcmp("stdin", str)) {
 				char *n = "0";
 				tok = token_new(last = T_NUMBER, n, 1);
 				token_list_append(list, tok);
 				p += 5;
 				continue;
-			} else if (!strncmp("stdout", str, strl)) {
+			} else if (!strcmp("stdout", str)) {
 				char *n = "1";
 				tok = token_new(last = T_NUMBER, n, 1);
 				token_list_append(list, tok);
 				p += 6;
 				continue;
-			} else if (!strncmp("stderr", str, strl)) {
+			} else if (!strcmp("stderr", str)) {
 				char *n = "2";
 				tok = token_new(last = T_NUMBER, n, 1);
 				token_list_append(list, tok);
