@@ -276,9 +276,15 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 static LLVMValueRef gen_cmp(LLVMBuilderRef builder, fn_context_t *context,
 			    value_expr_t *value, LLVMIntPredicate op)
 {
-	return LLVMBuildICmp(builder, op,
-			     gen_new_value(builder, context, value->left),
-			     gen_new_value(builder, context, value->right), "");
+	/* Integer comparison. */
+	if (value->left->return_type->kind == TY_PLAIN) {
+		return LLVMBuildICmp(
+		    builder, op, gen_new_value(builder, context, value->left),
+		    gen_new_value(builder, context, value->right), "");
+	}
+
+	error("emit[cmp]: cannot emit comparison for `%s`",
+	      type_name(value->left->return_type));
 }
 
 /**

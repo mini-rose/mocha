@@ -26,7 +26,7 @@ void slab_create(struct slab *allocator, int block_size);
 void slab_destroy(struct slab *allocator);
 
 void *slab_alloc(int n);
-void *slab_alloc_blocks(int n, int block_size);
+void *slab_alloc_array(int n, int item_size);
 
 void *slab_strdup(const char *str);
 void *slab_strndup(const char *str, size_t len);

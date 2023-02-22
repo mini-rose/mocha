@@ -157,6 +157,11 @@ void *slab_alloc(int n)
 	return slab_acquire_block(allocator, n);
 }
 
+void *slab_alloc_array(int n, int item_size)
+{
+	return slab_alloc(n * item_size);
+}
+
 void *slab_strdup(const char *str)
 {
 	return slab_strndup(str, strlen(str));

@@ -249,6 +249,8 @@ static value_expr_t *parse_comparison(expr_t *context, expr_t *mod,
 				      value_expr_t *node, token_list *tokens,
 				      token *tok)
 {
+	token *op;
+
 	node->left = slab_alloc(sizeof(*node->left));
 	node->right = slab_alloc(sizeof(*node->right));
 	node->return_type = type_new_plain(PT_BOOL);
@@ -266,6 +268,7 @@ static value_expr_t *parse_comparison(expr_t *context, expr_t *mod,
 	if (tok->type == T_NEQ)
 		node->type = VE_NEQ;
 
+	op = tok;
 	tok = next_tok(tokens);
 
 	if (!is_single_value(tokens, tok)) {
@@ -274,6 +277,13 @@ static value_expr_t *parse_comparison(expr_t *context, expr_t *mod,
 	}
 
 	parse_single_value(context, mod, node->right, tokens, tok);
+
+	if (!type_cmp(node->left->return_type, node->right->return_type)) {
+		error_at(tokens->source, op->value, op->len,
+			 "cannot compare `%s` and `%s`",
+			 type_name(node->left->return_type),
+			 type_name(node->right->return_type));
+	}
 
 	return node;
 }
