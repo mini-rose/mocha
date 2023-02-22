@@ -690,6 +690,44 @@ void emit_var_decl(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 	fn_context_add_local(context, alloca, decl->name);
 }
 
+static void emit_conditional_block(LLVMBuilderRef builder,
+				   fn_context_t *context, expr_t *node,
+				   expr_t *block, bool negate)
+{
+	condition_expr_t *cond;
+	LLVMBasicBlockRef cond_block;
+	LLVMBasicBlockRef pass_block;
+	LLVMValueRef cond_value;
+	expr_t *walker;
+	expr_t *previous_block;
+
+	cond = node->data;
+	cond_value = gen_new_value(builder, context, cond->cond);
+	cond_block = LLVMInsertBasicBlock(context->end, "cond");
+	pass_block = LLVMInsertBasicBlock(context->end, "pass");
+	previous_block = context->current_block;
+
+	if (negate)
+		LLVMBuildCondBr(builder, cond_value, pass_block, cond_block);
+	else
+		LLVMBuildCondBr(builder, cond_value, cond_block, pass_block);
+
+	LLVMPositionBuilderAtEnd(builder, cond_block);
+
+	walker = block->child;
+	context->current_block = block;
+
+	while (walker) {
+		emit_node(builder, context, walker);
+		walker = walker->next;
+	}
+
+	LLVMBuildBr(builder, pass_block);
+
+	LLVMPositionBuilderAtEnd(builder, pass_block);
+	context->current_block = previous_block;
+}
+
 static void emit_condition_node(LLVMBuilderRef builder, fn_context_t *context,
 				expr_t *node)
 {
@@ -703,6 +741,28 @@ static void emit_condition_node(LLVMBuilderRef builder, fn_context_t *context,
 
 	cond = node->data;
 	previous_block = context->current_block;
+
+	/* Only if the `if` block is non-empty */
+	if (cond->if_block->type != E_SKIP
+	    && cond->else_block->type == E_SKIP) {
+		emit_conditional_block(builder, context, node, cond->if_block,
+				       false);
+		return;
+	}
+
+	/* Only if the `else` block is non-empty */
+	if (cond->else_block->type != E_SKIP
+	    && cond->if_block->type == E_SKIP) {
+		emit_conditional_block(builder, context, node, cond->else_block,
+				       true);
+		return;
+	}
+
+	/* If both are empty, remove the whole condition. */
+	if (cond->if_block->type == E_SKIP
+	    && cond->else_block->type == E_SKIP) {
+		return;
+	}
 
 	/* Prepare the basic blocks. */
 	cond_value = gen_new_value(builder, context, cond->cond);
@@ -722,21 +782,23 @@ static void emit_condition_node(LLVMBuilderRef builder, fn_context_t *context,
 
 	walker = cond->if_block->child;
 	context->current_block = cond->if_block;
-	do {
+	while (walker) {
 		emit_node(builder, context, walker);
-	} while ((walker = walker->next));
+		walker = walker->next;
+	}
 
 	LLVMBuildBr(builder, pass_block);
 
 	/* else {} */
-	if (cond->else_block) {
+	if (cond->else_block && cond->else_block->type != E_SKIP) {
 		LLVMPositionBuilderAtEnd(builder, else_block);
 
 		walker = cond->else_block->child;
 		context->current_block = cond->else_block;
-		do {
+		while (walker) {
 			emit_node(builder, context, walker);
-		} while ((walker = walker->next));
+			walker = walker->next;
+		}
 
 		LLVMBuildBr(builder, pass_block);
 	}
@@ -748,6 +810,9 @@ static void emit_condition_node(LLVMBuilderRef builder, fn_context_t *context,
 
 void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node)
 {
+	if (!node)
+		return;
+
 	switch (node->type) {
 	case E_VARDECL:
 		emit_var_decl(builder, context, node);
@@ -900,12 +965,10 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 		LLVMBuildRet(builder, ret_value);
 	}
 
-#if 0
 	if (LLVMVerifyFunction(func, LLVMPrintMessageAction)) {
 		error("emit[llvm-ir]: something is wrong with the emitted `%s` function",
 		      name);
 	}
-#endif
 
 	LLVMDisposeBuilder(builder);
 }
@@ -1004,12 +1067,10 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 		walker = walker->next;
 	}
 
-#if 0
 	if (LLVMVerifyModule(mod, LLVMPrintMessageAction, &err_msg)) {
 		error("emit[llvm-ir]: LLVM failed to generate the `%s` module",
 		      mod_data->name);
 	}
-#endif
 
 	LLVMDisposeMessage(err_msg);
 	return mod;

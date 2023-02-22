@@ -48,6 +48,9 @@ static const char *expr_info(expr_t *expr)
 	char *tmp = NULL;
 	char marker;
 
+	if (!expr)
+		return "";
+
 	switch (expr->type) {
 	case E_MODULE:
 		mod = expr->data;

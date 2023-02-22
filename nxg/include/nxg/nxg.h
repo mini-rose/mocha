@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #define NXG_MAJOR 0
-#define NXG_MINOR 6
+#define NXG_MINOR 7
 
 #define MAIN_MODULE "__main__"
 
@@ -28,9 +28,17 @@ typedef struct
 	bool using_bs;
 	bool jit;
 	bool verbose;
+	bool dump_alloc;
+
+	/* Emit */
 	bool emit_stacktrace;
 	bool emit_varnames;
-	bool dump_alloc;
+
+	/* Warnings */
+	bool warn_unused;
+	bool warn_random;
+	bool warn_empty_block;
+
 	char *opt;
 	char *output;
 	char *input;

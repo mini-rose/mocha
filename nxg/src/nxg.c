@@ -30,6 +30,11 @@ static inline void full_help()
 	    "  -t              show generated tokens\n"
 	    "  -v, --version   show the compiler version\n"
 	    "  -V              be verbose, show ran shell commands\n"
+	    "\nLint:\n"
+	    "  -Wno-unused     unused variables\n"
+	    "  -Wno-random     random stuff that don't fit into any other "
+	    "option\n"
+	    "  -Wno-empty-block empty blocks\n"
 	    "\nLink:\n"
 	    "  -M, --musl      use musl instead of glibc\n"
 	    "  -L, --ldd <path> dynamic linker to use (default: " DEFAULT_LD
@@ -64,6 +69,9 @@ static inline void default_settings(settings_t *settings)
 	settings->emit_stacktrace = true;
 	settings->emit_varnames = false;
 	settings->dump_alloc = false;
+	settings->warn_unused = true;
+	settings->warn_random = true;
+	settings->warn_empty_block = true;
 	settings->opt = slab_strdup("0");
 }
 
@@ -98,6 +106,18 @@ void parse_emit_opt(settings_t *settings, const char *option)
 		warning("unknown emit option `%s`", option);
 }
 
+void parse_warn_opt(settings_t *settings, const char *option)
+{
+	if (!strcmp("no-unused", option))
+		settings->warn_unused = false;
+	else if (!strcmp("no-random", option))
+		settings->warn_random = false;
+	else if (!strcmp("no-empty-block", option))
+		settings->warn_empty_block = false;
+	else
+		warning("unknown warn option `%s`", option);
+}
+
 int main(int argc, char **argv)
 {
 	settings_t settings = {0};
@@ -115,7 +135,7 @@ int main(int argc, char **argv)
 	    {"root", required_argument, 0, 0}, {"alloc", no_argument, 0, 0}};
 
 	while (1) {
-		c = getopt_long(argc, argv, "o:r:L:O:E:ahvptMV", longopts,
+		c = getopt_long(argc, argv, "o:r:L:O:E:W:ahvptMV", longopts,
 				&optindx);
 
 		if (c == -1)
@@ -162,6 +182,9 @@ int main(int argc, char **argv)
 		case 'E':
 			/* emit options */
 			parse_emit_opt(&settings, optarg);
+			break;
+		case 'W':
+			parse_warn_opt(&settings, optarg);
 			break;
 		}
 	}

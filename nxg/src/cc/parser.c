@@ -14,8 +14,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void parse_block(expr_t *parent, expr_t *module, fn_expr_t *fn,
-			expr_t *node, token_list *tokens, token *tok);
+static void parse_block(settings_t *settings, expr_t *parent, expr_t *module,
+			fn_expr_t *fn, expr_t *node, token_list *tokens,
+			token *tok);
 
 token *index_tok(token_list *list, int index)
 {
@@ -732,8 +733,9 @@ static void fn_warn_unused(file_t *source, expr_t *fn)
 /**
  * (expr) ? { ... }
  */
-static void parse_condition(expr_t *parent, expr_t *module, fn_expr_t *fn,
-			    token_list *tokens, token *tok)
+static void parse_condition(settings_t *settings, expr_t *parent,
+			    expr_t *module, fn_expr_t *fn, token_list *tokens,
+			    token *tok)
 {
 	condition_expr_t *cond;
 	expr_t *node;
@@ -796,7 +798,17 @@ skip_bool_check:
 
 		E_AS_BLOCK(cond->if_block->data)->parent = parent;
 
-		parse_block(parent, module, fn, cond->if_block, tokens, tok);
+		parse_block(settings, parent, module, fn, cond->if_block,
+			    tokens, tok);
+
+		if (!cond->if_block->child) {
+			if (settings->warn_empty_block) {
+				warning_at(tokens->source, tok->value, tok->len,
+					   "empty block will be removed by the "
+					   "compiler");
+			}
+			cond->if_block->type = E_SKIP;
+		}
 
 	} else {
 		/* Single value */
@@ -825,7 +837,17 @@ skip_bool_check:
 
 		E_AS_BLOCK(cond->else_block->data)->parent = parent;
 
-		parse_block(parent, module, fn, cond->else_block, tokens, tok);
+		parse_block(settings, parent, module, fn, cond->else_block,
+			    tokens, tok);
+
+		if (!cond->else_block->child) {
+			if (settings->warn_empty_block) {
+				warning_at(tokens->source, tok->value, tok->len,
+					   "empty block will be removed by the "
+					   "compiler");
+			}
+			cond->else_block->type = E_SKIP;
+		}
 
 	} else {
 		/* Single value */
@@ -842,8 +864,9 @@ skip_bool_check:
  *   [statement]...
  * }
  */
-static void parse_block(expr_t *parent, expr_t *module, fn_expr_t *fn,
-			expr_t *node, token_list *tokens, token *tok)
+static void parse_block(settings_t *settings, expr_t *parent, expr_t *module,
+			fn_expr_t *fn, expr_t *node, token_list *tokens,
+			token *tok)
 {
 	int brace_level = 1;
 
@@ -887,7 +910,8 @@ static void parse_block(expr_t *parent, expr_t *module, fn_expr_t *fn,
 		else if (is_call(tokens, tok))
 			parse_call(node, module, tokens, tok);
 		else if (tok->type == T_LPAREN)
-			parse_condition(node, module, fn, tokens, tok);
+			parse_condition(settings, node, module, fn, tokens,
+					tok);
 		else if (TOK_IS(tok, T_KEYWORD, "ret"))
 			parse_return(node, module, tokens, tok);
 		else if (TOK_IS(tok, T_IDENT, "return"))
@@ -899,7 +923,8 @@ static void parse_block(expr_t *parent, expr_t *module, fn_expr_t *fn,
 	}
 }
 
-static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
+static err_t parse_fn_body(settings_t *settings, expr_t *module,
+			   fn_expr_t *decl, token_list *tokens)
 {
 	expr_t *node;
 	token *tok;
@@ -915,7 +940,7 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 	while (tok->type == T_NEWLINE)
 		tok = next_tok(tokens);
 
-	parse_block(node, module, decl, node, tokens, tok);
+	parse_block(settings, node, module, decl, node, tokens, tok);
 
 	/* always add a return statement */
 	if (!fn_has_return(node)) {
@@ -932,7 +957,8 @@ static err_t parse_fn_body(expr_t *module, fn_expr_t *decl, token_list *tokens)
 		val->type = VE_NULL;
 	}
 
-	fn_warn_unused(tokens->source, node);
+	if (settings->warn_unused)
+		fn_warn_unused(tokens->source, node);
 
 	return 0;
 }
@@ -995,9 +1021,10 @@ static void parse_single_use(settings_t *settings, expr_t *module,
 		return;
 	}
 
-	if (tok->type != T_IDENT)
+	if (tok->type != T_IDENT) {
 		error_at(tokens->source, tok->value, tok->len,
 			 "expected module name or path");
+	}
 
 	/* Collect path */
 	path = slab_alloc(512);
@@ -1023,10 +1050,9 @@ static void parse_single_use(settings_t *settings, expr_t *module,
 
 		/* Warn the user about dots at the end. */
 		tmp_tok = index_tok(tokens, tokens->iter);
-		if (tmp_tok->type == T_NEWLINE) {
+		if (tmp_tok->type == T_NEWLINE && settings->warn_random) {
 			warning_at(tokens->source, tmp_tok->value - 1,
-				   tmp_tok->len,
-				   "unnecessary dot, you can remove it");
+				   tmp_tok->len, "unnecessary dot");
 		}
 
 	} while ((tok = next_tok(tokens))->type != T_NEWLINE);
@@ -1201,7 +1227,7 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 	/* Go back and parse the function contents */
 	for (int i = 0; i < fn_pos.n; i++) {
 		tokens->iter = fn_pos.pos[i]->tok_index;
-		parse_fn_body(module, fn_pos.pos[i]->decl, tokens);
+		parse_fn_body(settings, module, fn_pos.pos[i]->decl, tokens);
 	}
 
 err:
