@@ -71,24 +71,24 @@ void token_print(token *tok)
 					[T_SUB] = "SUB"};
 
 	if (tok->type == T_NEWLINE)
-		printf(" \033[37m%s\033[0m", tok_str[tok->type]);
+		printf("\033[37m%s\033[0m", tok_str[tok->type]);
 	else if (tok->type == T_END)
-		printf(" %s ", tok_str[tok->type]);
+		printf("%s ", tok_str[tok->type]);
 	else if (tok->type == T_TRUE)
-		printf(" %s", tok_str[tok->type]);
+		printf("%s", tok_str[tok->type]);
 	else if (tok->type == T_FALSE)
-		printf(" %s", tok_str[tok->type]);
+		printf("%s", tok_str[tok->type]);
 	else if (tok->type == T_KEYWORD)
-		printf(" \033[31m%s\033[0m: \033[32m'%.*s'\033[0m",
+		printf("\033[31m%s\033[0m: \033[32m'%.*s'\033[0m",
 		       tok_str[tok->type], tok->len, tok->value);
 	else if (tok->type == T_DATATYPE)
-		printf(" \033[34m%s\033[0m: \033[32m'%.*s'\033[0m",
+		printf("\033[34m%s\033[0m: \033[32m'%.*s'\033[0m",
 		       tok_str[tok->type], tok->len, tok->value);
 	else if (tok->type == T_NUMBER)
-		printf(" \033[33m%s\033[0m: \033[32m'%.*s'\033[0m",
+		printf("\033[33m%s\033[0m: \033[32m'%.*s'\033[0m",
 		       tok_str[tok->type], tok->len, tok->value);
 	else
-		printf(" %s: \033[32m'%.*s'\033[0m", tok_str[tok->type],
+		printf("%s: \033[32m'%.*s'\033[0m", tok_str[tok->type],
 		       tok->len, tok->value);
 }
 
@@ -194,20 +194,22 @@ token_list *tokens(file_t *source)
 		if (isalpha(*p) || *p == '_') {
 			token *tok = NULL;
 			char *str;
+			int strl;
 			char *q = p;
 
 			while (isalnum(*q) || *q == '_')
 				q++;
 
 			str = push_str(p, q);
+			strl = strlen(str);
 
-			if (!strncmp("true", str, 4)) {
+			if (!strncmp("true", str, strl)) {
 				tok = token_new(last = T_TRUE, p, p - q);
-			} else if (!strncmp("false", str, 5)) {
+			} else if (!strncmp("false", str, strl)) {
 				tok = token_new(last = T_FALSE, p, p - q);
 			} else if (is_keyword(str)) {
 				tok = token_new(last = T_KEYWORD, p, q - p);
-			} else if (!strncmp("__LINE__", str, 8)) {
+			} else if (!strncmp("__LINE__", str, strl)) {
 				int line = 1;
 				static char buf[12];
 
@@ -224,19 +226,19 @@ token_list *tokens(file_t *source)
 
 				p += 8;
 				continue;
-			} else if (!strncmp("stdin", str, 6)) {
+			} else if (!strncmp("stdin", str, strl)) {
 				char *n = "0";
 				tok = token_new(last = T_NUMBER, n, 1);
 				token_list_append(list, tok);
 				p += 5;
 				continue;
-			} else if (!strncmp("stdout", str, 6)) {
+			} else if (!strncmp("stdout", str, strl)) {
 				char *n = "1";
 				tok = token_new(last = T_NUMBER, n, 1);
 				token_list_append(list, tok);
 				p += 6;
 				continue;
-			} else if (!strncmp("stderr", str, 6)) {
+			} else if (!strncmp("stderr", str, strl)) {
 				char *n = "2";
 				tok = token_new(last = T_NUMBER, n, 1);
 				token_list_append(list, tok);

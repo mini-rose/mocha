@@ -65,3 +65,4 @@ token_list *tokens(file_t *source);
 
 /* Prints token list */
 void token_list_print(token_list *list);
+void token_print(token *tok);
