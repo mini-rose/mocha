@@ -4,12 +4,10 @@
 #include <getopt.h>
 #include <nxg/bs/buildfile.h>
 #include <nxg/cc/alloc.h>
-#include <nxg/nxg.h>
 #include <nxg/utils/error.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 static inline void help()
 {

@@ -28,6 +28,14 @@ cf_null _C4copyP3strP3str(cf_str *self, cf_str *from)
 	memcpy(self->ptr, from->ptr, self->len);
 }
 
+cf_bool _C3cmpP3strP3str(cf_str *string, cf_str *other)
+{
+	if (string->len != other->len)
+		return false;
+
+	return memcmp(string->ptr, other->ptr, string->len) ? false : true;
+}
+
 /* len(&str) -> i64 */
 cf_i64 _C3lenP3str(cf_str *self)
 {
