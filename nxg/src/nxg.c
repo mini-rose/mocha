@@ -109,11 +109,10 @@ int main(int argc, char **argv)
 
 	default_settings(&settings);
 
-	static struct option longopts[] = {{"help", no_argument, 0, 0},
-					   {"version", no_argument, 0, 0},
-					   {"musl", no_argument, 0, 0},
-					   {"ldd", required_argument, 0, 0},
-					   {"root", required_argument, 0, 0}};
+	static struct option longopts[] = {
+	    {"help", no_argument, 0, 0},       {"version", no_argument, 0, 0},
+	    {"musl", no_argument, 0, 0},       {"ldd", required_argument, 0, 0},
+	    {"root", required_argument, 0, 0}, {"alloc", no_argument, 0, 0}};
 
 	while (1) {
 		c = getopt_long(argc, argv, "o:r:L:O:E:ahvptMV", longopts,
