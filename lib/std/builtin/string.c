@@ -10,7 +10,7 @@
 /* drop(&str) -> null */
 mo_null _M4dropP3str(mo_str *self)
 {
-	if (!(self->flags & mo_STR_ALLOC))
+	if (!(self->flags & MOCHA_STR_ALLOC))
 		return;
 
 	free(self->ptr);
@@ -19,10 +19,10 @@ mo_null _M4dropP3str(mo_str *self)
 /* copy(&str, &str) -> null */
 mo_null _M4copyP3strP3str(mo_str *self, mo_str *from)
 {
-	if (self->flags & mo_STR_ALLOC)
+	if (self->flags & MOCHA_STR_ALLOC)
 		_M4dropP3str(self);
 
-	self->flags = mo_STR_ALLOC;
+	self->flags = MOCHA_STR_ALLOC;
 	self->len = from->len;
 	self->ptr = (char *) malloc(self->len);
 	memcpy(self->ptr, from->ptr, self->len);

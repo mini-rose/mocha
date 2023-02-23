@@ -42,3 +42,6 @@ This is a list of all error IDs:
 * ``[llvm-ir]``
         The emitter failed to produce correct LLVM IR, which LLVM cannot
         understand and assemble.
+
+* ``[no-main]``
+        Missing mocha main() function.

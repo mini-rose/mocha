@@ -23,12 +23,16 @@ static LLVMValueRef gen_zero_value_for(LLVMBuilderRef builder,
 				       LLVMModuleRef mod, type_t *ty);
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name);
 void emit_stackpop(LLVMBuilderRef builder, LLVMModuleRef mod);
+void emit_stackpush(LLVMBuilderRef builder, LLVMModuleRef mod,
+		    const char *symbol, const char *file);
 static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
 				      fn_context_t *context,
 				      value_expr_t *node);
 static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 				  value_expr_t *value);
 void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node);
+static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
+		      auto_drop_rule_t *rule);
 
 static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
 				 char *name)
@@ -431,23 +435,89 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 		       func, args, 2, "");
 }
 
+typedef struct
+{
+	LLVMValueRef func;
+	LLVMTypeRef type;
+} gen_drop_res_t;
+
+static gen_drop_res_t gen_drop_for(fn_context_t *context, type_t *ty)
+{
+	gen_drop_res_t res;
+	LLVMBuilderRef builder;
+	LLVMBasicBlockRef code;
+	LLVMValueRef tmp;
+	LLVMValueRef indices[2];
+	char *name;
+	fn_expr_t *decl;
+
+	decl = module_add_decl(context->module);
+
+	decl->name = "drop";
+	decl->n_params = 1;
+	decl->params = realloc_ptr_array(decl->params, 1);
+	decl->params[0] = slab_alloc(sizeof(var_decl_expr_t));
+
+	decl->params[0]->name = "_";
+	decl->params[0]->type = type_copy(type_pointer_of(ty));
+
+	name = nxg_mangle(decl);
+
+	res.type = gen_type(context->llvm_mod, type_pointer_of(ty));
+	res.type = LLVMFunctionType(LLVMVoidType(), &res.type, 1, false);
+	res.func = LLVMAddFunction(context->llvm_mod, name, res.type);
+
+	LLVMSetLinkage(res.func, LLVMInternalLinkage);
+
+	builder = LLVMCreateBuilder();
+	code = LLVMAppendBasicBlock(res.func, "start");
+	LLVMPositionBuilderAtEnd(builder, code);
+
+	if (context->settings->emit_stacktrace) {
+		emit_stackpush(builder, context->llvm_mod, "drop",
+			       "<generated>");
+	}
+
+	for (int i = 0; i < ty->v_object->n_fields; i++) {
+		if (ty->v_object->fields[i]->kind != TY_OBJECT)
+			continue;
+
+		indices[0] = LLVMConstInt(LLVMInt32Type(), 0, false);
+		indices[1] = LLVMConstInt(LLVMInt32Type(), i, false);
+
+		tmp = LLVMBuildGEP2(builder, gen_type(context->llvm_mod, ty),
+				    LLVMGetParam(res.func, 0), indices, 2, "");
+
+		auto_drop_rule_t rule;
+		rule.type = ty->v_object->fields[i];
+		rule.value = tmp;
+
+		/* Generate a drop for an object. */
+		emit_drop(builder, context, &rule);
+	}
+
+	if (context->settings->emit_stacktrace)
+		emit_stackpop(builder, context->llvm_mod);
+
+	LLVMBuildRetVoid(builder);
+	LLVMDisposeBuilder(builder);
+
+	return res;
+}
+
 static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 		      auto_drop_rule_t *rule)
 {
-	LLVMValueRef func;
+	gen_drop_res_t res = {0};
 	fn_candidates_t *results;
 	fn_expr_t *match, *f;
 	char *symbol;
 
-	results = module_find_fn_candidates(context->module, "drop");
-	if (!results->n_candidates) {
-		error("emit[no-drop]: missing `fn drop(&%s)`",
-		      type_name(rule->type));
-	}
-
-	/* match a drop<T>(&T) */
-
 	match = NULL;
+	results = module_find_fn_candidates(context->module, "drop");
+
+	/* match a drop(&T) */
+
 	for (int i = 0; i < results->n_candidates; i++) {
 		f = results->candidate[i];
 
@@ -463,15 +533,19 @@ static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 	}
 
 	if (!match) {
+		res = gen_drop_for(context, rule->type);
+	} else {
+		symbol = nxg_mangle(match);
+		res.func = LLVMGetNamedFunction(context->llvm_mod, symbol);
+		res.type = gen_function_type(context->llvm_mod, match);
+	}
+
+	if (!res.func) {
 		error("emit[no-drop]: missing `fn drop(&%s)`",
 		      type_name(rule->type));
 	}
 
-	symbol = nxg_mangle(match);
-	func = LLVMGetNamedFunction(context->llvm_mod, symbol);
-
-	LLVMBuildCall2(builder, gen_function_type(context->llvm_mod, match),
-		       func, &rule->value, 1, "");
+	LLVMBuildCall2(builder, res.type, res.func, &rule->value, 1, "");
 }
 
 void emit_return_node(LLVMBuilderRef builder, fn_context_t *context,
@@ -743,7 +817,7 @@ static void emit_condition_node(LLVMBuilderRef builder, fn_context_t *context,
 	previous_block = context->current_block;
 
 	/* Only if the `if` block is non-empty */
-	if (cond->if_block->type != E_SKIP
+	if (cond->else_block && cond->if_block->type != E_SKIP
 	    && cond->else_block->type == E_SKIP) {
 		emit_conditional_block(builder, context, node, cond->if_block,
 				       false);
@@ -751,7 +825,7 @@ static void emit_condition_node(LLVMBuilderRef builder, fn_context_t *context,
 	}
 
 	/* Only if the `else` block is non-empty */
-	if (cond->else_block->type != E_SKIP
+	if (cond->else_block && cond->else_block->type != E_SKIP
 	    && cond->if_block->type == E_SKIP) {
 		emit_conditional_block(builder, context, node, cond->else_block,
 				       true);
@@ -759,8 +833,8 @@ static void emit_condition_node(LLVMBuilderRef builder, fn_context_t *context,
 	}
 
 	/* If both are empty, remove the whole condition. */
-	if (cond->if_block->type == E_SKIP
-	    && cond->else_block->type == E_SKIP) {
+	if (cond->if_block && cond->if_block->type == E_SKIP
+	    && (cond->else_block && cond->else_block->type == E_SKIP)) {
 		return;
 	}
 
@@ -1000,8 +1074,12 @@ void emit_main_function(LLVMModuleRef mod)
 	builder = LLVMCreateBuilder();
 	LLVMPositionBuilderAtEnd(builder, start_block);
 
+	LLVMValueRef main_func = LLVMGetNamedFunction(mod, "_M4mainv");
+	if (!main_func)
+		error("emit[no-main]: missing main function in module");
+
 	LLVMBuildCall2(builder, LLVMFunctionType(LLVMVoidType(), NULL, 0, 0),
-		       LLVMGetNamedFunction(mod, "_C4mainv"), NULL, 0, "");
+		       main_func, NULL, 0, "");
 
 	return_value = LLVMConstNull(LLVMInt32Type());
 	LLVMBuildRet(builder, return_value);
