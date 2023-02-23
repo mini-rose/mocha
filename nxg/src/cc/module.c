@@ -62,7 +62,7 @@ expr_t *module_import_impl(settings_t *settings, expr_t *module_expr,
 
 	parsed = parse(module_expr, parsed, settings, parsed_tokens, modname);
 
-	/* Apart from the regular coffee source code, if there is a C file with
+	/* Apart from the regular mocha source code, if there is a C file with
 	   the same name as the imported module, compile it & link against it
 	   in the final stage. */
 	snprintf(pathbuf, 512, "%s.c", file);

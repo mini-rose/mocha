@@ -109,7 +109,7 @@ static inline char *parse_option(file_t *f, settings_t *settings, char *p)
 
 void buildfile(settings_t *settings)
 {
-	file_t *f = file_new(".coffee");
+	file_t *f = file_new(".mocha");
 	char *p = f->content;
 
 	while (*p) {

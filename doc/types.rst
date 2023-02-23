@@ -17,7 +17,7 @@ Integers
 String
 ------
 
-Coffee provides a built-in dynamically-allocated string type ``str``. Creating
+Mocha provides a built-in dynamically-allocated string type ``str``. Creating
 and destroying strings is handled by the compiler, so it can seem like a simple
 type you can use without thinking about allocating enough memory for it.
 
@@ -62,7 +62,7 @@ functions which it can then emit calls to.
 Structured type
 ---------------
 
-Similar to other programming languages, Coffee offers an structured type, which
+Similar to other programming languages, Mocha offers an structured type, which
 is basically the same as the C struct. You can create an object type using the
 ``type`` keyword::
 

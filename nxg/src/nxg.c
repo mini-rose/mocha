@@ -1,4 +1,4 @@
-/* nxg - coffee compiler, build system & package manager
+/* nxg - mocha compiler, build system & package manager
    Copyright (c) 2023 mini-rose */
 
 #include <getopt.h>
@@ -18,7 +18,7 @@ static inline void full_help()
 {
 	help();
 	fputs(
-	    "Compile, build and link coffee source code into an executable.\n\n"
+	    "Compile, build and link mocha source code into an executable.\n\n"
 	    "Common:\n"
 	    "  -h, --help      show this page\n"
 	    "  -o <path>       output binary file name (default: " DEFAULT_OUT
@@ -26,7 +26,7 @@ static inline void full_help()
 	    "  -a, --alloc     dump allocation stats\n"
 	    "  -O <level>      optimization level, one of: 0 1 2 3 s\n"
 	    "  -p              show generated AST\n"
-	    "  -r, --root <path> coffee root path (default: " NXG_ROOT ")\n"
+	    "  -r, --root <path> mocha root path (default: " NXG_ROOT ")\n"
 	    "  -t              show generated tokens\n"
 	    "  -v, --version   show the compiler version\n"
 	    "  -V              be verbose, show ran shell commands\n"

@@ -1,34 +1,34 @@
 /* std.builtin.string - string operations
    Copyright (c) 2023 mini-rose */
 
-#include "../coffee.h"
+#include "../mocha.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 /* drop(&str) -> null */
-cf_null _C4dropP3str(cf_str *self)
+mo_null _M4dropP3str(mo_str *self)
 {
-	if (!(self->flags & CF_STR_ALLOC))
+	if (!(self->flags & mo_STR_ALLOC))
 		return;
 
 	free(self->ptr);
 }
 
 /* copy(&str, &str) -> null */
-cf_null _C4copyP3strP3str(cf_str *self, cf_str *from)
+mo_null _M4copyP3strP3str(mo_str *self, mo_str *from)
 {
-	if (self->flags & CF_STR_ALLOC)
-		_C4dropP3str(self);
+	if (self->flags & mo_STR_ALLOC)
+		_M4dropP3str(self);
 
-	self->flags = CF_STR_ALLOC;
+	self->flags = mo_STR_ALLOC;
 	self->len = from->len;
 	self->ptr = (char *) malloc(self->len);
 	memcpy(self->ptr, from->ptr, self->len);
 }
 
-cf_bool _C3cmpP3strP3str(cf_str *string, cf_str *other)
+mo_bool _M3cmpP3strP3str(mo_str *string, mo_str *other)
 {
 	if (string->len != other->len)
 		return false;
@@ -37,15 +37,15 @@ cf_bool _C3cmpP3strP3str(cf_str *string, cf_str *other)
 }
 
 /* len(&str) -> i64 */
-cf_i64 _C3lenP3str(cf_str *self)
+mo_i64 _M3lenP3str(mo_str *self)
 {
 	return self->len;
 }
 
-cf_str *_C3stri(cf_i32 num)
+mo_str *_M3stri(mo_i32 num)
 {
 	char buf[128];
-	cf_str *self = (cf_str *) malloc(sizeof(cf_str));
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
 
 	snprintf(buf, sizeof(buf), "%d", num);
 
@@ -55,10 +55,10 @@ cf_str *_C3stri(cf_i32 num)
 	return self;
 }
 
-cf_str *_C3strl(cf_i64 num)
+mo_str *_M3strl(mo_i64 num)
 {
 	char buf[128];
-	cf_str *self = (cf_str *) malloc(sizeof(cf_str));
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
 
 	snprintf(buf, sizeof(buf), "%ld", num);
 
@@ -68,10 +68,10 @@ cf_str *_C3strl(cf_i64 num)
 	return self;
 }
 
-cf_str *_C3stra(cf_i8 num)
+mo_str *_M3stra(mo_i8 num)
 {
 	char buf[128];
-	cf_str *self = (cf_str *) malloc(sizeof(cf_str));
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
 
 	snprintf(buf, sizeof(buf), "%hhd", num);
 
@@ -81,9 +81,9 @@ cf_str *_C3stra(cf_i8 num)
 	return self;
 }
 
-cf_str *_C3strb(cf_bool b)
+mo_str *_M3strb(mo_bool b)
 {
-	cf_str *self = (cf_str *) malloc(sizeof(cf_str));
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
 
 	self->ptr = strdup((b) ? "true" : "false");
 	self->len = strlen(self->ptr);

@@ -848,14 +848,14 @@ void emit_stackpush(LLVMBuilderRef builder, LLVMModuleRef mod,
 
 	LLVMBuildCall2(
 	    builder, LLVMFunctionType(LLVMVoidType(), param_types, 2, false),
-	    LLVMGetNamedFunction(mod, "__cf_stackpush"), args, 2, "");
+	    LLVMGetNamedFunction(mod, "__mocha_stackpush"), args, 2, "");
 }
 
 void emit_stackpop(LLVMBuilderRef builder, LLVMModuleRef mod)
 {
-	LLVMBuildCall2(builder,
-		       LLVMFunctionType(LLVMVoidType(), NULL, 0, false),
-		       LLVMGetNamedFunction(mod, "__cf_stackpop"), NULL, 0, "");
+	LLVMBuildCall2(
+	    builder, LLVMFunctionType(LLVMVoidType(), NULL, 0, false),
+	    LLVMGetNamedFunction(mod, "__mocha_stackpop"), NULL, 0, "");
 }
 
 void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,

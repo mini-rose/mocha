@@ -1,4 +1,4 @@
-#include "coffee.h"
+#include "mocha.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +25,7 @@ static inline bool dir_exists(char *path)
 	return (S_ISDIR(_stat.st_mode)) ? true : false;
 }
 
-cf_i32 _C7executeP3str(cf_str *_cmd)
+mo_i32 _M7executeP3str(mo_str *_cmd)
 {
 	char __cmd[_cmd->len];
 	memcpy(__cmd, _cmd->ptr, _cmd->len);
@@ -33,19 +33,19 @@ cf_i32 _C7executeP3str(cf_str *_cmd)
 	return system(__cmd);
 }
 
-cf_str *_C6getenvP3str(cf_str *_name)
+mo_str *_M6getenvP3str(mo_str *_name)
 {
-	cf_str *self;
+	mo_str *self;
 	char __name[_name->len];
 	memcpy(__name, _name->ptr, _name->len);
 	__name[_name->len] = '\0';
-	self = (cf_str *) malloc(sizeof(cf_str));
+	self = (mo_str *) malloc(sizeof(mo_str));
 	self->ptr = getenv(__name);
 	self->len = strlen(self->ptr);
 	return self;
 }
 
-cf_i32 _C5mkdirP3str(cf_str *_path)
+mo_i32 _M5mkdirP3str(mo_str *_path)
 {
 	char __path[_path->len];
 	memcpy(__path, _path->ptr, _path->len);
@@ -57,7 +57,7 @@ cf_i32 _C5mkdirP3str(cf_str *_path)
 	return mkdir(__path, 511);
 }
 
-cf_i32 _C5touchP3str(cf_str *_path)
+mo_i32 _M5touchP3str(mo_str *_path)
 {
 	FILE *fp;
 	char __path[_path->len];
@@ -72,7 +72,7 @@ cf_i32 _C5touchP3str(cf_str *_path)
 	return 0;
 }
 
-cf_i32 _C6renameP3strP3str(cf_str *_old, cf_str *_new)
+mo_i32 _M6renameP3strP3str(mo_str *_old, mo_str *_new)
 {
 	char __old[_old->len];
 	char __new[_new->len];
@@ -83,7 +83,7 @@ cf_i32 _C6renameP3strP3str(cf_str *_old, cf_str *_new)
 	return rename(__old, __new);
 }
 
-cf_i32 _C5chmodP3stri(cf_str *_path, cf_i32 mode)
+mo_i32 _M5chmodP3stri(mo_str *_path, mo_i32 mode)
 {
 	char __path[_path->len];
 	memcpy(__path, _path->ptr, _path->len);

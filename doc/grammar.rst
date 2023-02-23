@@ -1,7 +1,7 @@
 Grammar
 =======
 
-The coffee language grammar is represented using a mix of EBNF and regular
+The Mocha language grammar is represented using a mix of EBNF and regular
 expressions. Syntax parsers can be built using this specification::
 
         module ::= use-expr

@@ -47,7 +47,7 @@ links = '\n'.join(links)
 index_source = f"""
 <html>
     <head>
-        <title>Coffee Documentation</title>
+        <title>Mocha Documentation</title>
         <style>
 
         a {{
@@ -62,7 +62,7 @@ index_source = f"""
 
         </style>
     </head>
-    <h1>Coffee</h1>
+    <h1>Mocha</h1>
     <p>
         A compiled programming language, using the LLVM toolchain, with a focus
         legible syntax, modularity and compatibility with C. This documentation

@@ -1,14 +1,14 @@
-coffee
-======
+mocha
+=====
 
-This is the main repository for the coffee project, and it contains the
-nxg compiler/build system, the Coffee standard library along with some other tools
+This is the main repository for the mocha project, and it contains the
+nxg compiler/build system, the mocha standard library along with some other tools
 for operating on the language.
 
 
 Syntax
 ------
-Coffee syntax excels at being simple, legible, and fast to type. An example
+Mocha syntax excels at being simple, legible, and fast to type. An example
 function that adds two 32-bit integers:
 
    function name          return type

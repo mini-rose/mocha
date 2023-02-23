@@ -2,7 +2,7 @@ project(
   'nextgen', 'c', version: '0.1',
   default_options: [
     'prefix=/usr',
-    'libdir=lib/coffee',
+    'libdir=lib/mocha',
     'bindir=bin'
   ]
 )

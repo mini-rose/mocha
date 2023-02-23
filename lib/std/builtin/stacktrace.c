@@ -1,7 +1,7 @@
 /* std.builtin.stacktrace - tools for tracking the callstack
    Copyright (c) 2023 mini-rose */
 
-#include "../coffee.h"
+#include "../mocha.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,51 +19,51 @@ struct callstack
 	int n;
 };
 
-static struct callstack cf_callstack = {0};
+static struct callstack mocha_callstack = {0};
 
-void __cf_stackpush(const char *symbol, const char *file)
+void __mocha_stackpush(const char *symbol, const char *file)
 {
-	if (cf_callstack.n >= CF_STACKLIMIT) {
+	if (mocha_callstack.n >= MOCHA_STACKLIMIT) {
 		printf(
 		    "\e[1;91mstacktrace error\e[0m: reached call stack limit "
 		    "of %d\n",
-		    CF_STACKLIMIT);
+		    MOCHA_STACKLIMIT);
 		exit(1);
 	}
 
-	cf_callstack.entries =
-	    realloc(cf_callstack.entries,
-		    sizeof(struct stackentry *) * (cf_callstack.n + 1));
-	cf_callstack.entries[cf_callstack.n] =
+	mocha_callstack.entries =
+	    realloc(mocha_callstack.entries,
+		    sizeof(struct stackentry *) * (mocha_callstack.n + 1));
+	mocha_callstack.entries[mocha_callstack.n] =
 	    calloc(1, sizeof(struct stackentry));
-	cf_callstack.entries[cf_callstack.n]->symbol = strdup(symbol);
-	cf_callstack.entries[cf_callstack.n++]->file = strdup(file);
+	mocha_callstack.entries[mocha_callstack.n]->symbol = strdup(symbol);
+	mocha_callstack.entries[mocha_callstack.n++]->file = strdup(file);
 }
 
-void __cf_stackpop()
+void __mocha_stackpop()
 {
 	struct stackentry *entry;
 
-	cf_callstack.entries =
-	    realloc(cf_callstack.entries,
-		    sizeof(struct stackentry *) * (cf_callstack.n--));
-	entry = cf_callstack.entries[cf_callstack.n];
+	mocha_callstack.entries =
+	    realloc(mocha_callstack.entries,
+		    sizeof(struct stackentry *) * (mocha_callstack.n--));
+	entry = mocha_callstack.entries[mocha_callstack.n];
 
 	free(entry->file);
 	free(entry->symbol);
 	free(entry);
 
-	if (cf_callstack.n == 0) {
-		free(cf_callstack.entries);
-		cf_callstack.n = 0;
-		cf_callstack.entries = NULL;
+	if (mocha_callstack.n == 0) {
+		free(mocha_callstack.entries);
+		mocha_callstack.n = 0;
+		mocha_callstack.entries = NULL;
 	}
 }
 
-void __cf_stackdump()
+void __mocha_stackdump()
 {
-	for (int i = cf_callstack.n - 1; i >= 0; i--)
-		printf("  %d: %s (%s)\n", cf_callstack.n - i - 1,
-		       cf_callstack.entries[i]->symbol,
-		       cf_callstack.entries[i]->file);
+	for (int i = mocha_callstack.n - 1; i >= 0; i--)
+		printf("  %d: %s (%s)\n", mocha_callstack.n - i - 1,
+		       mocha_callstack.entries[i]->symbol,
+		       mocha_callstack.entries[i]->file);
 }

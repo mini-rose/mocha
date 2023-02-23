@@ -3,32 +3,32 @@ Function mangling
 =================
 
 Each function name gets mangled in order to support overloading and generic
-types, similar to what C-- or Rust does with their code. Coffee uses the
-``nxg_mangle`` function, which uses the Itanium C-- ABI for mangling symbols
+types, similar to what C++ or Rust does with their code. Mocha uses the
+``nxg_mangle`` function, which uses the Itanium C++ ABI for mangling symbols
 and type names (https://itanium-cxx-abi.github.io/cxx-abi/abi.html), but
-the difference is in the second character; instead of a 'Z' we use a 'C',
-so the main function will be mangled to ``_C4main`` instead of ``_Z4main``.
+the difference is in the second character; instead of a 'Z' we use a 'M',
+so the main function will be mangled to ``_M4main`` instead of ``_M4main``.
 
 Here, an example::
 
-	add(i32 a, i64 b) -> _C3addil
+	add(i32 a, i64 b) -> _M3addil
 
 This add function has 2 paramters, a regular int (i) and a 64-bit signed
 integer (l), which get added at the end of the function name.
 
 General construction::
 
-	all symbols have the `_C` prefix
+	all symbols have the `_M` prefix
 	       a list of parameter types
 	v      v
-	_C4namexxx
+	_M4namexxx
 	   ^
 	   len - name of the function
 
 
 This means that ``add<T>(T a, T b)`` would get mangled differently
 depending on the type of T. For example, add<i32>(...) would become
-``_C3addii``, while add<u128>(...) would become ``_C3addoo``.
+``_M3addii``, while add<u128>(...) would become ``_M3addoo``.
 
 Full table of the base types:
 

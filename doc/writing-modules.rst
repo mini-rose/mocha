@@ -1,7 +1,7 @@
 Writing modules
 ===============
 
-Modules are simply Coffee source code files which are imported by the compiler
+Modules are simply Mocha source code files which are imported by the compiler
 if the user requests so using the ``use`` keyword. Note that some modules are
 automatically imported by the compiler to support with code generation. Here
 is a simple "hello world" style example:
@@ -27,7 +27,7 @@ the compiler automatically sorts out all imports and additional modules.
 Extending with C
 ----------------
 
-You can very easily extend Coffee programs with C code by writing additional
+You can very easily extend Mocha programs with C code by writing additional
 modules for it, and simply declaring that such functions exist. Here is an
 add function implemented in C.
 
@@ -55,9 +55,9 @@ can get recognized as an additional dependency for the compiler::
         // add.c
 
             mangle the name appropriately (see mangling.rst)
-            |        i32 in Coffee refers to the same type as an int in C
+            |        i32 in Mocha refers to the same type as an int in C
             v        v
-        int _C3addii(int a, int b)
+        int _M3addii(int a, int b)
         {
                 return a + b;
         }
@@ -84,12 +84,12 @@ a .o file ending). Now, just build this test with::
 and the compiler will do the rest.
 
 This option is really powerful, as it allows for a gradual change from C to
-Coffee, without the need to write everything at once as it's pretty much ABI
+Mocha, without the need to write everything at once as it's pretty much ABI
 compatible. There is one really important thing to remember, which is structs
-in Coffee and structs in C use different ABI rules, meaning, when passed by
+in Mocha and structs in C use different ABI rules, meaning, when passed by
 value, they will result in **entirely different semantics, which break
 compatibility**. The simple fix for this is implementing a jump-pad function
-in Coffee, which just copies the value and passes it on by reference to C code.
+in Mocha, which just copies the value and passes it on by reference to C code.
 
 Here is an example::
 
@@ -109,7 +109,7 @@ Here is an example::
         // mod.c
 
         struct User {
-                struct cf_str name;
+                struct mo_name name;
                 int id;
         };
 
@@ -119,7 +119,7 @@ Here is an example::
 
 This is mostly because C and LLVM implement slightly different ABIs for passing
 structs by-value, and also because this would result in undefined behaviour for
-some object types, which the Coffee compiler would generate ``drop(&T)`` calls
+some object types, which the Mocha compiler would generate ``drop(&T)`` calls
 for. In this case, the User type gets drop() called on it at the end of the
 consume_user function in order to free the copied name field. It would be very
 easy to forget to drop the value in C, and the compiler would lose track of the
