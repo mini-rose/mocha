@@ -1,3 +1,5 @@
+#include "nxg/cc/type.h"
+
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
@@ -140,8 +142,8 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 	return ERR_OK;
 }
 
-err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
-			token_list *tokens, token *tok)
+err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
+			call_expr_t *data, token_list *tokens, token *tok)
 {
 	arg_tokens_t arg_tokens = {0};
 	token *fn_name_tok;
@@ -165,7 +167,8 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 
 			arg->type = VE_CALL;
 			arg->call = slab_alloc(sizeof(*arg->call));
-			parse_inline_call(parent, mod, arg->call, tokens, tok);
+			parse_inline_call(settings, parent, mod, arg->call,
+					  tokens, tok);
 
 			arg->return_type =
 			    type_copy(arg->call->func->return_type);
@@ -173,7 +176,8 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		} else if (is_single_value(tokens, tok)) {
 			arg = slab_alloc(sizeof(*arg));
 			add_arg_token(&arg_tokens, tok);
-			arg = parse_value_expr(parent, mod, arg, tokens, tok);
+			arg = parse_value_expr(settings, parent, mod, arg,
+					       tokens, tok);
 			call_push_arg(data, arg);
 
 		} else if (is_literal(tok)) {
@@ -217,7 +221,7 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		    || !strcmp(data->name, "sleep")
 		    || !strcmp(data->name, "getenv")
 		    || !strcmp(data->name, "version"))
-			fix = ", did you mean to `use std.sys`?";
+			fix = ", did you mean to `use std.os`?";
 
 		if (!strcmp(data->name, "write"))
 			fix = ", did you mean to `use std.io`?";
@@ -344,13 +348,38 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 		 "could not find a matching overload%s", more_info);
 
 end:
+	/* Common case: print() takes both a string reference and a string copy
+	   to support literals. This also allows the user to pass copies when
+	   a reference would be the better option. [prefer-ref] */
+
+	if (!strcmp(data->name, "print") && settings->warn_prefer_ref) {
+		if (data->n_args == 0)
+			goto skip_ref_warn;
+
+		if (!is_str_type(data->args[0]->return_type))
+			goto skip_ref_warn;
+
+		if (data->args[0]->type == VE_LIT)
+			goto skip_ref_warn;
+
+		token *a = arg_tokens.tokens[0];
+		char *fix = slab_alloc(a->len + 2);
+		snprintf(fix, a->len + 2, "&%.*s", a->len, a->value);
+
+		warning_at_with_fix(
+		    tokens->source, a->value, a->len, fix,
+		    "unnecessary copy, you should pass a reference here");
+	}
+
+skip_ref_warn:
 	return ERR_OK;
 }
 
 /**
  * ident([arg, ...])
  */
-void parse_call(expr_t *parent, expr_t *mod, token_list *tokens, token *tok)
+void parse_call(settings_t *settings, expr_t *parent, expr_t *mod,
+		token_list *tokens, token *tok)
 {
 	expr_t *node;
 	call_expr_t *data;
@@ -361,7 +390,7 @@ void parse_call(expr_t *parent, expr_t *mod, token_list *tokens, token *tok)
 	node->type = E_CALL;
 	node->data = data;
 
-	if (parse_inline_call(parent, mod, data, tokens, tok)
+	if (parse_inline_call(settings, parent, mod, data, tokens, tok)
 	    == ERR_WAS_BUILTIN) {
 		memset(node, 0, sizeof(*node));
 		node->type = E_SKIP;

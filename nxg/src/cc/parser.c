@@ -349,8 +349,8 @@ static err_t parse_var_decl(expr_t *parent, expr_t *module, token_list *tokens,
 /**
  * name[: type] = value
  */
-static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
-			  token_list *tokens, token *tok)
+static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
+			  fn_expr_t *fn, token_list *tokens, token *tok)
 {
 	assign_expr_t *data;
 	expr_t *node;
@@ -423,7 +423,8 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 	/* Parse value */
 	tok = next_tok(tokens);
 	data->value = slab_alloc(sizeof(*data->value));
-	data->value = parse_value_expr(parent, mod, data->value, tokens, tok);
+	data->value =
+	    parse_value_expr(settings, parent, mod, data->value, tokens, tok);
 
 	if (guess_type) {
 		data->to->return_type = type_copy(data->value->return_type);
@@ -509,8 +510,8 @@ static err_t parse_assign(expr_t *parent, expr_t *mod, fn_expr_t *fn,
 /**
  * ret [value]
  */
-static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
-			  token *tok)
+static err_t parse_return(settings_t *settings, expr_t *parent, expr_t *mod,
+			  token_list *tokens, token *tok)
 {
 	type_t *return_type;
 	value_expr_t *data;
@@ -548,7 +549,7 @@ static err_t parse_return(expr_t *parent, expr_t *mod, token_list *tokens,
 	}
 
 	/* return with a value */
-	data = parse_value_expr(parent, mod, data, tokens, tok);
+	data = parse_value_expr(settings, parent, mod, data, tokens, tok);
 	node->data = data;
 
 	if (!type_cmp(data->return_type, E_AS_FN(parent->data)->return_type)) {
@@ -768,7 +769,8 @@ static void parse_condition(settings_t *settings, expr_t *parent,
 	cond->cond = slab_alloc(sizeof(*cond->cond));
 
 	/* Parse the condition, and ensure it returns bool. */
-	cond->cond = parse_value_expr(parent, module, cond->cond, tokens, tok);
+	cond->cond =
+	    parse_value_expr(settings, parent, module, cond->cond, tokens, tok);
 
 	tok = index_tok(tokens, tokens->iter - 1);
 	if (cond->cond->type == VE_NULL) {
@@ -831,8 +833,9 @@ skip_bool_check:
 		cond->if_block->type = E_VALUE;
 		cond->if_block->data = slab_alloc(sizeof(value_expr_t));
 
-		cond->if_block->data = parse_value_expr(
-		    parent, module, cond->if_block->data, tokens, tok);
+		cond->if_block->data =
+		    parse_value_expr(settings, parent, module,
+				     cond->if_block->data, tokens, tok);
 	}
 
 	/* Have a peek if we have an else block. */
@@ -870,8 +873,9 @@ skip_bool_check:
 		cond->else_block->type = E_VALUE;
 		cond->else_block->data = slab_alloc(sizeof(value_expr_t));
 
-		cond->else_block->data = parse_value_expr(
-		    parent, module, cond->else_block->data, tokens, tok);
+		cond->else_block->data =
+		    parse_value_expr(settings, parent, module,
+				     cond->else_block->data, tokens, tok);
 	}
 }
 
@@ -920,16 +924,16 @@ static void parse_block(settings_t *settings, expr_t *parent, expr_t *module,
 		/* Statements inside a block */
 
 		if (is_var_assign(tokens, tok))
-			parse_assign(node, module, fn, tokens, tok);
+			parse_assign(settings, node, module, fn, tokens, tok);
 		else if (is_var_decl(tokens, tok))
 			parse_var_decl(node, module, tokens, tok);
 		else if (is_call(tokens, tok))
-			parse_call(node, module, tokens, tok);
+			parse_call(settings, node, module, tokens, tok);
 		else if (tok->type == T_LPAREN)
 			parse_condition(settings, node, module, fn, tokens,
 					tok);
 		else if (TOK_IS(tok, T_KEYWORD, "ret"))
-			parse_return(node, module, tokens, tok);
+			parse_return(settings, node, module, tokens, tok);
 		else if (TOK_IS(tok, T_IDENT, "return"))
 			error_at_with_fix(tokens->source, tok->value, tok->len,
 					  "ret", "did you mean `ret`?");

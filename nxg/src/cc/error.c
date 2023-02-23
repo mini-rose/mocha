@@ -148,3 +148,15 @@ void warning_at(file_t *source, const char *pos, int len, const char *format,
 	va_start(ap, format);
 	error_at_impl(source, &settings, pos, len, NULL, format, ap);
 }
+
+void warning_at_with_fix(file_t *source, const char *pos, int len,
+			 const char *fix, const char *format, ...)
+{
+	err_settings_t settings = {.title = "warning",
+				   .title_color = "\e[35m",
+				   .highlight_color = "\e[1;36m",
+				   .message_color = "\e[36m"};
+	va_list ap;
+	va_start(ap, format);
+	error_at_impl(source, &settings, pos, len, fix, format, ap);
+}

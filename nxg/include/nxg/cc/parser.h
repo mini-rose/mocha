@@ -231,11 +231,13 @@ int call_token_len(token_list *tokens, token *tok);
 
 err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 			 token *tok);
-err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
-			token_list *tokens, token *tok);
-value_expr_t *parse_value_expr(expr_t *context, expr_t *mod, value_expr_t *node,
+err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
+			call_expr_t *data, token_list *tokens, token *tok);
+value_expr_t *parse_value_expr(settings_t *settings, expr_t *context,
+			       expr_t *mod, value_expr_t *node,
 			       token_list *tokens, token *tok);
-void parse_call(expr_t *parent, expr_t *mod, token_list *tokens, token *tok);
+void parse_call(settings_t *settings, expr_t *parent, expr_t *mod,
+		token_list *tokens, token *tok);
 type_t *parse_type(expr_t *context, token_list *tokens, token *tok);
 void parse_literal(value_expr_t *node, token_list *tokens, token *tok);
 expr_t *expr_add_child(expr_t *parent);

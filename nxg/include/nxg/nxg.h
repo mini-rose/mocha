@@ -38,6 +38,7 @@ typedef struct
 	bool warn_unused;
 	bool warn_random;
 	bool warn_empty_block;
+	bool warn_prefer_ref;
 
 	char *opt;
 	char *output;
