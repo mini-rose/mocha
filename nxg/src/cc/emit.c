@@ -280,15 +280,38 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 static LLVMValueRef gen_cmp(LLVMBuilderRef builder, fn_context_t *context,
 			    value_expr_t *value, LLVMIntPredicate op)
 {
+	LLVMValueRef left, right;
+
 	/* Integer comparison. */
-	if (value->left->return_type->kind == TY_PLAIN) {
-		return LLVMBuildICmp(
-		    builder, op, gen_new_value(builder, context, value->left),
-		    gen_new_value(builder, context, value->right), "");
+	if (value->left->return_type->kind != TY_PLAIN
+	    || value->right->return_type->kind != TY_PLAIN) {
+		error("emit[cmp]: cannot emit comparison for %s == %s",
+		      type_name(value->left->return_type),
+		      type_name(value->right->return_type));
 	}
 
-	error("emit[cmp]: cannot emit comparison for `%s`",
-	      type_name(value->left->return_type));
+	left = gen_new_value(builder, context, value->left);
+	right = gen_new_value(builder, context, value->right);
+
+	/* If we're comparing 2 different types, zero-extend the smaller
+	   one to make them comparable. */
+	if (!type_cmp(value->left->return_type, value->right->return_type)) {
+		if (type_sizeof(value->left->return_type)
+		    > type_sizeof(value->right->return_type)) {
+
+			/* zext right -> left */
+			right =
+			    LLVMBuildZExt(builder, right, LLVMTypeOf(left), "");
+
+		} else {
+
+			/* zext left -> right */
+			left =
+			    LLVMBuildZExt(builder, left, LLVMTypeOf(right), "");
+		}
+	}
+
+	return LLVMBuildICmp(builder, op, left, right, "");
 }
 
 /**

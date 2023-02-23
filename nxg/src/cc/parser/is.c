@@ -17,10 +17,6 @@ bool is_var_decl(token_list *tokens, token *tok)
 	if (!TOK_IS(tok, T_PUNCT, ":"))
 		return false;
 
-	tok = index_tok(tokens, tokens->iter + 1);
-	if (!is_type(tokens, tok))
-		return false;
-
 	return true;
 }
 
@@ -59,6 +55,34 @@ bool is_call(token_list *tokens, token *tok)
 	return false;
 }
 
+int call_token_len(token_list *tokens, token *tok)
+{
+	int len = 2;
+	int depth = 0;
+
+	tok = index_tok(tokens, tokens->iter);
+
+	if (tok->type != T_LPAREN)
+		return 0;
+
+	depth++;
+
+	while (depth > 0) {
+		tok = index_tok(tokens, tokens->iter + len);
+		if (tok->type == T_NEWLINE)
+			return 0;
+
+		if (tok->type == T_LPAREN)
+			depth++;
+		if (tok->type == T_RPAREN)
+			depth--;
+
+		len++;
+	}
+
+	return len;
+}
+
 /**
  * literal ::= string | integer | float | "null"
  */
@@ -85,11 +109,11 @@ bool is_member(token_list *tokens, token *tok)
 	if (tok->type != T_IDENT)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter);
+	tok = after_tok(tokens, tok);
 	if (tok->type != T_DOT)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter + 1);
+	tok = after_tok(tokens, tok);
 	if (tok->type != T_IDENT)
 		return false;
 
@@ -101,15 +125,15 @@ bool is_member_deref(token_list *tokens, token *tok)
 	if (tok->type != T_MUL)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter);
+	tok = after_tok(tokens, tok);
 	if (tok->type != T_IDENT)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter + 1);
+	tok = after_tok(tokens, tok);
 	if (tok->type != T_DOT)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter + 2);
+	tok = after_tok(tokens, tok);
 	if (tok->type != T_IDENT)
 		return false;
 
@@ -124,15 +148,15 @@ bool is_pointer_to_member(token_list *tokens, token *tok)
 	if (!TOK_IS(tok, T_PUNCT, "&"))
 		return false;
 
-	tok = index_tok(tokens, tokens->iter);
+	tok = after_tok(tokens, tok);
 	if (tok->type != T_IDENT)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter + 1);
+	tok = after_tok(tokens, tok);
 	if (tok->type != T_DOT)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter + 2);
+	tok = after_tok(tokens, tok);
 	if (tok->type != T_IDENT)
 		return false;
 
@@ -147,7 +171,7 @@ bool is_dereference(token_list *tokens, token *tok)
 	if (tok->type != T_MUL)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter);
+	tok = after_tok(tokens, tok);
 	if (tok->type == T_IDENT)
 		return true;
 
@@ -162,7 +186,7 @@ bool is_pointer_to(token_list *tokens, token *tok)
 	if (!TOK_IS(tok, T_PUNCT, "&"))
 		return false;
 
-	tok = index_tok(tokens, tokens->iter);
+	tok = after_tok(tokens, tok);
 	if (tok->type == T_IDENT)
 		return true;
 
@@ -195,6 +219,10 @@ bool is_operator(token *tok)
 bool is_comparison(token_list *tokens, token *tok)
 {
 	int offset = 0;
+
+	if (is_call(tokens, tok)) {
+		offset = call_token_len(tokens, tok);
+	}
 
 	if (is_pointer_to(tokens, tok)) {
 		offset = 1;
@@ -252,7 +280,7 @@ bool is_var_assign(token_list *tokens, token *tok)
 	int offset = 0;
 
 	if (tok->type == T_MUL) {
-		tok = index_tok(tokens, tokens->iter);
+		tok = after_tok(tokens, tok);
 		offset++;
 	}
 

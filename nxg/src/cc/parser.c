@@ -36,6 +36,16 @@ token *next_tok(token_list *list)
 	return index_tok(list, list->iter++);
 }
 
+token *after_tok(token_list *list, token *from)
+{
+	for (int i = 0; i < list->length; i++) {
+		if (list->tokens[i] == from)
+			return list->tokens[i + 1];
+	}
+
+	return index_tok(list, list->length);
+}
+
 static expr_t *expr_add_next(expr_t *expr)
 {
 	expr_t *node = slab_alloc(sizeof(*node));
@@ -316,6 +326,12 @@ static err_t parse_var_decl(expr_t *parent, expr_t *module, token_list *tokens,
 
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
+
+	if (!is_type(tokens, tok)) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "expected type in variable declaration");
+	}
+
 	data->type = parse_type(module, tokens, tok);
 
 	node = expr_add_child(parent);

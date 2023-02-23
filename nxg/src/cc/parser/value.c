@@ -33,6 +33,7 @@ static void parse_member(value_expr_t *node, expr_t *context,
 	tok = next_tok(tokens);
 
 	type_t *o_type = node->return_type;
+
 	if (o_type->kind == TY_POINTER)
 		o_type = o_type->v_base;
 
@@ -249,6 +250,8 @@ static value_expr_t *parse_comparison(expr_t *context, expr_t *mod,
 				      value_expr_t *node, token_list *tokens,
 				      token *tok)
 {
+	token *left;
+	token *right;
 	token *op;
 
 	node->left = slab_alloc(sizeof(*node->left));
@@ -260,6 +263,7 @@ static value_expr_t *parse_comparison(expr_t *context, expr_t *mod,
 			 "left side of comparison is not a valid rvalue");
 	}
 
+	left = tok;
 	parse_single_value(context, mod, node->left, tokens, tok);
 
 	tok = next_tok(tokens);
@@ -276,13 +280,19 @@ static value_expr_t *parse_comparison(expr_t *context, expr_t *mod,
 			 "right side of comparison is not a valid rvalue");
 	}
 
+	right = tok;
 	parse_single_value(context, mod, node->right, tokens, tok);
 
-	if (!type_cmp(node->left->return_type, node->right->return_type)) {
-		error_at(tokens->source, op->value, op->len,
-			 "cannot compare `%s` and `%s`",
-			 type_name(node->left->return_type),
-			 type_name(node->right->return_type));
+	if (node->left->return_type->kind != TY_PLAIN) {
+		highlight_t hi = highlight_value(tokens, left);
+		error_at(tokens->source, hi.value, hi.len,
+			 "cannot compare non-integer types");
+	}
+
+	if (node->right->return_type->kind != TY_PLAIN) {
+		highlight_t hi = highlight_value(tokens, left);
+		error_at(tokens->source, hi.value, hi.len,
+			 "cannot compare non-integer types");
 	}
 
 	return node;
@@ -335,4 +345,28 @@ value_expr_t *parse_value_expr(expr_t *context, expr_t *mod, value_expr_t *node,
 
 	error_at(tokens->source, tok->value, tok->len, "failed to parse value");
 	return node;
+}
+
+highlight_t highlight_value(token_list *tokens, token *tok)
+{
+	highlight_t hi;
+	token *tmp;
+
+	hi.value = tok->value;
+
+	if (is_literal(tok)) {
+		if (tok->type == T_STRING) {
+			hi.len = tok->len + 2;
+			hi.value = tok->value - 1;
+		} else {
+			hi.len = tok->len;
+		}
+	} else if (is_member(tokens, tok)) {
+		tmp = after_tok(tokens, after_tok(tokens, tok));
+		hi.len = (size_t) (tmp->value + tmp->len - tok->value);
+	} else {
+		hi.len = tok->len;
+	}
+
+	return hi;
 }

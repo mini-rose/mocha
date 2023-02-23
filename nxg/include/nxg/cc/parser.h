@@ -208,6 +208,7 @@ char *fn_str_signature(fn_expr_t *func, bool with_colors);
 
 token *index_tok(token_list *list, int index);
 token *next_tok(token_list *list);
+token *after_tok(token_list *list, token *from);
 
 bool is_var_decl(token_list *tokens, token *tok);
 bool is_type(token_list *tokens, token *tok);
@@ -226,6 +227,8 @@ bool is_integer(token *tok);
 bool is_float(token *tok);
 bool is_var_assign(token_list *tokens, token *tok);
 
+int call_token_len(token_list *tokens, token *tok);
+
 err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 			 token *tok);
 err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
@@ -236,6 +239,14 @@ void parse_call(expr_t *parent, expr_t *mod, token_list *tokens, token *tok);
 type_t *parse_type(expr_t *context, token_list *tokens, token *tok);
 void parse_literal(value_expr_t *node, token_list *tokens, token *tok);
 expr_t *expr_add_child(expr_t *parent);
+
+typedef struct
+{
+	const char *value;
+	int len;
+} highlight_t;
+
+highlight_t highlight_value(token_list *tokens, token *tok);
 
 #define TOK_IS(TOK, TYPE, VALUE)                                               \
  (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))

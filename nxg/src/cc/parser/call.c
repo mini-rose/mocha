@@ -302,6 +302,14 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 				continue;
 			}
 
+			if (data->args[j]->type == VE_LIT) {
+				error_at(tokens->source,
+					 arg_tokens.tokens[j]->value,
+					 arg_tokens.tokens[j]->len,
+					 "cannot take reference of literal, "
+					 "create a variable first");
+			}
+
 			if (!type_cmp(match->params[j]->type->v_base,
 				      data->args[j]->return_type)) {
 				continue;
@@ -311,9 +319,10 @@ err_t parse_inline_call(expr_t *parent, expr_t *mod, call_expr_t *data,
 			snprintf(fix, 64, "&%.*s", arg_tokens.tokens[j]->len,
 				 arg_tokens.tokens[j]->value);
 
+			highlight_t hi =
+			    highlight_value(tokens, arg_tokens.tokens[j]);
 			error_at_with_fix(
-			    tokens->source, arg_tokens.tokens[j]->value,
-			    arg_tokens.tokens[j]->len, fix,
+			    tokens->source, hi.value, hi.len, fix,
 			    "%s takes a `%s` here, did you mean to "
 			    "pass a reference?",
 			    data->name, type_name(match->params[j]->type),

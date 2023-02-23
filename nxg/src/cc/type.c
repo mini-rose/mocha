@@ -288,6 +288,33 @@ const char *type_example_varname(type_t *ty)
 	return "x";
 }
 
+int type_sizeof(type_t *ty)
+{
+	if (ty->kind != TY_PLAIN)
+		error("type: sizeof(<non-plain>) unsupported yet");
+
+	switch (ty->v_plain) {
+	case PT_BOOL:
+	case PT_I8:
+	case PT_U8:
+		return 1;
+	case PT_I16:
+	case PT_U16:
+		return 2;
+	case PT_I32:
+	case PT_U32:
+		return 4;
+	case PT_I64:
+	case PT_U64:
+		return 8;
+	case PT_I128:
+	case PT_U128:
+		return 16;
+	default:
+		return 0;
+	}
+}
+
 void type_object_add_field(object_type_t *o, char *name, type_t *ty)
 {
 	o->fields = realloc_ptr_array(o->fields, o->n_fields + 1);
