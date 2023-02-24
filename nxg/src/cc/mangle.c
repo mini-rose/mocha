@@ -56,7 +56,14 @@ char *nxg_mangle(const fn_expr_t *func)
 {
 	char *name = slab_alloc(512);
 
-	snprintf(name, 512, "_M%d%s", (int) strlen(func->name), func->name);
+	if (func->object) {
+		snprintf(name, 512, "_MN%d%s%d%sE",
+			 (int) strlen(func->object->name), func->object->name,
+			 (int) strlen(func->name), func->name);
+	} else {
+		snprintf(name, 512, "_M%d%s", (int) strlen(func->name),
+			 func->name);
+	}
 
 	for (int i = 0; i < func->n_params; i++)
 		mangled_type_str(func->params[i]->type, &name[strlen(name)]);

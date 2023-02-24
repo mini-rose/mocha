@@ -1,6 +1,8 @@
 /* parser/dump.c - dump expr trees
    Copyright (c) 2023 mini-rose */
 
+#include "nxg/cc/type.h"
+
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/parser.h>
 #include <nxg/utils/error.h>
@@ -103,8 +105,16 @@ static const char *expr_info(expr_t *expr)
 			 value_expr_type_name(E_AS_VAL(expr->data)->type));
 		break;
 	case E_CALL:
-		snprintf(info, 512, "\e[34m%s\e[0m \e[97mn_args=\e[0m%d",
-			 E_AS_CALL(expr->data)->name,
+		tmp = slab_alloc(128);
+		if (E_AS_CALL(expr->data)->object_name) {
+			snprintf(tmp, 128, "%s.%s",
+				 E_AS_CALL(expr->data)->object_name,
+				 E_AS_CALL(expr->data)->name);
+		} else {
+			snprintf(tmp, 128, "%s", E_AS_CALL(expr->data)->name);
+		}
+
+		snprintf(info, 512, "\e[34m%s\e[0m \e[97mn_args=\e[0m%d", tmp,
 			 E_AS_CALL(expr->data)->n_args);
 		break;
 	default:
@@ -178,6 +188,21 @@ static void expr_print_value_expr(value_expr_t *val, int level)
 	}
 }
 
+static void dump_object_type(object_type_t *o, int level)
+{
+	indent(level);
+	printf("\e[93m%s\e[0m { ", o->name);
+	for (int i = 0; i < o->n_fields; i++) {
+		printf("%s: \e[93m%s\e[0m ", o->field_names[i],
+		       type_name(o->fields[i]));
+	}
+	printf("}\n");
+
+	for (int i = 0; i < o->n_methods; i++) {
+		expr_print_level(o->methods[i], level + 1, true);
+	}
+}
+
 static void expr_print_mod_expr(mod_expr_t *mod, int level)
 {
 	char *tmp;
@@ -222,9 +247,15 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 	}
 
 	for (int i = 0; i < mod->n_type_decls; i++) {
-		indent(level + 1);
-		tmp = type_name(mod->type_decls[i]);
-		printf("%s\n", tmp);
+		type_t *ty = mod->type_decls[i];
+
+		if (ty->kind == TY_OBJECT) {
+			dump_object_type(ty->v_object, level + 1);
+		} else {
+			indent(level + 1);
+			tmp = type_name(mod->type_decls[i]);
+			printf("%s\n", tmp);
+		}
 	}
 
 	if (mod->n_imported) {

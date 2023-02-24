@@ -22,7 +22,8 @@ expressions. Syntax parsers can be built using this specification::
         function-param ::= symbol ':' type
 
         type-decl ::= 'type' symbol '{' (type-field)* '}'
-        type-field ::= symbol ':' type
+        type-field ::= symbol ':' (type | type-method)
+        type-method ::= 'fn' [function-params] ['->' type] block
 
         type-alias ::= 'type' symbol '=' type
 
@@ -35,6 +36,7 @@ expressions. Syntax parsers can be built using this specification::
                   ::= builtin-call
                   ::= condition
                   ::= call
+                  ::= member-call
                   ::= ret
 
         var-decl ::= symbol ':' type ['=' rvalue]
@@ -47,6 +49,8 @@ expressions. Syntax parsers can be built using this specification::
 
         comparison ::= rvalue '==' rvalue
                    ::= rvalue '!=' rvalue
+
+        member-call ::= symbol '.' call
 
         rvalue ::= literal
                ::= symbol

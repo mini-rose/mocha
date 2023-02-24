@@ -1,5 +1,3 @@
-#include "nxg/cc/type.h"
-
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
@@ -147,6 +145,7 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 {
 	arg_tokens_t arg_tokens = {0};
 	token *fn_name_tok;
+	value_expr_t *self_arg = NULL;
 	value_expr_t *arg;
 
 	if (is_builtin_function(tok))
@@ -158,8 +157,13 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
 
-	/* Arguments - currently only support variable names & literals
-	 */
+	/* If this is a method, the first argument is always `self`. */
+	if (data->object_name) {
+		self_arg = call_add_arg(data);
+		add_arg_token(&arg_tokens, tok);
+	}
+
+	/* Arguments */
 	while (tok->type != T_RPAREN) {
 		if (is_call(tokens, tok)) {
 			arg = call_add_arg(data);
@@ -206,8 +210,56 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 		tok = next_tok(tokens);
 	}
 
-	fn_candidates_t *resolved = module_find_fn_candidates(mod, data->name);
+	fn_candidates_t *resolved;
 
+	if (data->object_name) {
+		var_decl_expr_t *var;
+		type_t *obj_type;
+		token *o_name;
+
+		/* Little hack: if we know its a member call, step 2 tokens back
+		   to get the name token. */
+		o_name = before_tok(tokens, fn_name_tok);
+		o_name = before_tok(tokens, fn_name_tok);
+
+		/* Get the type of the object */
+		var = node_resolve_local(parent, data->object_name, 0);
+		if (!var) {
+			error_at(tokens->source, o_name->value, o_name->len,
+				 "use of an undeclared object variable");
+		}
+
+		obj_type = var->type;
+		if (obj_type->kind == TY_POINTER)
+			obj_type = obj_type->v_base;
+
+		if (obj_type->kind != TY_OBJECT) {
+			error_at(tokens->source, o_name->value, o_name->len,
+				 "non-object types do not have methods");
+		}
+
+		/* Add `self` to the call. */
+		self_arg->type =
+		    var->type->kind == TY_POINTER ? VE_REF : VE_PTR;
+		self_arg->return_type = type_pointer_of(obj_type);
+		self_arg->name = slab_strdup(var->name);
+
+		resolved = type_object_find_fn_candidates(obj_type->v_object,
+							  data->name);
+
+		/* Method call has a different error */
+		if (!resolved->n_candidates) {
+			error_at(tokens->source, fn_name_tok->value,
+				 fn_name_tok->len,
+				 "%s has no method named `%s`",
+				 obj_type->v_object->name, data->name);
+		}
+
+	} else {
+		resolved = module_find_fn_candidates(mod, data->name);
+	}
+
+	/* Bare call */
 	if (!resolved->n_candidates) {
 		/* Check if maybe the user missed an import */
 		char *fix = NULL;
@@ -389,6 +441,38 @@ void parse_call(settings_t *settings, expr_t *parent, expr_t *mod,
 	node = expr_add_child(parent);
 	node->type = E_CALL;
 	node->data = data;
+
+	if (parse_inline_call(settings, parent, mod, data, tokens, tok)
+	    == ERR_WAS_BUILTIN) {
+		memset(node, 0, sizeof(*node));
+		node->type = E_SKIP;
+	}
+}
+
+/**
+ * ident.ident([arg, ...])
+ */
+void parse_member_call(settings_t *settings, expr_t *parent, expr_t *mod,
+		       token_list *tokens, token *tok)
+{
+	expr_t *node;
+	call_expr_t *data;
+
+	data = slab_alloc(sizeof(*data));
+
+	node = expr_add_child(parent);
+	node->type = E_CALL;
+	node->data = data;
+
+	if (tok->type != T_IDENT) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "expected object name");
+	}
+
+	data->object_name = slab_strndup(tok->value, tok->len);
+
+	tok = next_tok(tokens); /* . */
+	tok = next_tok(tokens); /* method ident */
 
 	if (parse_inline_call(settings, parent, mod, data, tokens, tok)
 	    == ERR_WAS_BUILTIN) {

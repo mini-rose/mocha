@@ -1,4 +1,5 @@
 #pragma once
+#include <nxg/cc/expr.h>
 #include <nxg/cc/tokenize.h>
 #include <nxg/cc/type.h>
 #include <nxg/nxg.h>
@@ -6,33 +7,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-typedef enum
-{
-	E_SKIP, /* empty expression, skip these in emit() */
-	E_MODULE,
-	E_FUNCTION,
-	E_CALL,
-	E_RETURN, /* data is a pointer to a value_expr_t */
-	E_VARDECL,
-	E_ASSIGN,
-	E_VALUE,
-	E_CONDITION,
-	E_BLOCK, /* just a {} block */
-} expr_type;
-
-typedef struct expr expr_t;
 typedef struct fn_expr fn_expr_t;
 typedef struct literal_expr literal_expr_t;
 typedef struct call_expr call_expr_t;
 typedef struct value_expr value_expr_t;
-
-struct expr
-{
-	expr_type type;
-	expr_t *next;
-	expr_t *child;
-	void *data;
-};
 
 typedef enum
 {
@@ -135,6 +113,7 @@ struct fn_expr
 {
 	char *name;
 	expr_t *module;
+	object_type_t *object; /* method if non-null */
 	var_decl_expr_t **params;
 	var_decl_expr_t **locals;
 	int n_params;
@@ -154,6 +133,7 @@ typedef struct
 struct call_expr
 {
 	char *name;
+	char *object_name;
 	int n_args;
 	value_expr_t **args;
 	fn_expr_t *func;
@@ -209,10 +189,12 @@ char *fn_str_signature(fn_expr_t *func, bool with_colors);
 token *index_tok(token_list *list, int index);
 token *next_tok(token_list *list);
 token *after_tok(token_list *list, token *from);
+token *before_tok(token_list *list, token *from);
 
 bool is_var_decl(token_list *tokens, token *tok);
 bool is_type(token_list *tokens, token *tok);
 bool is_call(token_list *tokens, token *tok);
+bool is_member_call(token_list *tokens, token *tok);
 bool is_literal(token *tok);
 bool is_reference(token *tok);
 bool is_member(token_list *tokens, token *tok);
@@ -238,6 +220,8 @@ value_expr_t *parse_value_expr(settings_t *settings, expr_t *context,
 			       token_list *tokens, token *tok);
 void parse_call(settings_t *settings, expr_t *parent, expr_t *mod,
 		token_list *tokens, token *tok);
+void parse_member_call(settings_t *settings, expr_t *parent, expr_t *mod,
+		       token_list *tokens, token *tok);
 type_t *parse_type(expr_t *context, token_list *tokens, token *tok);
 void parse_literal(value_expr_t *node, token_list *tokens, token *tok);
 expr_t *expr_add_child(expr_t *parent);

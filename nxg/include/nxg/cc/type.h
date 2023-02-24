@@ -2,6 +2,9 @@
    Copyright (c) 2023 mini-rose */
 
 #pragma once
+
+#include <nxg/cc/expr.h>
+#include <nxg/cc/fn_resolve.h>
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -48,6 +51,8 @@ typedef struct
 	type_t **fields;
 	char **field_names;
 	int n_fields;
+	expr_t **methods;
+	int n_methods;
 } object_type_t;
 
 struct type
@@ -85,4 +90,7 @@ int type_sizeof(type_t *t);
 void type_object_add_field(object_type_t *o, char *name, type_t *ty);
 type_t *type_object_field_type(object_type_t *o, char *name);
 int type_object_field_index(object_type_t *o, char *name);
+expr_t *type_object_add_method(object_type_t *o);
 type_t *type_of_member(type_t *ty, char *member);
+
+fn_candidates_t *type_object_find_fn_candidates(object_type_t *o, char *name);

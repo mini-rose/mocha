@@ -1142,6 +1142,16 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 			fields[j] = gen_type(mod, o->fields[j]);
 
 		LLVMStructSetBody(o_type, fields, o->n_fields, false);
+
+		/* For each struct type, emit all methods declared in it. */
+		for (int j = 0; j < o->n_methods; j++) {
+			fn_expr_t *func = o->methods[j]->data;
+
+			emit_function_decl(mod, module->data, func,
+					   LLVMInternalLinkage);
+			emit_function_body(settings, mod, module,
+					   o->methods[j]);
+		}
 	}
 
 	/* For emitting functions we need to make 2 passes. The first time we

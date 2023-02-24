@@ -36,23 +36,37 @@ bool is_type(token_list *tokens, token *tok)
  */
 bool is_call(token_list *tokens, token *tok)
 {
-	int index = tokens->iter;
-
 	if (tok->type != T_IDENT)
 		return false;
 
-	tok = index_tok(tokens, index);
+	tok = after_tok(tokens, tok);
 	if (tok->type != T_LPAREN)
 		return false;
 
 	/* find the closing brace */
 	do {
-		tok = index_tok(tokens, ++index);
+		tok = after_tok(tokens, tok);
 		if (tok->type == T_RPAREN)
 			return true;
 	} while (tok->type != T_END && tok->type != T_NEWLINE);
 
 	return false;
+}
+
+/**
+ * ident.ident([arg, ...])
+ */
+bool is_member_call(token_list *tokens, token *tok)
+{
+	if (tok->type != T_IDENT)
+		return false;
+
+	tok = after_tok(tokens, tok);
+	if (tok->type != T_DOT)
+		return false;
+
+	tok = after_tok(tokens, tok);
+	return is_call(tokens, tok);
 }
 
 int call_token_len(token_list *tokens, token *tok)

@@ -159,7 +159,7 @@ type_t *module_add_type_decl(expr_t *module)
 	return mod->type_decls[mod->n_type_decls++];
 }
 
-void add_candidate(fn_candidates_t *resolved, fn_expr_t *ptr)
+void fn_add_candidate(fn_candidates_t *resolved, fn_expr_t *ptr)
 {
 	/* Check if it's already in the list */
 	for (int i = 0; i < resolved->n_candidates; i++) {
@@ -195,7 +195,7 @@ fn_candidates_t *module_find_fn_candidates_impl(expr_t *module, char *name,
 			continue;
 		fn = walker->data;
 		if (!strcmp(fn->name, name))
-			add_candidate(resolved, fn);
+			fn_add_candidate(resolved, fn);
 	} while ((walker = walker->next));
 
 check_decls:
@@ -203,7 +203,7 @@ check_decls:
 	for (int i = 0; i < mod->n_local_decls; i++) {
 		fn = mod->local_decls[i];
 		if (!strcmp(fn->name, name))
-			add_candidate(resolved, fn);
+			fn_add_candidate(resolved, fn);
 	}
 
 	/* Extern declarations have less priority, so local functions get
@@ -211,7 +211,7 @@ check_decls:
 	for (int i = 0; i < mod->n_decls; i++) {
 		fn = mod->decls[i];
 		if (!strcmp(fn->name, name))
-			add_candidate(resolved, fn);
+			fn_add_candidate(resolved, fn);
 	}
 
 	/* Check the imported modules */
@@ -223,7 +223,7 @@ check_decls:
 							  name, depth);
 
 		for (int j = 0; j < imported->n_candidates; j++)
-			add_candidate(resolved, imported->candidate[j]);
+			fn_add_candidate(resolved, imported->candidate[j]);
 	}
 
 	if (mod->std_modules) {
@@ -244,7 +244,8 @@ check_decls:
 			    stds->modules[i], name, depth + 1);
 
 			for (int j = 0; j < imported->n_candidates; j++)
-				add_candidate(resolved, imported->candidate[j]);
+				fn_add_candidate(resolved,
+						 imported->candidate[j]);
 		}
 	}
 

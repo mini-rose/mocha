@@ -1,12 +1,7 @@
 #pragma once
 
+#include <nxg/cc/fn_resolve.h>
 #include <nxg/cc/parser.h>
-
-typedef struct
-{
-	fn_expr_t **candidate;
-	int n_candidates;
-} fn_candidates_t;
 
 expr_t *module_import(settings_t *settings, expr_t *module, char *file);
 expr_t *module_std_import(settings_t *settings, expr_t *module, char *file);

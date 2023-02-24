@@ -1,4 +1,6 @@
 #include <nxg/cc/alloc.h>
+#include <nxg/cc/fn_resolve.h>
+#include <nxg/cc/parser.h>
 #include <nxg/cc/type.h>
 #include <nxg/utils/error.h>
 #include <nxg/utils/utils.h>
@@ -143,6 +145,7 @@ static object_type_t *object_type_copy(object_type_t *ty)
 
 	new = slab_alloc(sizeof(*new));
 	new->fields = slab_alloc(ty->n_fields * sizeof(type_t *));
+	new->methods = slab_alloc(ty->n_methods * sizeof(expr_t *));
 	new->field_names = slab_alloc(ty->n_fields * sizeof(char *));
 	new->name = slab_strdup(ty->name);
 
@@ -151,6 +154,12 @@ static object_type_t *object_type_copy(object_type_t *ty)
 	for (int i = 0; i < new->n_fields; i++) {
 		new->fields[i] = type_copy(ty->fields[i]);
 		new->field_names[i] = slab_strdup(ty->field_names[i]);
+	}
+
+	new->n_methods = ty->n_methods;
+
+	for (int i = 0; i < new->n_methods; i++) {
+		new->methods[i] = ty->methods[i];
 	}
 
 	return new;
@@ -201,6 +210,25 @@ type_t *type_of_member(type_t *ty, char *member)
 	}
 
 	return type_new_null();
+}
+
+fn_candidates_t *type_object_find_fn_candidates(object_type_t *o, char *name)
+{
+	fn_candidates_t *result;
+	fn_expr_t *func;
+
+	result = slab_alloc(sizeof(*result));
+
+	for (int i = 0; i < o->n_methods; i++) {
+		func = o->methods[i]->data;
+
+		if (strcmp(func->name, name))
+			continue;
+
+		fn_add_candidate(result, func);
+	}
+
+	return result;
 }
 
 bool type_cmp(type_t *left, type_t *right)
@@ -344,4 +372,15 @@ int type_object_field_index(object_type_t *o, char *name)
 	}
 
 	return -1;
+}
+
+expr_t *type_object_add_method(object_type_t *o)
+{
+	expr_t *method;
+
+	method = slab_alloc(sizeof(*method));
+	o->methods = realloc_ptr_array(o->methods, o->n_methods + 1);
+	o->methods[o->n_methods++] = method;
+
+	return method;
 }

@@ -16,7 +16,7 @@ void warning(const char *format, ...)
 	va_end(ap);
 }
 
-void error(const char *format, ...)
+noreturn void error(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);

@@ -17,6 +17,8 @@
 static void parse_block(settings_t *settings, expr_t *parent, expr_t *module,
 			fn_expr_t *fn, expr_t *node, token_list *tokens,
 			token *tok);
+static void parse_fn_params(expr_t *module, fn_expr_t *decl, token_list *tokens,
+			    token *tok);
 
 token *index_tok(token_list *list, int index)
 {
@@ -41,6 +43,16 @@ token *after_tok(token_list *list, token *from)
 	for (int i = 0; i < list->length; i++) {
 		if (list->tokens[i] == from)
 			return list->tokens[i + 1];
+	}
+
+	return index_tok(list, list->length);
+}
+
+token *before_tok(token_list *list, token *from)
+{
+	for (int i = 0; i < list->length; i++) {
+		if (list->tokens[i] == from)
+			return list->tokens[i - 1];
 	}
 
 	return index_tok(list, list->length);
@@ -579,33 +591,11 @@ static bool fn_has_return(expr_t *func)
 }
 
 /**
- * fn name([arg: type], ...)[-> return_type]
+ * ([param[, param]...])
  */
-static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
-				token_list *tokens, token *tok)
+static void parse_fn_params(expr_t *module, fn_expr_t *decl, token_list *tokens,
+			    token *tok)
 {
-	token *return_type_tok;
-	token *name;
-
-	decl->n_params = 0;
-	decl->return_type = type_new_null();
-
-	tok = next_tok(tokens);
-
-	/* name */
-	if (tok->type != T_IDENT) {
-		error_at(tokens->source, tok->value, tok->len,
-			 "expected function name, got %s", tokname(tok->type));
-	}
-
-	name = tok;
-	decl->name = slab_strndup(tok->value, tok->len);
-
-	/* parameters (optional) */
-	tok = next_tok(tokens);
-	if (tok->type != T_LPAREN)
-		goto params_skip;
-
 	tok = next_tok(tokens);
 	while (tok->type != T_RPAREN) {
 		type_t *type;
@@ -683,6 +673,37 @@ static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
 		if (tok->type == T_COMMA)
 			tok = next_tok(tokens);
 	}
+}
+
+/**
+ * fn name([param[, param]...])[-> return_type]
+ */
+static fn_expr_t *parse_fn_decl(expr_t *module, fn_expr_t *decl,
+				token_list *tokens, token *tok)
+{
+	token *return_type_tok;
+	token *name;
+
+	decl->n_params = 0;
+	decl->return_type = type_new_null();
+
+	tok = next_tok(tokens);
+
+	/* name */
+	if (tok->type != T_IDENT) {
+		error_at(tokens->source, tok->value, tok->len,
+			 "expected function name, got %s", tokname(tok->type));
+	}
+
+	name = tok;
+	decl->name = slab_strndup(tok->value, tok->len);
+
+	/* parameters (optional) */
+	tok = next_tok(tokens);
+	if (tok->type != T_LPAREN)
+		goto params_skip;
+
+	parse_fn_params(module, decl, tokens, tok);
 
 	/* return type (optional) */
 	tok = next_tok(tokens);
@@ -929,6 +950,8 @@ static void parse_block(settings_t *settings, expr_t *parent, expr_t *module,
 			parse_var_decl(node, module, tokens, tok);
 		else if (is_call(tokens, tok))
 			parse_call(settings, node, module, tokens, tok);
+		else if (is_member_call(tokens, tok))
+			parse_member_call(settings, node, module, tokens, tok);
 		else if (tok->type == T_LPAREN)
 			parse_condition(settings, node, module, fn, tokens,
 					tok);
@@ -943,13 +966,10 @@ static void parse_block(settings_t *settings, expr_t *parent, expr_t *module,
 	}
 }
 
-static err_t parse_fn_body(settings_t *settings, expr_t *module,
+static err_t parse_fn_body(settings_t *settings, expr_t *module, expr_t *node,
 			   fn_expr_t *decl, token_list *tokens)
 {
-	expr_t *node;
 	token *tok;
-
-	node = expr_add_child(module);
 
 	node->type = E_FUNCTION;
 	node->data = decl;
@@ -1104,8 +1124,8 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 	}
 }
 
-static void parse_object_fields(expr_t *module, type_t *ty, token_list *tokens,
-				token *tok)
+static void parse_object_fields(settings_t *settings, expr_t *module,
+				type_t *ty, token_list *tokens, token *tok)
 {
 	char *ident;
 	type_t *field;
@@ -1128,15 +1148,59 @@ static void parse_object_fields(expr_t *module, type_t *ty, token_list *tokens,
 				 "expected colon seperating the name and type");
 		}
 
-		/* field type */
 		tok = next_tok(tokens);
-		if (!is_type(tokens, tok)) {
-			error_at(tokens->source, tok->value, tok->len,
-				 "expected type after the field name");
-		}
 
-		field = parse_type(module, tokens, tok);
-		type_object_add_field(ty->v_object, ident, field);
+		if (TOK_IS(tok, T_KEYWORD, "fn")) {
+			tok = next_tok(tokens);
+
+			/* Type method */
+			expr_t *method = type_object_add_method(ty->v_object);
+			fn_expr_t *func = slab_alloc(sizeof(*func));
+
+			method->type = E_FUNCTION;
+			method->data = func;
+			func->name = ident;
+			func->object = ty->v_object;
+
+			if (tok->type == T_LPAREN)
+				parse_fn_params(module, func, tokens, tok);
+
+			/* Check if self is present and is the same type as the
+			 * &T. */
+			bool self_correct_type = type_cmp(func->params[0]->type,
+							  type_pointer_of(ty));
+			char *fix = slab_alloc(256);
+			snprintf(fix, 256, "self: &%s", ty->v_object->name);
+
+			if (func->n_params == 0 || !self_correct_type) {
+				error_at_with_fix(
+				    tokens->source, tok->value, tok->len, fix,
+				    "the first parameter of a method must take "
+				    "a reference to this object");
+			}
+
+			if (tok->type == T_ARROW) {
+				tok = next_tok(tokens);
+				func->return_type =
+				    parse_type(module, tokens, tok);
+			} else {
+				func->return_type = type_new_null();
+			}
+
+			tok = index_tok(tokens, tokens->iter);
+			parse_fn_body(settings, module, method, func, tokens);
+
+		} else if (is_type(tokens, tok)) {
+
+			/* Regular type field */
+			field = parse_type(module, tokens, tok);
+			type_object_add_field(ty->v_object, ident, field);
+
+		} else {
+			highlight_t hi = highlight_value(tokens, tok);
+			error_at(tokens->source, hi.value, hi.len,
+				 "expected type or method");
+		}
 
 		tok = next_tok(tokens);
 		while (tok->type == T_NEWLINE)
@@ -1148,7 +1212,8 @@ static void parse_object_fields(expr_t *module, type_t *ty, token_list *tokens,
  * type ::= "type" ident = ident
  *      ::= "type" ident { [ident ident newline]... }
  */
-static void parse_type_decl(expr_t *module, token_list *tokens, token *tok)
+static void parse_type_decl(settings_t *settings, expr_t *module,
+			    token_list *tokens, token *tok)
 {
 	type_t *ty;
 	token *name;
@@ -1182,7 +1247,7 @@ static void parse_type_decl(expr_t *module, token_list *tokens, token *tok)
 		ty->v_object->name = slab_strndup(name->value, name->len);
 
 		tok = next_tok(tokens);
-		parse_object_fields(module, ty, tokens, tok);
+		parse_object_fields(settings, module, ty, tokens, tok);
 
 	} else {
 		error_at(tokens->source, tok->value, tok->len,
@@ -1227,12 +1292,13 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 
 			/* skip the function body for now */
 			skip_block(tokens, current);
+
 		} else if (current->type == T_NEWLINE) {
 			continue;
 		} else if (TOK_IS(current, T_KEYWORD, "use")) {
 			parse_use(settings, module, tokens, current);
 		} else if (TOK_IS(current, T_KEYWORD, "type")) {
-			parse_type_decl(module, tokens, current);
+			parse_type_decl(settings, module, tokens, current);
 		} else if (is_builtin_function(current)) {
 			parse_builtin_call(module, module, tokens, current);
 		} else {
@@ -1247,7 +1313,10 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 	/* Go back and parse the function contents */
 	for (int i = 0; i < fn_pos.n; i++) {
 		tokens->iter = fn_pos.pos[i]->tok_index;
-		parse_fn_body(settings, module, fn_pos.pos[i]->decl, tokens);
+
+		expr_t *func = expr_add_child(module);
+		parse_fn_body(settings, module, func, fn_pos.pos[i]->decl,
+			      tokens);
 	}
 
 err:
