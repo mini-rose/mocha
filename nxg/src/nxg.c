@@ -122,16 +122,27 @@ void parse_warn_opt(settings_t *settings, const char *option)
 		warning("unknown warn option `%s`", option);
 }
 
+static settings_t *_settings_glob_ptr;
+
+static void exit_routines()
+{
+	if (_settings_glob_ptr->dump_alloc)
+		alloc_dump_stats();
+	slab_deinit_global();
+}
+
 int main(int argc, char **argv)
 {
 	settings_t settings = {0};
 	int c, optindx = 0;
 
 	slab_init_global();
+	atexit(exit_routines);
 
 	settings.jit = argc == 1;
 
 	default_settings(&settings);
+	_settings_glob_ptr = &settings;
 
 	static struct option longopts[] = {
 	    {"help", no_argument, 0, 0},       {"version", no_argument, 0, 0},
@@ -222,6 +233,5 @@ destroy:
 	if (settings.dump_alloc)
 		alloc_dump_stats();
 
-	slab_deinit_global();
 	return 0;
 }
