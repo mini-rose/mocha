@@ -36,6 +36,7 @@ static inline void full_help()
 	    "option\n"
 	    "  -Wno-empty-block empty blocks\n"
 	    "  -Wno-prefer-ref should pass a reference instead of a copy\n"
+	    "  -Wno-self-name  first method parameter should be named self\n"
 	    "\nLink:\n"
 	    "  -M, --musl      use musl instead of glibc\n"
 	    "  -L, --ldd <path> dynamic linker to use (default: " DEFAULT_LD
@@ -74,6 +75,7 @@ static inline void default_settings(settings_t *settings)
 	settings->warn_random = true;
 	settings->warn_empty_block = true;
 	settings->warn_prefer_ref = true;
+	settings->warn_self_name = true;
 	settings->opt = slab_strdup("0");
 }
 
@@ -118,6 +120,8 @@ void parse_warn_opt(settings_t *settings, const char *option)
 		settings->warn_empty_block = false;
 	else if (!strcmp("no-prefer-ref", option))
 		settings->warn_prefer_ref = false;
+	else if (!strcmp("no-self-name", option))
+		settings->warn_self_name = false;
 	else
 		warning("unknown warn option `%s`", option);
 }

@@ -1179,6 +1179,14 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
 				    "a reference to this object");
 			}
 
+			if (settings->warn_self_name
+			    && strcmp(func->params[0]->name, "self")) {
+				tok = after_tok(tokens, tok);
+				warning_at(tokens->source, tok->value, tok->len,
+					   "the reference to the object should "
+					   "be named `self`");
+			}
+
 			if (tok->type == T_ARROW) {
 				tok = next_tok(tokens);
 				func->return_type =

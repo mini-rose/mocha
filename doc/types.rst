@@ -88,3 +88,17 @@ operation. Here is a list of functions that shall be implemented for an object::
 Note that if the compiler does not find a matching copy or drop function, it
 will try to generate one on its own. Objects with plain types will not get
 a drop function, because they don't allocate any memory.
+
+Apart from typed fields, object can also have methods::
+
+        type User {
+                name: str
+                id: i32
+
+                print_name: fn (self: &User) {
+                        print(self.name)
+                }
+        }
+
+Note that methods require that the first parameter takes a reference to this
+object. It can have any name, but ``self`` is the preferred name.

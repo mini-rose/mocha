@@ -39,6 +39,7 @@ typedef struct
 	bool warn_random;
 	bool warn_empty_block;
 	bool warn_prefer_ref;
+	bool warn_self_name;
 
 	char *opt;
 	char *output;
