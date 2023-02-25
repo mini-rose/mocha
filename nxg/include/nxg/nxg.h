@@ -26,7 +26,6 @@ typedef struct
 	bool show_tokens;
 	bool global;
 	bool using_bs;
-	bool jit;
 	bool verbose;
 	bool dump_alloc;
 

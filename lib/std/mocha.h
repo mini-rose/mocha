@@ -15,6 +15,7 @@ typedef enum
 	MOCHA_U32,
 	MOCHA_I64,
 	MOCHA_U64,
+	MOCHA_STR,
 	MOCHA_NULL,
 	MOCHA_BOOL
 } mo_type;

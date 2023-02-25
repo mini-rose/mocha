@@ -2,6 +2,8 @@
    Copyright (c) 2023 mini-rose */
 
 #include <libgen.h>
+#include <llvm-c/Core.h>
+#include <llvm-c/ExecutionEngine.h>
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/emit.h>
 #include <nxg/cc/module.h>
@@ -139,11 +141,7 @@ void compile(settings_t *settings)
 
 	mkdir("/tmp/nxg", 0777);
 
-	if (settings->jit)
-		source = file_stdin();
-	else
-		source = file_new(settings->input);
-
+	source = file_new(settings->input);
 	list = tokens(source);
 
 	if (settings->show_tokens)

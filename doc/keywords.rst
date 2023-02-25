@@ -4,21 +4,16 @@ Keywords
 * ``fn`` declare a function
 * ``ret`` return a value from a function
 * ``use`` include/import another module
-* ``if``
-* ``elif``
-* ``else``
 * ``while``
 * ``for``
 
 Conditions example::
 
-	if (something) {
+	(something) ? {
 
-	} elif (something else) {
+	} || {
 
-	} else {
-
-	}
+        }
 
 	bit operators: and, or, not
 	null equals to false in conditions

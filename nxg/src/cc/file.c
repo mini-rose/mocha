@@ -48,39 +48,3 @@ file_t *file_new(const char *path)
 		error("Cannot open file - \'%s\'", path);
 	return f;
 }
-
-file_t *file_stdin()
-{
-	file_t *self;
-	char buf[256];
-	int n, amount;
-
-	if ((self = (file_t *) slab_alloc(sizeof(file_t))) == NULL)
-		error("failed to slab_alloc mem for file");
-
-	self->path = NULL;
-	self->content = NULL;
-	amount = 0;
-
-	/* Keep using regular realloc() here, as we don't allocate an array but
-	   a contiguous memory block. After collecting everything move it into
-	   a controlled slab alloc. */
-
-	while ((fgets(buf, 256, stdin))) {
-		n = strlen(buf);
-		self->content =
-		    realloc(self->content, (amount + n) * sizeof(char));
-		memcpy(self->content + amount, buf, n);
-		amount += n;
-	}
-
-	char *old_content = self->content;
-
-	self->content = slab_alloc(amount + 1);
-	memcpy(self->content, old_content, amount);
-	self->content[amount] = 0;
-
-	free(old_content);
-
-	return self;
-}

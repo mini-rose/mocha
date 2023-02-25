@@ -154,6 +154,12 @@ token_list *tokens(file_t *source)
 			p += q - p;
 		}
 
+		/* Skip unix interpreter */
+		if (!strncmp(p, "#!", 2)) {
+			while (*p != '\n')
+				p++;
+		}
+
 		/* Parse newline token,
 		   but skip when previous token is newline */
 		if (*p == '\n') {

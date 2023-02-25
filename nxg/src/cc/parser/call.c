@@ -140,6 +140,28 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 	return ERR_OK;
 }
 
+static inline char *maybe_missed_import(char *name)
+{
+	int i;
+
+	static char *std_io[] = {"open",         "close", "write",
+				 "write_stream", "read",  "readline"};
+
+	static char *std_os[] = {"execute", "exit",      "getenv", "chmod",
+				 "mkdir",   "touch",     "rename", "is_file",
+				 "is_dir",  "is_symlink"};
+
+	for (i = 0; i < LEN(std_io); i++)
+		if (!strcmp(std_io[i], name))
+			return slab_strdup(", did you mean to `use std.io`?");
+
+	for (i = 0; i < LEN(std_os); i++)
+		if (!strcmp(std_os[i], name))
+			return slab_strdup(", did you mean to `use std.os`?");
+
+	return NULL;
+}
+
 err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 			call_expr_t *data, token_list *tokens, token *tok)
 {
@@ -262,21 +284,8 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 	/* Bare call */
 	if (!resolved->n_candidates) {
 		/* Check if maybe the user missed an import */
-		char *fix = NULL;
 
-		if (!strcmp(data->name, "print") || !strcmp(data->name, "write")
-		    || !strcmp(data->name, "close")
-		    || !strcmp(data->name, "open"))
-			fix = ", did you mean to `use std.io`?";
-
-		if (!strcmp(data->name, "system")
-		    || !strcmp(data->name, "sleep")
-		    || !strcmp(data->name, "getenv")
-		    || !strcmp(data->name, "version"))
-			fix = ", did you mean to `use std.os`?";
-
-		if (!strcmp(data->name, "write"))
-			fix = ", did you mean to `use std.io`?";
+		char *fix = maybe_missed_import(data->name);
 
 		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
 			 "no function named `%s` found%s", data->name,

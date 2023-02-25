@@ -166,8 +166,6 @@ int main(int argc, char **argv)
 	   to slab_init_global(), as it will just crash. */
 
 	atexit(exit_routines);
-
-	settings.jit = argc == 1;
 	default_settings(&settings);
 
 	static struct option longopts[] = {
@@ -237,12 +235,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (optind >= argc) {
-		fprintf(stderr,
-			"\e[91merror\e[0m: missing source file argument\n");
-		goto destroy;
-	}
-
 	if (settings.input == NULL)
 		settings.input = slab_strdup(argv[optind]);
 
@@ -252,6 +244,5 @@ int main(int argc, char **argv)
 
 	compile(&settings);
 
-destroy:
 	return 0;
 }
