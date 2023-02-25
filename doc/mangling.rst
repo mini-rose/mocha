@@ -26,9 +26,27 @@ General construction::
 	   len - name of the function
 
 
-This means that ``add<T>(T a, T b)`` would get mangled differently
-depending on the type of T. For example, add<i32>(...) would become
-``_M3addii``, while add<u128>(...) would become ``_M3addoo``.
+This means that ``add<T>(T a, T b)`` would get mangled differently depending
+on the type of T. For example, add<i32>(...) would become ``_M3addii``, while
+add<u128>(...) would become ``_M3addoo``.
+
+Type methods get mangled with a prefix, showing the full path of the function.
+For example::
+
+        type User {
+                print: fn (self: &User) { ... }
+        }
+
+                function name
+                v
+        _MN4User5printEP4User
+           ^
+           type name
+
+These namespaced functions have the following structure::
+
+        '_MN' len(type) <type> len(func) <func> 'E' <param-types>
+
 
 Full table of the base types:
 
