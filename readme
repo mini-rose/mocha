@@ -1,9 +1,9 @@
 mocha
 =====
 
-This is the main repository for the mocha project, and it contains the
-nxg compiler/build system, the mocha standard library along with some other tools
-for operating on the language.
+This is the main repository for the mocha project, and it contains the nxg
+compiler/build system, the mocha standard library along with documentation
+found in doc/.
 
 
 Syntax
