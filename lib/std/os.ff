@@ -16,21 +16,25 @@ fn getenv(name: str) -> str {
 	ret getenv(&name)
 }
 
+/* Change file mode bits */
 __builtin_decl_mangled("chmod", i32, &str, i32)
 fn chmod(path: str, mode: i32) -> i32 {
 	ret chmod(&path, mode)
 }
 
+/* Make directory */
 __builtin_decl_mangled("mkdir", i32, &str)
 fn mkdir(path: str) -> i32 {
 	ret mkdir(&path)
 }
 
+/* Create file */
 __builtin_decl_mangled("touch", i32, &str)
 fn touch(path: str) -> i32 {
 	ret touch(&path)
 }
 
+/* Rename file */
 __builtin_decl_mangled("rename", i32, &str, &str)
 fn rename(old: str, new: str) -> i32 {
 	ret rename(&old, &new)

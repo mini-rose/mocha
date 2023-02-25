@@ -29,6 +29,38 @@ mo_i8 *_open(mo_str *_path, mo_str *_mode)
 	return (mo_i8 *) fp;
 }
 
+mo_str *_read(mo_i8 *file, mo_i32 n_bytes)
+{
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
+	self->ptr = (mo_i8 *) malloc(sizeof(char) * n_bytes);
+	self->len = n_bytes;
+	fgets(self->ptr, sizeof(char) * n_bytes, (FILE *) file);
+	return self;
+}
+
+mo_str *_readline(mo_i8 *file)
+{
+	int start_pos;
+	int n_bytes;
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
+
+	start_pos = ftell((FILE *) file);
+	n_bytes = 0;
+
+	/* Find line length */
+	while (fgetc((FILE *) file) != '\n')
+		n_bytes++;
+
+	fseek((FILE *) file, start_pos, SEEK_SET);
+	self->ptr = (mo_i8 *) malloc(sizeof(char) * n_bytes);
+	self->len = n_bytes;
+
+	for (int i = 0; i < n_bytes; i++)
+		self->ptr[i] = fgetc((FILE *) file);
+
+	return self;
+}
+
 mo_null _close(mo_i8 *file)
 {
 	if (file == NULL)

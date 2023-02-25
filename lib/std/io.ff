@@ -12,13 +12,14 @@ type file_t {
  *
  * @param path: path to the file_t
  * @param mode: either "w" for write or "r" for read
+ *              default is "r"
  */
 fn open(path: &str, mode: &str) -> file_t {
 	f: file_t
 
 	__builtin_decl("_open", &i8, &str, &str)
 	f.fp = _open(path, mode)
-	f.is_open = false
+	f.is_open = true
 	f.path = *path
 
 	ret f
@@ -58,6 +59,35 @@ fn write(self: &file_t, buf: str) -> null {
 fn write_stream(stream: i32, buf: str) -> null {
 	__builtin_decl("_write_stream", null, i32, &i8, i64)
 	_write_stream(stream, buf.ptr, buf.len)
+}
+
+/**
+ * Read a n_chars from the file_t.
+ *
+ * @param self: file_t to read from
+ * @param n_chars: n characters
+ */
+fn read(self: &file_t, n_chars: i32) -> &str {
+	__builtin_decl("_read", &str, &i8, i32)
+	ret _read(self.fp, n_chars)
+}
+
+fn read(self: file_t, n_chars: i32) -> &str {
+	ret read(&self, n_chars)
+}
+
+/**
+ * Read a line from the file_t.
+ *
+ * @param self: file_t to read from
+ */
+fn readline(self: &file_t) -> &str {
+	__builtin_decl("_readline", &str, &i8)
+	ret _readline(self.fp)
+}
+
+fn readline(self: file_t) -> &str {
+	ret readline(&self)
 }
 
 fn copy(self: &file_t, other: &file_t) -> null {
