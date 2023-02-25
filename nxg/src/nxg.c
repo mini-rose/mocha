@@ -1,6 +1,8 @@
 /* nxg - mocha compiler, build system & package manager
    Copyright (c) 2023 mini-rose */
 
+#include "nxg/nxg.h"
+
 #include <getopt.h>
 #include <nxg/bs/buildfile.h>
 #include <nxg/cc/alloc.h>
@@ -30,6 +32,7 @@ static inline void full_help()
 	    "  -t              show generated tokens\n"
 	    "  -v, --version   show the compiler version\n"
 	    "  -V              be verbose, show ran shell commands\n"
+	    "  -Xsanitize-alloc sanitize the internal allocator\n"
 	    "\nLint:\n"
 	    "  -Wno-unused     unused variables\n"
 	    "  -Wno-random     random stuff that don't fit into any other "
@@ -38,8 +41,8 @@ static inline void full_help()
 	    "  -Wno-prefer-ref should pass a reference instead of a copy\n"
 	    "  -Wno-self-name  first method parameter should be named self\n"
 	    "\nLink:\n"
-	    "  -M, --musl      use musl instead of glibc\n"
-	    "  -L, --ldd <path> dynamic linker to use (default: " DEFAULT_LD
+	    "  --musl          use musl instead of glibc\n"
+	    "  --ldd <path>    dynamic linker to use (default: " DEFAULT_LD
 	    ")\n"
 	    "\nEmit:\n"
 	    "  -Eno-stack      disable stacktrace\n"
@@ -60,23 +63,33 @@ static inline void version()
 
 static inline void default_settings(settings_t *settings)
 {
-	settings->sysroot = slab_strdup(NXG_ROOT);
-	settings->output = slab_strdup(DEFAULT_OUT);
+	/* Note: Allocating memory here will crash, as the slab alloc is not
+	   initialized yet. */
+	settings->sysroot = NXG_ROOT;
+	settings->output = DEFAULT_OUT;
 	settings->global = false;
 	settings->input = NULL;
 	settings->using_bs = false;
 	settings->show_tokens = false;
-	settings->dyn_linker = slab_strdup(DEFAULT_LD);
+	settings->dyn_linker = DEFAULT_LD;
 	settings->verbose = false;
+	settings->dump_alloc = false;
+
+	/* Emit */
 	settings->emit_stacktrace = true;
 	settings->emit_varnames = false;
-	settings->dump_alloc = false;
+
+	/* Warnings */
 	settings->warn_unused = true;
 	settings->warn_random = true;
 	settings->warn_empty_block = true;
 	settings->warn_prefer_ref = true;
 	settings->warn_self_name = true;
-	settings->opt = slab_strdup("0");
+
+	/* Extra */
+	settings->x_sanitize_alloc = false;
+
+	settings->opt = "0";
 }
 
 void parse_opt(settings_t *settings, const char *option, char *arg)
@@ -88,13 +101,13 @@ void parse_opt(settings_t *settings, const char *option, char *arg)
 		version();
 
 	if (!strncmp(option, "musl", 4))
-		settings->dyn_linker = slab_strdup(LD_MUSL);
+		settings->dyn_linker = LD_MUSL;
 
 	if (!strncmp(option, "ldd", 3))
-		settings->dyn_linker = slab_strdup(arg);
+		settings->dyn_linker = arg;
 
 	if (!strncmp(option, "root", 4))
-		settings->sysroot = slab_strdup(arg);
+		settings->sysroot = arg;
 
 	if (!strncmp(option, "alloc", 5))
 		settings->dump_alloc = true;
@@ -108,6 +121,14 @@ void parse_emit_opt(settings_t *settings, const char *option)
 		settings->emit_varnames = true;
 	else
 		warning("unknown emit option `%s`", option);
+}
+
+void parse_extra_opt(settings_t *settings, const char *option)
+{
+	if (!strcmp("sanitize-alloc", option))
+		settings->x_sanitize_alloc = true;
+	else
+		warning("unknown extra option `%s`", option);
 }
 
 void parse_warn_opt(settings_t *settings, const char *option)
@@ -126,27 +147,28 @@ void parse_warn_opt(settings_t *settings, const char *option)
 		warning("unknown warn option `%s`", option);
 }
 
-static settings_t *_settings_glob_ptr;
+static settings_t settings;
 
 static void exit_routines()
 {
-	if (_settings_glob_ptr->dump_alloc)
+	if (settings.dump_alloc)
 		alloc_dump_stats();
+	if (settings.x_sanitize_alloc)
+		slab_sanitize_global();
 	slab_deinit_global();
 }
 
 int main(int argc, char **argv)
 {
-	settings_t settings = {0};
 	int c, optindx = 0;
 
-	slab_init_global();
+	/* Important note: do NOT allocate any memory between here and the call
+	   to slab_init_global(), as it will just crash. */
+
 	atexit(exit_routines);
 
 	settings.jit = argc == 1;
-
 	default_settings(&settings);
-	_settings_glob_ptr = &settings;
 
 	static struct option longopts[] = {
 	    {"help", no_argument, 0, 0},       {"version", no_argument, 0, 0},
@@ -154,7 +176,7 @@ int main(int argc, char **argv)
 	    {"root", required_argument, 0, 0}, {"alloc", no_argument, 0, 0}};
 
 	while (1) {
-		c = getopt_long(argc, argv, "o:r:L:O:E:W:ahvptMV", longopts,
+		c = getopt_long(argc, argv, "o:r:O:E:W:X:ahvptV", longopts,
 				&optindx);
 
 		if (c == -1)
@@ -162,20 +184,16 @@ int main(int argc, char **argv)
 
 		switch (c) {
 		case 0:
-			parse_opt(&settings, longopts[optindx].name,
-				  optarg);
+			parse_opt(&settings, longopts[optindx].name, optarg);
 			break;
 		case 'a':
 			settings.dump_alloc = true;
 			break;
 		case 'o':
-			settings.output = slab_strdup(optarg);
+			settings.output = optarg;
 			break;
 		case 'r':
-			settings.sysroot = slab_strdup(optarg);
-			break;
-		case 'L':
-			settings.dyn_linker = slab_strdup(optarg);
+			settings.sysroot = optarg;
 			break;
 		case 'h':
 			full_help();
@@ -186,9 +204,6 @@ int main(int argc, char **argv)
 		case 't':
 			settings.show_tokens = true;
 			break;
-		case 'M':
-			settings.dyn_linker = slab_strdup(LD_MUSL);
-			break;
 		case 'v':
 			version();
 			break;
@@ -196,10 +211,12 @@ int main(int argc, char **argv)
 			settings.verbose = true;
 			break;
 		case 'O':
-			settings.opt = slab_strdup(optarg);
+			settings.opt = optarg;
+			break;
+		case 'X':
+			parse_extra_opt(&settings, optarg);
 			break;
 		case 'E':
-			/* emit options */
 			parse_emit_opt(&settings, optarg);
 			break;
 		case 'W':
@@ -207,6 +224,8 @@ int main(int argc, char **argv)
 			break;
 		}
 	}
+
+	slab_init_global(settings.x_sanitize_alloc);
 
 	/* NOTE: for our uses, we might want to use a custom argument parser to
 	   allow for more complex combinations (along with long options). */
@@ -234,8 +253,5 @@ int main(int argc, char **argv)
 	compile(&settings);
 
 destroy:
-	if (settings.dump_alloc)
-		alloc_dump_stats();
-
 	return 0;
 }

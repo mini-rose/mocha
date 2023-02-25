@@ -60,3 +60,17 @@ Pointer arrays::
                                          elements by the item size
 
 These will also get automatically free'd after calling slab_deinit_global.
+
+
+Memory sanitizer
+----------------
+
+When passing ``-Xsanitize-alloc``, all global slab allocators will be created
+with the sanitize option. This will use 3x as much memory, but will check for
+buffer underflows and overflows. This is done by allocating 2 additional blocks
+to the left and right of the user data block::
+
+        |-underflow-|-user-block-|-overflow-|
+
+Both the underflow and overflow block are filled with magic bytes, which are
+then checked when calling ``slab_sanitize()``.

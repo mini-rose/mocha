@@ -37,7 +37,7 @@ bindir = get_option('prefix') / get_option('bindir')
 exe = executable(
   'nxg', sources,
   include_directories: includes,
-  c_args: ['-O2', '-g', '-DNXG_ROOT="' + libdir + '"'],
+  c_args: ['-O2', '-g', '-DNXG_ROOT="' + libdir + '"', '-DALLOC_SLAB_INFO'],
   link_args: ['-Wall', '-Wextra', '-pedantic'],
   dependencies: llvm,
   install: true,

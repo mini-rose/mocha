@@ -41,6 +41,9 @@ typedef struct
 	bool warn_prefer_ref;
 	bool warn_self_name;
 
+	/* Extra */
+	bool x_sanitize_alloc;
+
 	char *opt;
 	char *output;
 	char *input;

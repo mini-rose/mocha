@@ -11,7 +11,16 @@ body {
 }
 """
 
-files = sorted(os.listdir())
+
+def list_dir_recursive(dir: str) -> list:
+    files = os.listdir(dir)
+    for f in files:
+        if os.path.isdir(f):
+            files.extend([f + '/' + x for x in list_dir_recursive(f)])
+    return files
+
+
+files = sorted(list_dir_recursive('.'))
 links = []
 
 if not os.path.exists('html'):
@@ -20,9 +29,17 @@ if not os.path.exists('html'):
 for doc in files:
     if not doc.endswith('.rst'):
         continue
+    if doc.startswith('html'):
+        continue
 
     basename = doc.rsplit('.', 1)[0]
     dest = f'html/{basename}.html'
+
+    dest_dir = os.path.dirname(dest)
+    if not os.path.exists(dest_dir):
+        os.mkdir(dest_dir)
+
+    print('Generating', dest)
 
     docutils.core.publish_file(
         source_path=f'{basename}.rst',
