@@ -90,3 +90,28 @@ mo_i32 _M5chmodP3stri(mo_str *_path, mo_i32 mode)
 	__path[_path->len] = '\0';
 	return chmod(__path, mode);
 }
+
+mo_bool _M7is_fileP3str(mo_str *_path)
+{
+	char __path[_path->len];
+	memcpy(__path, _path->ptr, _path->len);
+	__path[_path->len] = '\0';
+	return file_exists(__path);
+}
+
+mo_bool _M6is_dirP3str(mo_str *_path)
+{
+	char __path[_path->len];
+	memcpy(__path, _path->ptr, _path->len);
+	__path[_path->len] = '\0';
+	return dir_exists(__path);
+}
+
+mo_bool _M10is_symlinkP3str(mo_str *_path)
+{
+	struct stat _stat;
+	char __path[_path->len];
+	memcpy(__path, _path->ptr, _path->len);
+	__path[_path->len] = '\0';
+	return lstat(__path, &_stat) == 0 && S_ISLNK(_stat.st_mode);
+}

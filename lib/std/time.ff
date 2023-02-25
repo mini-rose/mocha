@@ -1,0 +1,16 @@
+type time_t = i64
+
+__builtin_decl_mangled("time", i64)
+
+type date_t {
+	second: i32
+	minute: i32
+	hour: i32
+	day: i32
+	month: i32
+	year: i32
+	format: fn (self: &date_t, format: str) -> &str {
+		__builtin_decl("_format", &str, i32, &str)
+		ret _format(time(), &str)
+	}
+}

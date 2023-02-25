@@ -39,3 +39,20 @@ __builtin_decl_mangled("rename", i32, &str, &str)
 fn rename(old: str, new: str) -> i32 {
 	ret rename(&old, &new)
 }
+
+/* Return true if the entry is a file */
+__builtin_decl_mangled("is_file", bool, &str)
+fn is_file(path: str) -> bool {
+	ret is_file(&path)
+}
+
+/* Return true if the entry is a directory */
+__builtin_decl_mangled("is_dir", bool, &str)
+fn is_dir(path: str) -> bool {
+	ret is_dir(&path)
+}
+
+__builtin_decl_mangled("is_symlink", bool, &str)
+fn is_symlink(path: str) -> bool {
+	ret is_symlink(&path)
+}

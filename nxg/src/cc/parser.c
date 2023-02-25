@@ -1187,7 +1187,10 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
 					   "be named `self`");
 			}
 
+			tok = index_tok(tokens, tokens->iter);
+
 			if (tok->type == T_ARROW) {
+				tokens->iter++;
 				tok = next_tok(tokens);
 				func->return_type =
 				    parse_type(module, tokens, tok);
@@ -1195,7 +1198,6 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
 				func->return_type = type_new_null();
 			}
 
-			tok = index_tok(tokens, tokens->iter);
 			parse_fn_body(settings, module, method, func, tokens);
 
 		} else if (is_type(tokens, tok)) {
