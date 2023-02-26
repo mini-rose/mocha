@@ -51,7 +51,7 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 	const char *end = pos;
 	const char *ptr = pos;
 	const char *content = source->content;
-	int line = 0;
+	int line = 1;
 	int tabs = 0;
 
 	for (const char *p = content; p < pos; p++)
