@@ -1,9 +1,13 @@
 #include "mocha.h"
 
+#include <libgen.h>
+#include <limits.h>
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static inline bool file_exists(char *path)
 {
@@ -54,7 +58,7 @@ mo_i32 _M5mkdirP3str(mo_str *_path)
 	if (dir_exists(__path))
 		return 1;
 
-	return mkdir(__path, 511);
+	return mkdir(__path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
 }
 
 mo_i32 _M5touchP3str(mo_str *_path)
@@ -85,13 +89,17 @@ mo_i32 _M6renameP3strP3str(mo_str *_old, mo_str *_new)
 
 mo_i32 _M5chmodP3stri(mo_str *_path, mo_i32 mode)
 {
+	mode_t _mode = 0;
 	char __path[_path->len];
 	memcpy(__path, _path->ptr, _path->len);
 	__path[_path->len] = '\0';
-	return chmod(__path, mode);
+	_mode |= (mode / 100) << 6;
+	_mode |= ((mode / 10) % 10) << 3;
+	_mode |= mode % 10;
+	return chmod(__path, _mode);
 }
 
-mo_bool _M7is_fileP3str(mo_str *_path)
+mo_bool _M6isfileP3str(mo_str *_path)
 {
 	char __path[_path->len];
 	memcpy(__path, _path->ptr, _path->len);
@@ -99,7 +107,7 @@ mo_bool _M7is_fileP3str(mo_str *_path)
 	return file_exists(__path);
 }
 
-mo_bool _M6is_dirP3str(mo_str *_path)
+mo_bool _M5isdirP3str(mo_str *_path)
 {
 	char __path[_path->len];
 	memcpy(__path, _path->ptr, _path->len);
@@ -107,11 +115,64 @@ mo_bool _M6is_dirP3str(mo_str *_path)
 	return dir_exists(__path);
 }
 
-mo_bool _M10is_symlinkP3str(mo_str *_path)
+mo_bool _M6islinkP3str(mo_str *_path)
 {
 	struct stat _stat;
 	char __path[_path->len];
 	memcpy(__path, _path->ptr, _path->len);
 	__path[_path->len] = '\0';
 	return lstat(__path, &_stat) == 0 && S_ISLNK(_stat.st_mode);
+}
+
+mo_str *_M6getcwdv()
+{
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
+	self->ptr = getcwd(NULL, 0);
+	self->len = strlen(self->ptr);
+	return self;
+}
+
+mo_str *_M7abspathP3str(mo_str *_path)
+{
+	char __path[_path->len];
+	char __abs_path[PATH_MAX];
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
+	memcpy(__path, _path->ptr, _path->len);
+	__path[_path->len] = '\0';
+	getcwd(__abs_path, PATH_MAX);
+	strcat(__abs_path, "/");
+	strcat(__abs_path, __path);
+	self->ptr = strdup(__abs_path);
+	self->len = strlen(self->ptr);
+	return self;
+}
+
+mo_str *_M8basenameP3str(mo_str *_path)
+{
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
+	char __path[_path->len];
+	memcpy(__path, _path->ptr, _path->len);
+	__path[_path->len] = '\0';
+	self->ptr = strdup(basename(__path));
+	self->len = strlen(self->ptr);
+	return self;
+}
+
+mo_str *_M7dirnameP3str(mo_str *_path)
+{
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
+	char __path[_path->len];
+	memcpy(__path, _path->ptr, _path->len);
+	__path[_path->len] = '\0';
+	self->ptr = strdup(dirname(__path));
+	self->len = strlen(self->ptr);
+	return self;
+}
+
+bool _M5isabsP3str(mo_str *_path)
+{
+	char __path[_path->len];
+	memcpy(__path, _path->ptr, _path->len);
+	__path[_path->len] = '\0';
+	return *__path == '/';
 }

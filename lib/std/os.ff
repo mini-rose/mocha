@@ -16,6 +16,9 @@ fn getenv(name: str) -> str {
 	ret getenv(&name)
 }
 
+/* Get current working directory */
+__builtin_decl_mangled("getcwd", &str)
+
 /* Change file mode bits */
 __builtin_decl_mangled("chmod", i32, &str, i32)
 fn chmod(path: str, mode: i32) -> i32 {
@@ -41,18 +44,43 @@ fn rename(old: str, new: str) -> i32 {
 }
 
 /* Return true if the entry is a file */
-__builtin_decl_mangled("is_file", bool, &str)
-fn is_file(path: str) -> bool {
-	ret is_file(&path)
+__builtin_decl_mangled("isfile", bool, &str)
+fn isfile(path: str) -> bool {
+	ret isfile(&path)
 }
 
 /* Return true if the entry is a directory */
-__builtin_decl_mangled("is_dir", bool, &str)
-fn is_dir(path: str) -> bool {
-	ret is_dir(&path)
+__builtin_decl_mangled("isdir", bool, &str)
+fn isdir(path: str) -> bool {
+	ret isdir(&path)
 }
 
-__builtin_decl_mangled("is_symlink", bool, &str)
-fn is_symlink(path: str) -> bool {
-	ret is_symlink(&path)
+/* Test whether a path is a symbolic link */
+__builtin_decl_mangled("islink", bool, &str)
+fn islink(path: str) -> bool {
+	ret islink(&path)
+}
+
+/* Test whether a path is absolute */
+__builtin_decl_mangled("isabs", bool, &str)
+fn isabs(path: str) -> bool {
+	ret isabs(&path)
+}
+
+/* Returns an absolute path */
+__builtin_decl_mangled("abspath", &str, &str)
+fn abspath(path: str) -> &str {
+	ret abspath(&path)
+}
+
+/* Returns the final component of a pathname */
+__builtin_decl_mangled("basename", &str, &str)
+fn basename(path: str) -> &str {
+	ret basename(&path)
+}
+
+/* Returns the directory component of a pathname */
+__builtin_decl_mangled("dirname", &str, &str)
+fn dirname(path: str) -> &str {
+	ret dirname(&path)
 }
