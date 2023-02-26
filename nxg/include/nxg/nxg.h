@@ -28,6 +28,7 @@ typedef struct
 	bool using_bs;
 	bool verbose;
 	bool dump_alloc;
+	bool pm_run;
 
 	/* Emit */
 	bool emit_stacktrace;

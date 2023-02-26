@@ -101,6 +101,11 @@ static void build_and_link(settings_t *settings, const char *input_,
 	}
 
 	pclose(proc);
+
+	if (settings->pm_run) {
+		snprintf(cmd, 1024, "./%s", settings->output);
+		system(cmd);
+	}
 }
 
 char *compile_c_object(settings_t *settings, char *file)

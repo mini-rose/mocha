@@ -6,6 +6,7 @@
 #include <getopt.h>
 #include <nxg/bs/buildfile.h>
 #include <nxg/cc/alloc.h>
+#include <nxg/pkg/pm.h>
 #include <nxg/utils/error.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -232,6 +233,21 @@ int main(int argc, char **argv)
 		if (!strncmp(argv[i], ".", 2)) {
 			buildfile(&settings);
 			settings.using_bs = true;
+		}
+
+		if (!strncmp(argv[i], "new", 4)) {
+			if (argc < i + 1)
+				error("expected package name after 'new'.");
+			create_pkg(argv[i + 1]);
+			exit(0);
+		}
+
+		if (!strncmp(argv[i], "build", 6)) {
+			build(&settings);
+		}
+
+		if (!strncmp(argv[i], "run", 4)) {
+			pm_run(&settings);
 		}
 	}
 

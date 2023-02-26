@@ -26,6 +26,7 @@ sources = [
   'src/cc/module.c',
   'src/cc/mangle.c',
   'src/cc/build.c',
+  'src/pkg/pm.c',
   'src/bs/buildfile.c'
 ]
 

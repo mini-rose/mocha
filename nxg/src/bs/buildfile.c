@@ -34,8 +34,6 @@ static inline void push_flag_to_settings(file_t *f, settings_t *settings,
 					 char *key, int key_len, char *val,
 					 int val_len)
 {
-	printf("VALUE: '%.*s'\n", val_len, val);
-
 	if (!strncmp("-p", val, val_len)) {
 		settings->show_ast = true;
 	} else if (!strncmp("-O", val, val_len - 1)) {
@@ -101,7 +99,7 @@ static inline char *parse_option(file_t *f, settings_t *settings, char *p)
 		parse_list(f, settings, key, key_len, q);
 	}
 
-	while (*p != '\n')
+	while (*p && *p != '\n')
 		p++;
 
 	return p;
@@ -121,7 +119,5 @@ void buildfile(settings_t *settings)
 
 		if (isalpha(*p))
 			p = parse_option(f, settings, p);
-
-		p++;
 	}
 }
