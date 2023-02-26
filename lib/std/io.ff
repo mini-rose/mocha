@@ -1,115 +1,186 @@
+/**
+ * Never use c calls directly.
+ * Some of them working only in types.
+ * Use type.func() instead.
+ */
+
+__builtin_decl("__c_prints", null, &str)
+__builtin_decl("__c_printb", null, bool)
+__builtin_decl("__c_printl", null, i64)
+__builtin_decl("__c_printi", null, i32)
+__builtin_decl("__c_printa", null, i8)
+__builtin_decl("__c_open", &i8, &str, &str)
+__builtin_decl("__c_close", null, &i8)
+__builtin_decl("__c_write", null, &i8, &i8, i64)
+__builtin_decl("__c_write_stream", null, i32, &i8, i64)
+__builtin_decl("__c_read", &str, &i8, i32)
+__builtin_decl("__c_readline", &str, &i8)
+__builtin_decl("__c_rewind", null, &i8)
+__builtin_decl("__c_tell", i64, &i8)
+__builtin_decl("__c_seek_set", null, &i8, i64)
+__builtin_decl("__c_seek_cur", null, &i8, i64)
+__builtin_decl("__c_seek_end", null, &i8, i64)
+
 /* io.ff - standard input/output
    Copyright (c) 2023 mini-rose */
 
-type file_t {
-	fp: &i8
-	path: str
+/* Print string */
+fn print(string: &str) {
+	__c_prints(string)
+}
+
+/* Print string */
+fn print(string: str) {
+	__c_prints(&string)
+}
+
+/* Print boolean */
+fn print(boolean: bool) {
+	__c_printb(boolean)
+}
+
+/* Print long */
+fn print(long: i64) {
+	__c_printl(long)
+}
+
+/* Print integer */
+fn print(integer: i32) {
+	__c_printi(integer)
+}
+
+/* Print short */
+fn print(short: i8) {
+	__c_printa(short)
+}
+
+type File {
+	__fp: &i8
+	path: &str
 	is_open: bool
-}
 
-/**
- * Open a file_t.
- *
- * @param path: path to the file_t
- * @param mode: either "w" for write or "r" for read
- *              default is "r"
- */
-fn open(path: &str, mode: &str) -> file_t {
-	f: file_t
+	/* Close a file, note that file has builtin auto-closing */
+	close: fn (self: &File) {
+		self.is_open = false
+		__c_close(self.__fp)
+	}
 
-	__builtin_decl("_open", &i8, &str, &str)
-	f.fp = _open(path, mode)
-	f.is_open = true
-	f.path = *path
+	/**
+	 * Opens a file.
+	 *
+	 * @param path: path to file
+	 * @param mode: either "w" for write or "r" for read
+ 	 *              default is "r"
+	 */
+	open: fn (self: &File, path: &str, mode: &str) {
+		(self.is_open) ? {
+			self.close()
+		}
 
-	ret f
-}
+		self.__fp = __c_open(path, mode)
+		self.is_open = true
+		self.path = path
+	}
 
-fn open(path: str, mode: str) -> file_t {
-	ret open(&path, &mode)
-}
+	open: fn (self: &File, path: str, mode: str) {
+		(self.is_open) ? {
+			self.close()
+		}
 
-/**
- * Close a file_t.
- *
- * @param self: the file_t to close
- */
-fn close(self: &file_t) {
-	__builtin_decl("_close", null, &i8)
-	_close(self.fp)
-}
+		self.__fp = __c_open(&path, &mode)
+		self.is_open = true
+		self.path = &path
+	}
 
-/**
- * Write a string into the file_t.
- *
- * @param self: file_t to write to
- * @param buf: string to write
- */
-fn write(self: &file_t, buf: str) -> null {
-	__builtin_decl("_write", null, &i8, &i8, i64)
-	_write(self.fp, buf.ptr, buf.len)
-}
+	/**
+	 * Write a string into the file.
+	 *
+	 * @param buf: string to write
+	 */
+	write: fn (self: &File, buf: &str) {
+		__c_write(self.__fp, buf.ptr, buf.len)
+	}
 
-/**
- * Write a string into a stream, which is marked as a file_t descriptor.
- *
- * @param stream: 1 for stdout, 2 for stderr
- * @param buf: string to write
- */
-fn write_stream(stream: i32, buf: str) -> null {
-	__builtin_decl("_write_stream", null, i32, &i8, i64)
-	_write_stream(stream, buf.ptr, buf.len)
-}
+	write: fn (self: &File, buf: str) {
+		__c_write(self.__fp, buf.ptr, buf.len)
+	}
 
-/**
- * Read a n_chars from the file_t.
- *
- * @param self: file_t to read from
- * @param n_chars: n characters
- */
-fn read(self: &file_t, n_chars: i32) -> &str {
-	__builtin_decl("_read", &str, &i8, i32)
-	ret _read(self.fp, n_chars)
-}
+	/**
+	 * Read a n_chars from the file.
+	 *
+	 * @param n_chars: n characters
+	 */
+	read: fn (self: &File, n_chars: i32) -> &str {
+		ret __c_read(self.__fp, n_chars)
+	}
 
-fn read(self: file_t, n_chars: i32) -> &str {
-	ret read(&self, n_chars)
-}
+	/**
+	 * Read a line from the file_t.
+	 */
+	readline: fn (self: &File) -> &str {
+		ret __c_readline(self.__fp)
+	}
 
-/**
- * Read a line from the file_t.
- *
- * @param self: file_t to read from
- */
-fn readline(self: &file_t) -> &str {
-	__builtin_decl("_readline", &str, &i8)
-	ret _readline(self.fp)
-}
+	/* Sets current position to beginning of the file */
+	rewind: fn (self: &File) {
+		__c_rewind(self.__fp)
+	}
 
-fn readline(self: file_t) -> &str {
-	ret readline(&self)
-}
+	/* Returns current position in file */
+	tell: fn (self: &File) -> i64 {
+		ret __c_tell(self.__fp)
+	}
 
-fn copy(self: &file_t, other: &file_t) -> null {
-	self.fp = other.fp
-	self.is_open = other.is_open
-}
+	/**
+	 * Sets the position indicator of the file stream to the given offset.
+ 	 * The offset is relative to the start of the file.
+	 */
+	seek_set: fn (self: &File, offset: i64) {
+		__c_seek_set(self.__fp, offset)
+	}
 
-fn drop(self: &file_t) -> null {
-	drop(&self.path)
+	/**
+	 * Sets the position indicator of the file stream to the given offset.
+ 	 * The offset is relative to the current position.
+	 */
+	seek_cur: fn (self: &File, offset: i64) {
+		__c_seek_cur(self.__fp, offset)
+	}
 
-	(self.is_open) ? {
-		close(self)
+	/**
+	 * Sets the position indicator of the file stream to the given offset.
+ 	 * The offset is relative to the end of the file.
+	 */
+	seek_end: fn (self: &File, offset: i64) {
+		__c_seek_cend(self.__fp, offset)
 	}
 }
 
-/* These printing routines print the object and a newline. */
-__builtin_decl_mangled("print", null, i8)
-__builtin_decl_mangled("print", null, i32)
-__builtin_decl_mangled("print", null, i64)
-__builtin_decl_mangled("print", null, &str)
-__builtin_decl_mangled("print", null, bool)
+type io {
+	/**
+	 * Write a string into a stream, which is marked as a file_t descriptor.
+	 *
+	 * @param stream: 0 for stdin, 1 for stdout, 2 for stderr
+	 * @param buf: string to write
+	 */
+	write: fn (self: &io, stream: i32, buf: &str) {
+		__c_write_stream(stream, buf.ptr, buf.len)
+	}
 
-fn print(__s: str) -> null {
-	print(&__s)
+	write: fn (self: &io, stream: i32, buf: str) {
+		__c_write_stream(stream, buf.ptr, buf.len)
+	}
+}
+
+fn copy(self: &File, other: &File) -> null {
+	self.__fp = other.__fp
+	self.is_open = other.is_open
+	self.path = other.path
+}
+
+fn drop(self: &File) {
+	drop(self.path)
+	(self.is_open) ? {
+		self.close()
+	}
 }

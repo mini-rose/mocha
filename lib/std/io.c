@@ -5,47 +5,42 @@
 #include <string.h>
 #include <unistd.h>
 
-mo_null _M5printi(mo_i32 num)
+mo_null __c_printi(mo_i32 num)
 {
 	printf("%d\n", num);
 }
 
-mo_null _M5printl(mo_i64 num)
+mo_null __c_printl(mo_i64 num)
 {
 	printf("%ld\n", num);
 }
 
-mo_null _M5printa(mo_i8 num)
+mo_null __c_printa(mo_i8 num)
 {
 	printf("%hhd\n", num);
 }
 
-mo_null _M5printb(mo_bool b)
+mo_null __c_printb(mo_bool b)
 {
 	puts((b) ? "true" : "false");
 }
 
-mo_null _M5printP3str(mo_str *string)
+mo_null __c_prints(mo_str *string)
 {
 	printf("%.*s\n", (int) string->len, string->ptr);
 }
 
-mo_null _M5print3str(mo_str string)
-{
-	printf("%.*s\n", (int) string.len, string.ptr);
-}
-
-mo_null _write(mo_i8 *file, mo_i8 *buf, mo_i64 len)
+mo_null __c_write(mo_i8 *file, mo_i8 *buf, mo_i64 len)
 {
 	fwrite(buf, 1, len, (FILE *) file);
 }
 
-mo_null _write_stream(mo_i32 stream, mo_i8 *buf, mo_i64 len)
+mo_null __c_write_stream(mo_i32 stream, mo_i8 *buf, mo_i64 len)
 {
 	write(stream, buf, len);
 }
 
-mo_i8 *_open(mo_str *_path, mo_str *_mode)
+mo_i8 *__c_open(mo_str *_path, mo_str *_mode)
 {
 	char __path[_path->len];
 	char __mode[_mode->len];
@@ -59,7 +54,7 @@ mo_i8 *_open(mo_str *_path, mo_str *_mode)
 	return (mo_i8 *) fp;
 }
 
-mo_str *_read(mo_i8 *file, mo_i32 n_bytes)
+mo_str *__c_read(mo_i8 *file, mo_i32 n_bytes)
 {
 	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
 	self->ptr = (mo_i8 *) malloc(sizeof(char) * n_bytes);
@@ -68,7 +63,7 @@ mo_str *_read(mo_i8 *file, mo_i32 n_bytes)
 	return self;
 }
 
-mo_str *_readline(mo_i8 *file)
+mo_str *__c_readline(mo_i8 *file)
 {
 	int start_pos;
 	int n_bytes;
@@ -88,14 +83,42 @@ mo_str *_readline(mo_i8 *file)
 	for (int i = 0; i < n_bytes; i++)
 		self->ptr[i] = fgetc((FILE *) file);
 
+	/* Skip new line */
+	fgetc((FILE *) file);
+
 	return self;
 }
 
-mo_null _close(mo_i8 *file)
+mo_null __c_close(mo_i8 *file)
 {
 	if (file == NULL)
 		return;
 
 	fclose((FILE *) file);
 	file = NULL;
+}
+
+mo_null __c_rewind(mo_i8 *file)
+{
+	rewind((FILE *) file);
+}
+
+mo_i64 __c_tell(mo_i8 *file)
+{
+	return ftell((FILE *) file);
+}
+
+mo_null __c_seek_set(mo_i8 *file, mo_i64 offset)
+{
+	fseek((FILE *) file, offset, SEEK_SET);
+}
+
+mo_null __c_seek_cur(mo_i8 *file, mo_i64 offset)
+{
+	fseek((FILE *) file, offset, SEEK_CUR);
+}
+
+mo_null __c_seek_end(mo_i8 *file, mo_i64 offset)
+{
+	fseek((FILE *) file, offset, SEEK_END);
 }

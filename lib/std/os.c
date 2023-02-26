@@ -29,7 +29,7 @@ static inline bool dir_exists(char *path)
 	return (S_ISDIR(_stat.st_mode)) ? true : false;
 }
 
-mo_i32 _M7executeP3str(mo_str *_cmd)
+mo_i32 __c_execute(mo_str *_cmd)
 {
 	char __cmd[_cmd->len];
 	memcpy(__cmd, _cmd->ptr, _cmd->len);
@@ -37,7 +37,7 @@ mo_i32 _M7executeP3str(mo_str *_cmd)
 	return system(__cmd);
 }
 
-mo_str *_M6getenvP3str(mo_str *_name)
+mo_str *__c_getenv(mo_str *_name)
 {
 	mo_str *self;
 	char __name[_name->len];
@@ -49,7 +49,7 @@ mo_str *_M6getenvP3str(mo_str *_name)
 	return self;
 }
 
-mo_i32 _M5mkdirP3str(mo_str *_path)
+mo_i32 __c_mkdir(mo_str *_path)
 {
 	char __path[_path->len];
 	memcpy(__path, _path->ptr, _path->len);
@@ -61,7 +61,7 @@ mo_i32 _M5mkdirP3str(mo_str *_path)
 	return mkdir(__path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
 }
 
-mo_i32 _M5touchP3str(mo_str *_path)
+mo_i32 __c_touch(mo_str *_path)
 {
 	FILE *fp;
 	char __path[_path->len];
@@ -76,7 +76,7 @@ mo_i32 _M5touchP3str(mo_str *_path)
 	return 0;
 }
 
-mo_i32 _M6renameP3strP3str(mo_str *_old, mo_str *_new)
+mo_i32 __c_rename(mo_str *_old, mo_str *_new)
 {
 	char __old[_old->len];
 	char __new[_new->len];
@@ -87,7 +87,7 @@ mo_i32 _M6renameP3strP3str(mo_str *_old, mo_str *_new)
 	return rename(__old, __new);
 }
 
-mo_i32 _M5chmodP3stri(mo_str *_path, mo_i32 mode)
+mo_i32 __c_chmod(mo_str *_path, mo_i32 mode)
 {
 	mode_t _mode = 0;
 	char __path[_path->len];
@@ -99,7 +99,7 @@ mo_i32 _M5chmodP3stri(mo_str *_path, mo_i32 mode)
 	return chmod(__path, _mode);
 }
 
-mo_bool _M6isfileP3str(mo_str *_path)
+mo_bool __c_isfile(mo_str *_path)
 {
 	char __path[_path->len];
 	memcpy(__path, _path->ptr, _path->len);
@@ -107,7 +107,7 @@ mo_bool _M6isfileP3str(mo_str *_path)
 	return file_exists(__path);
 }
 
-mo_bool _M5isdirP3str(mo_str *_path)
+mo_bool __c_isdir(mo_str *_path)
 {
 	char __path[_path->len];
 	memcpy(__path, _path->ptr, _path->len);
@@ -115,7 +115,7 @@ mo_bool _M5isdirP3str(mo_str *_path)
 	return dir_exists(__path);
 }
 
-mo_bool _M6islinkP3str(mo_str *_path)
+mo_bool __c_islink(mo_str *_path)
 {
 	struct stat _stat;
 	char __path[_path->len];
@@ -124,7 +124,15 @@ mo_bool _M6islinkP3str(mo_str *_path)
 	return lstat(__path, &_stat) == 0 && S_ISLNK(_stat.st_mode);
 }
 
-mo_str *_M6getcwdv()
+bool __c_isabs(mo_str *_path)
+{
+	char __path[_path->len];
+	memcpy(__path, _path->ptr, _path->len);
+	__path[_path->len] = '\0';
+	return *__path == '/';
+}
+
+mo_str *__c_getcwd()
 {
 	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
 	self->ptr = getcwd(NULL, 0);
@@ -132,7 +140,7 @@ mo_str *_M6getcwdv()
 	return self;
 }
 
-mo_str *_M7abspathP3str(mo_str *_path)
+mo_str *__c_abspath(mo_str *_path)
 {
 	char __path[_path->len];
 	char __abs_path[PATH_MAX];
@@ -147,7 +155,12 @@ mo_str *_M7abspathP3str(mo_str *_path)
 	return self;
 }
 
-mo_str *_M8basenameP3str(mo_str *_path)
+void __c_exit(mo_i32 status)
+{
+	exit(status);
+}
+
+mo_str *__c_basename(mo_str *_path)
 {
 	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
 	char __path[_path->len];
@@ -158,7 +171,7 @@ mo_str *_M8basenameP3str(mo_str *_path)
 	return self;
 }
 
-mo_str *_M7dirnameP3str(mo_str *_path)
+mo_str *__c_dirname(mo_str *_path)
 {
 	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
 	char __path[_path->len];
@@ -167,12 +180,4 @@ mo_str *_M7dirnameP3str(mo_str *_path)
 	self->ptr = strdup(dirname(__path));
 	self->len = strlen(self->ptr);
 	return self;
-}
-
-bool _M5isabsP3str(mo_str *_path)
-{
-	char __path[_path->len];
-	memcpy(__path, _path->ptr, _path->len);
-	__path[_path->len] = '\0';
-	return *__path == '/';
 }

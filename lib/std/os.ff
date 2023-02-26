@@ -1,86 +1,170 @@
+/**
+ * Never use c calls directly.
+ * Some of them working only in types.
+ * Use type.func() instead.
+ */
+
+__builtin_decl("__c_exit", null, i32)
+__builtin_decl("__c_execute", i32, &str)
+__builtin_decl("__c_getenv", &str, &str)
+__builtin_decl("__c_getcwd", &str)
+__builtin_decl("__c_chmod", i32, &str, i32)
+__builtin_decl("__c_mkdir", i32, &str)
+__builtin_decl("__c_touch", i32, &str)
+__builtin_decl("__c_rename", i32, &str, &str)
+__builtin_decl("__c_isfile", bool, &str)
+__builtin_decl("__c_isdir", bool, &str)
+__builtin_decl("__c_islink", bool, &str)
+__builtin_decl("__c_isabs", bool, &str)
+__builtin_decl("__c_abspath", &str, &str)
+__builtin_decl("__c_basename", &str, &str)
+__builtin_decl("__c_dirname", &str, &str)
+
 /* os.ff
    Copyright (c) 2023 mini-rose */
 
-/* Cause normal process termination */
-__builtin_decl("exit", null, i32)
+type os {
+	/* Cause normal process termination */
 
-/* Execute a shell command */
-__builtin_decl_mangled("execute", i32, &str)
-fn execute(cmd: str) -> i32 {
-	ret execute(&cmd)
+	exit: fn (self: &os, status: i32) -> null {
+		__c_exit(status)
+	}
+
+	/* Execute a shell command */
+
+	execute: fn (self: &os, command: &str) -> null {
+		__c_execute(command)
+	}
+
+	execute: fn (self: &os, command: str) -> null {
+		__c_execute(&command)
+	}
+
+	/* Get an environment variable */
+
+	getenv: fn (self: &os, name: &str) -> &str {
+		ret __c_getenv(name)
+	}
+
+	getenv: fn (self: &os, name: str) -> &str {
+		ret __c_getenv(&name)
+	}
+
+	/* Get current working directory */
+
+	getcwd: fn (self: &os) -> &str {
+		ret __c_getcwd()
+	}
+
+	/* Change file mode bits */
+
+	chmod: fn (self: &os, path: &str, mode: i32) -> i32 {
+		ret __c_chmod(path, mode)
+	}
+
+	chmod: fn (self: &os, path: str, mode: i32) -> i32 {
+		ret __c_chmod(&path, mode)
+	}
+
+	/* Make directory */
+
+	mkdir: fn (self: &os, path: &str) -> i32 {
+		ret __c_mkdir(path)
+	}
+
+	mkdir: fn (self: &os, path: str) -> i32 {
+		ret __c_mkdir(&path)
+	}
+
+	/* Create file */
+
+	touch: fn (self: &os, path: &str) -> i32 {
+		ret __c_touch(path)
+	}
+
+	touch: fn (self: &os, path: str) -> i32 {
+		ret __c_touch(&path)
+	}
+
+	/* Rename file */
+
+	rename: fn (self: &os, old: &str, new: &str) -> i32 {
+		ret __c_rename(old, new)
+	}
+
+	rename: fn (self: &os, old: str, new: str) -> i32 {
+		ret __c_rename(&old, &new)
+	}
 }
 
-/* Get an environment variable */
-__builtin_decl_mangled("getenv", str, &str)
-fn getenv(name: str) -> str {
-	ret getenv(&name)
-}
+type path {
+	/* Return true if the entry is a file */
 
-/* Get current working directory */
-__builtin_decl_mangled("getcwd", &str)
+	isfile: fn (self: &path, path: &str) -> bool {
+		ret __c_isfile(path)
+	}
 
-/* Change file mode bits */
-__builtin_decl_mangled("chmod", i32, &str, i32)
-fn chmod(path: str, mode: i32) -> i32 {
-	ret chmod(&path, mode)
-}
+	isfile: fn (self: &path, path: str) -> bool {
+		ret __c_isfile(&path)
+	}
 
-/* Make directory */
-__builtin_decl_mangled("mkdir", i32, &str)
-fn mkdir(path: str) -> i32 {
-	ret mkdir(&path)
-}
+	/* Return true if the entry is a directory */
 
-/* Create file */
-__builtin_decl_mangled("touch", i32, &str)
-fn touch(path: str) -> i32 {
-	ret touch(&path)
-}
+	isdir: fn (self: &path, path: &str) -> bool {
+		ret __c_isdir(path)
+	}
 
-/* Rename file */
-__builtin_decl_mangled("rename", i32, &str, &str)
-fn rename(old: str, new: str) -> i32 {
-	ret rename(&old, &new)
-}
+	isdir: fn (self: &path, path: str) -> bool {
+		ret __c_isdir(&path)
+	}
 
-/* Return true if the entry is a file */
-__builtin_decl_mangled("isfile", bool, &str)
-fn isfile(path: str) -> bool {
-	ret isfile(&path)
-}
+	/* Test whether a path is a symbolic link */
 
-/* Return true if the entry is a directory */
-__builtin_decl_mangled("isdir", bool, &str)
-fn isdir(path: str) -> bool {
-	ret isdir(&path)
-}
+	islink: fn (self: &path, path: &str) -> bool {
+		ret __c_islink(path)
+	}
 
-/* Test whether a path is a symbolic link */
-__builtin_decl_mangled("islink", bool, &str)
-fn islink(path: str) -> bool {
-	ret islink(&path)
-}
+	islink: fn (self: &path, path: str) -> bool {
+		ret __c_islink(&path)
+	}
 
-/* Test whether a path is absolute */
-__builtin_decl_mangled("isabs", bool, &str)
-fn isabs(path: str) -> bool {
-	ret isabs(&path)
-}
+	/* Test whether a path is absolute */
 
-/* Returns an absolute path */
-__builtin_decl_mangled("abspath", &str, &str)
-fn abspath(path: str) -> &str {
-	ret abspath(&path)
-}
+	isabs: fn (self: &path, path: &str) -> bool {
+		ret __c_isabs(path)
+	}
 
-/* Returns the final component of a pathname */
-__builtin_decl_mangled("basename", &str, &str)
-fn basename(path: str) -> &str {
-	ret basename(&path)
-}
+	isabs: fn (self: &path, path: str) -> bool {
+		ret __c_isabs(&path)
+	}
 
-/* Returns the directory component of a pathname */
-__builtin_decl_mangled("dirname", &str, &str)
-fn dirname(path: str) -> &str {
-	ret dirname(&path)
+	/* Returns an absolute path */
+
+	abs: fn (self: &path, path: &str) -> &str {
+		ret __c_abspath(path)
+	}
+
+	abs: fn (self: &path, path: str) -> &str {
+		ret __c_abspath(&path)
+	}
+
+	/* Returns the final component of a pathname */
+
+	basename: fn (self: &path, path: &str) -> &str {
+		ret __c_basename(path)
+	}
+
+	basename: fn (self: &path, path: str) -> &str {
+		ret __c_basename(&path)
+	}
+
+	/* Returns the directory component of a pathname */
+
+	dirname: fn (self: &path, path: &str) -> &str {
+		ret __c_dirname(path)
+	}
+
+	dirname: fn (self: &path, path: str) -> &str {
+		ret __c_dirname(&path)
+	}
 }
