@@ -20,7 +20,7 @@ static char mangled_type_char(plain_type t)
 	    [PT_F32] = 'f',  [PT_F64] = 'd'};
 	static const int n = sizeof(type_mangle_ids);
 
-	if (t >= 0 && t < n)
+	if ((int) t < n)
 		return type_mangle_ids[t];
 	return 'v';
 }

@@ -58,7 +58,7 @@ static LLVMTypeRef gen_str_type(LLVMModuleRef mod)
 	return LLVMGetTypeByName2(LLVMGetModuleContext(mod), "str");
 }
 
-static LLVMTypeRef gen_plain_type(LLVMModuleRef mod, plain_type t)
+static LLVMTypeRef gen_plain_type(plain_type t)
 {
 	switch (t) {
 	case PT_U8:
@@ -102,7 +102,7 @@ static LLVMTypeRef gen_object_type(LLVMModuleRef mod, type_t *ty)
 LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty)
 {
 	if (ty->kind == TY_PLAIN)
-		return gen_plain_type(mod, ty->v_plain);
+		return gen_plain_type(ty->v_plain);
 	if (ty->kind == TY_POINTER)
 		return LLVMPointerType(gen_type(mod, ty->v_base), 0);
 	if (ty->kind == TY_ARRAY)
@@ -212,8 +212,7 @@ static LLVMValueRef gen_member_value(LLVMBuilderRef builder,
 	return ret;
 }
 
-static LLVMValueRef gen_addr(LLVMBuilderRef builder, fn_context_t *context,
-			     const char *name)
+static LLVMValueRef gen_addr(fn_context_t *context, const char *name)
 {
 	LLVMValueRef local = fn_find_local(context, name);
 	if (LLVMIsAAllocaInst(local))
@@ -335,7 +334,7 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 	case VE_CALL:
 		return emit_call_node(builder, context, value->call);
 	case VE_PTR:
-		return gen_addr(builder, context, value->name);
+		return gen_addr(context, value->name);
 	case VE_MPTR:
 		return gen_ptr_to_member(builder, context, value);
 	case VE_DEREF:
@@ -398,8 +397,7 @@ end:
 	      E_AS_FN(context->func->data)->name);
 }
 
-void emit_function_decl(LLVMModuleRef mod, mod_expr_t *module, fn_expr_t *fn,
-			LLVMLinkage linkage)
+void emit_function_decl(LLVMModuleRef mod, fn_expr_t *fn, LLVMLinkage linkage)
 {
 	LLVMValueRef f;
 	char *ident;
@@ -652,7 +650,7 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 		if (LLVMIsAAllocaInst(local)) {
 			ptr = LLVMBuildLoad2(
 			    builder, gen_type(context->llvm_mod, ptr_type),
-			    gen_addr(builder, context, data->to->name), "");
+			    gen_addr(context, data->to->name), "");
 		} else {
 			ptr = local;
 		}
@@ -662,7 +660,7 @@ static void emit_assign_node(LLVMBuilderRef builder, fn_context_t *context,
 	} else if (data->to->type == VE_REF) {
 
 		/* var = xxx */
-		to = gen_addr(builder, context, data->to->name);
+		to = gen_addr(context, data->to->name);
 
 	} else if (data->to->type == VE_MREF) {
 
@@ -1121,7 +1119,7 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 
 	/* Declare extern functions. */
 	for (int i = 0; i < mod_data->n_decls; i++) {
-		emit_function_decl(mod, module->data, mod_data->decls[i],
+		emit_function_decl(mod, mod_data->decls[i],
 				   LLVMExternalLinkage);
 	}
 
@@ -1147,8 +1145,7 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 		for (int j = 0; j < o->n_methods; j++) {
 			fn_expr_t *func = o->methods[j]->data;
 
-			emit_function_decl(mod, module->data, func,
-					   LLVMInternalLinkage);
+			emit_function_decl(mod, func, LLVMInternalLinkage);
 			emit_function_body(settings, mod, module,
 					   o->methods[j]);
 		}
@@ -1161,8 +1158,7 @@ static LLVMModuleRef emit_module_contents(settings_t *settings,
 	walker = module->child;
 	while (walker) {
 		if (walker->type == E_FUNCTION) {
-			emit_function_decl(mod, module->data,
-					   E_AS_FN(walker->data),
+			emit_function_decl(mod, E_AS_FN(walker->data),
 					   LLVMInternalLinkage);
 		} else {
 			error("emit: cannot emit anything other than a "
@@ -1200,8 +1196,7 @@ static void add_builtin_types(LLVMModuleRef module)
 	LLVMStructSetBody(str, fields, 3, false);
 }
 
-void emit_module(settings_t *settings, expr_t *module, const char *out,
-		 bool is_main)
+void emit_module(settings_t *settings, expr_t *module, const char *out)
 {
 	LLVMModuleRef mod;
 	mod_expr_t *mod_data;

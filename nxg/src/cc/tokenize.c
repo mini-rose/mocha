@@ -328,7 +328,7 @@ token_list *tokens(file_t *source)
 			if (!ispunct(*p))
 				continue;
 
-			for (int i = T_EQ; i < LEN(operators); i++) {
+			for (size_t i = T_EQ; i < LEN(operators); i++) {
 				if (!strncmp(p, operators[i],
 					     strlen(operators[i]))) {
 

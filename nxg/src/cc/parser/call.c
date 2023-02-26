@@ -26,7 +26,7 @@ bool is_builtin_function(token *name)
 	static const char *builtins[] = {"__builtin_decl",
 					 "__builtin_decl_mangled"};
 
-	for (int i = 0; i < LEN(builtins); i++) {
+	for (size_t i = 0; i < LEN(builtins); i++) {
 		if (!strncmp(builtins[i], name->value, name->len))
 			return true;
 	}
@@ -142,7 +142,7 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 
 static inline char *maybe_missed_import(char *name)
 {
-	int i;
+	size_t i;
 
 	static char *std_io[] = {"open",         "print", "close",   "write",
 				 "write_stream", "read",  "readline"};

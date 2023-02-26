@@ -27,5 +27,4 @@ typedef struct
 	int n_auto_drops;
 } fn_context_t;
 
-void emit_module(settings_t *settings, expr_t *module, const char *out,
-		 bool is_main);
+void emit_module(settings_t *settings, expr_t *module, const char *out);

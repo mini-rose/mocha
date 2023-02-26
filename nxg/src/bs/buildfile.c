@@ -31,8 +31,7 @@ static inline void push_to_settings(file_t *f, settings_t *settings, char *key,
 }
 
 static inline void push_flag_to_settings(file_t *f, settings_t *settings,
-					 char *key, int key_len, char *val,
-					 int val_len)
+					 char *val, int val_len)
 {
 	if (!strncmp("-p", val, val_len)) {
 		settings->show_ast = true;
@@ -64,9 +63,7 @@ static inline void parse_list(file_t *f, settings_t *settings, char *key,
 	while (*p != ']') {
 		if (*p == '\'') {
 			char *q = strstr(++p, "'");
-			push_flag_to_settings(f, settings, key, key_len, p,
-					      (int) (q - p));
-
+			push_flag_to_settings(f, settings, p, (int) (q - p));
 			p += q - p + 1;
 		}
 

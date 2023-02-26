@@ -18,7 +18,7 @@ static char *plain_types[] = {
 
 bool is_plain_type(const char *str)
 {
-	for (int i = 0; i < LEN(plain_types); i++)
+	for (size_t i = 0; i < LEN(plain_types); i++)
 		if (!strcmp(str, plain_types[i]))
 			return true;
 

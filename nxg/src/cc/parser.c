@@ -14,9 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void parse_block(settings_t *settings, expr_t *parent, expr_t *module,
-			fn_expr_t *fn, expr_t *node, token_list *tokens,
-			token *tok);
+static void parse_block(settings_t *settings, expr_t *module, fn_expr_t *fn,
+			expr_t *node, token_list *tokens, token *tok);
 static void parse_fn_params(expr_t *module, fn_expr_t *decl, token_list *tokens,
 			    token *tok);
 
@@ -89,7 +88,7 @@ var_decl_expr_t *node_resolve_local_touch(expr_t *node, const char *name,
 		fn_expr_t *fn = node->data;
 
 		for (int i = 0; i < fn->n_params; i++) {
-			if (strlen(fn->params[i]->name) != len)
+			if ((int) strlen(fn->params[i]->name) != len)
 				continue;
 
 			if (!strncmp(fn->params[i]->name, name, len)) {
@@ -100,7 +99,7 @@ var_decl_expr_t *node_resolve_local_touch(expr_t *node, const char *name,
 		}
 
 		for (int i = 0; i < fn->n_locals; i++) {
-			if (strlen(fn->locals[i]->name) != len)
+			if ((int) strlen(fn->locals[i]->name) != len)
 				continue;
 
 			if (!strncmp(fn->locals[i]->name, name, len)) {
@@ -109,11 +108,12 @@ var_decl_expr_t *node_resolve_local_touch(expr_t *node, const char *name,
 				return fn->locals[i];
 			}
 		}
+
 	} else if (node->type == E_BLOCK) {
 		block_expr_t *block = node->data;
 
 		for (int i = 0; i < block->n_locals; i++) {
-			if (strlen(block->locals[i]->name) != len)
+			if ((int) strlen(block->locals[i]->name) != len)
 				continue;
 
 			if (!strncmp(block->locals[i]->name, name, len)) {
@@ -837,8 +837,7 @@ skip_bool_check:
 
 		E_AS_BLOCK(cond->if_block->data)->parent = parent;
 
-		parse_block(settings, parent, module, fn, cond->if_block,
-			    tokens, tok);
+		parse_block(settings, module, fn, cond->if_block, tokens, tok);
 
 		if (!cond->if_block->child) {
 			if (settings->warn_empty_block) {
@@ -877,8 +876,8 @@ skip_bool_check:
 
 		E_AS_BLOCK(cond->else_block->data)->parent = parent;
 
-		parse_block(settings, parent, module, fn, cond->else_block,
-			    tokens, tok);
+		parse_block(settings, module, fn, cond->else_block, tokens,
+			    tok);
 
 		if (!cond->else_block->child) {
 			if (settings->warn_empty_block) {
@@ -905,9 +904,8 @@ skip_bool_check:
  *   [statement]...
  * }
  */
-static void parse_block(settings_t *settings, expr_t *parent, expr_t *module,
-			fn_expr_t *fn, expr_t *node, token_list *tokens,
-			token *tok)
+static void parse_block(settings_t *settings, expr_t *module, fn_expr_t *fn,
+			expr_t *node, token_list *tokens, token *tok)
 {
 	int brace_level = 1;
 
@@ -980,7 +978,7 @@ static err_t parse_fn_body(settings_t *settings, expr_t *module, expr_t *node,
 	while (tok->type == T_NEWLINE)
 		tok = next_tok(tokens);
 
-	parse_block(settings, node, module, decl, node, tokens, tok);
+	parse_block(settings, module, decl, node, tokens, tok);
 
 	/* always add a return statement */
 	if (!fn_has_return(node)) {

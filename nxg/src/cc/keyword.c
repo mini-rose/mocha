@@ -11,7 +11,7 @@ static char *keywords[] = {
 
 bool is_keyword(const char *str)
 {
-	for (int i = 0; i < LEN(keywords); i++)
+	for (size_t i = 0; i < LEN(keywords); i++)
 		if (!strcmp(str, keywords[i]))
 			return true;
 
@@ -20,7 +20,7 @@ bool is_keyword(const char *str)
 
 keyword_t get_keyword(const char *str)
 {
-	for (int i = 0; i < LEN(keywords); i++)
+	for (size_t i = 0; i < LEN(keywords); i++)
 		if (!strcmp(str, keywords[i]))
 			return (keyword_t) i;
 
