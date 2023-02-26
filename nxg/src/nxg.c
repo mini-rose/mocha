@@ -226,9 +226,6 @@ int main(int argc, char **argv)
 
 	slab_init_global(settings.x_sanitize_alloc);
 
-	/* NOTE: for our uses, we might want to use a custom argument parser to
-	   allow for more complex combinations (along with long options). */
-
 	for (int i = 0; i < argc; i++) {
 		if (!strncmp(argv[i], ".", 2)) {
 			buildfile(&settings);

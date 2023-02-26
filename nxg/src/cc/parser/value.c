@@ -95,8 +95,8 @@ err_t parse_rvalue(settings_t *settings, expr_t *context, expr_t *mod,
 		node->call = slab_alloc(sizeof(*node->call));
 
 		node->call->object_name = slab_strndup(tok->value, tok->len);
-		tok = after_tok(tokens, tok);
-		tok = after_tok(tokens, tok);
+		tok = next_tok(tokens);
+		tok = next_tok(tokens);
 
 		parse_inline_call(settings, context, mod, node->call, tokens,
 				  tok);
