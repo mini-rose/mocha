@@ -26,7 +26,7 @@ Build
 
 - nxg
    $ cd nxg
-   $ meson setup build
+   $ meson setup --buildtype=release build
    $ meson compile -C build
 
 Documentation

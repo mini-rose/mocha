@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void expr_print_value_expr(value_expr_t *val, int level);
 static void expr_print_level(expr_t *expr, int level, bool with_next);
 
 static void indent(int levels)
@@ -124,7 +123,7 @@ static const char *expr_info(expr_t *expr)
 	return info;
 }
 
-static void expr_print_value_expr(value_expr_t *val, int level)
+void expr_print_value_expr(value_expr_t *val, int level)
 {
 	char *lit_str;
 	char *tmp = NULL;

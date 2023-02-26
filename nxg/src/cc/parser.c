@@ -793,7 +793,7 @@ static void parse_condition(settings_t *settings, expr_t *parent,
 	cond->cond =
 	    parse_value_expr(settings, parent, module, cond->cond, tokens, tok);
 
-	tok = index_tok(tokens, tokens->iter - 1);
+	tok = index_tok(tokens, tokens->iter);
 	if (cond->cond->type == VE_NULL) {
 		error_at(tokens->source, start_tok->value,
 			 tok->value - start_tok->value + 1,
@@ -806,7 +806,7 @@ static void parse_condition(settings_t *settings, expr_t *parent,
 	}
 
 	error_at(tokens->source, start_tok->value,
-		 tok->value - start_tok->value + 1,
+		 tok->value - start_tok->value,
 		 "expression does not return a boolean value");
 
 skip_bool_check:
@@ -1401,19 +1401,19 @@ char *stringify_literal(literal_expr_t *literal)
 	return NULL;
 }
 
-value_expr_type value_expr_type_from_op(token *op)
+value_expr_type value_expr_type_from_op(token_list *tokens, token *op)
 {
 	static const struct
 	{
 		token_t token;
 		value_expr_type type;
-	} ops[] = {
-	    {T_ADD, VE_ADD}, {T_SUB, VE_SUB}, {T_MUL, VE_MUL}, {T_DIV, VE_DIV}};
+	} ops[] = {{T_ADD, VE_ADD}, {T_SUB, VE_SUB}, {T_MUL, VE_MUL},
+		   {T_DIV, VE_DIV}, {T_EQ, VE_EQ},   {T_NEQ, VE_NEQ}};
 
-	for (int i = 0; i < LEN(ops); i++) {
+	for (size_t i = 0; i < LEN(ops); i++) {
 		if (op->type == ops[i].token)
 			return ops[i].type;
 	}
 
-	return VE_NULL;
+	error_at(tokens->source, op->value, op->len, "unknown operator");
 }

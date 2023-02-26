@@ -1,7 +1,6 @@
-#include "nxg/cc/tokenize.h"
-
 #include <ctype.h>
 #include <nxg/cc/parser.h>
+#include <nxg/cc/tokenize.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -13,7 +12,7 @@ bool is_var_decl(token_list *tokens, token *tok)
 	if (tok->type != T_IDENT)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter);
+	tok = after_tok(tokens, tok);
 	if (!TOK_IS(tok, T_PUNCT, ":"))
 		return false;
 
@@ -26,7 +25,7 @@ bool is_var_decl(token_list *tokens, token *tok)
 bool is_type(token_list *tokens, token *tok)
 {
 	if (TOK_IS(tok, T_PUNCT, "&"))
-		tok = index_tok(tokens, tokens->iter);
+		tok = after_tok(tokens, tok);
 
 	return tok->type == T_IDENT || tok->type == T_DATATYPE;
 }
@@ -74,15 +73,21 @@ int call_token_len(token_list *tokens, token *tok)
 	int len = 2;
 	int depth = 0;
 
-	tok = index_tok(tokens, tokens->iter);
+	/* skip func name */
+	tok = after_tok(tokens, tok);
+	if (is_member_call(tokens, tok)) {
+		tok = after_tok(tokens, tok);
+		tok = after_tok(tokens, tok);
+	}
 
 	if (tok->type != T_LPAREN)
 		return 0;
 
+	tok = after_tok(tokens, tok);
+
 	depth++;
 
 	while (depth > 0) {
-		tok = index_tok(tokens, tokens->iter + len);
 		if (tok->type == T_NEWLINE)
 			return 0;
 
@@ -92,6 +97,7 @@ int call_token_len(token_list *tokens, token *tok)
 			depth--;
 
 		len++;
+		tok = after_tok(tokens, tok);
 	}
 
 	return len;
@@ -108,9 +114,9 @@ bool is_literal(token *tok)
 }
 
 /**
- * reference ::= ident
+ * symbol ::= ident
  */
-bool is_reference(token *tok)
+bool is_symbol(token *tok)
 {
 	return tok->type == T_IDENT;
 }
@@ -208,16 +214,46 @@ bool is_pointer_to(token_list *tokens, token *tok)
 }
 
 /*
- * value ::= literal
- *       ::= ident
- *       ::= call
- *       ::= dereference
- *       ::= pointer-to
+ * rvalue ::= '(' rvalue ')'
+ *        ::= rvalue op rvalue
+ *        ::= literal
+ *        ::= ident
+ *        ::= dereference
+ *        ::= pointer-to
+ *        ::= member
+ *        ::= member-deref
+ *        ::= member-pointer-to
+ *        ::= call
+ *        ::= member-call
  */
-bool is_single_value(token_list *tokens, token *tok)
+bool is_rvalue(token_list *tokens, token *tok)
 {
-	return is_literal(tok) || is_reference(tok) || is_call(tokens, tok)
-	    || is_dereference(tokens, tok) || is_pointer_to(tokens, tok);
+	/* '(' rvalue ')' */
+	if (tok->type == T_LPAREN) {
+		int offset = rvalue_token_len(tokens, tok) - 1;
+		for (int i = 0; i < offset; i++)
+			tok = after_tok(tokens, tok);
+
+		if (tok->type != T_RPAREN)
+			return false;
+		return true;
+	}
+
+	/* single rvalue */
+	if (is_literal(tok) || is_symbol(tok) || is_call(tokens, tok)
+	    || is_dereference(tokens, tok) || is_pointer_to(tokens, tok)
+	    || is_member(tokens, tok) || is_member_deref(tokens, tok)
+	    || is_pointer_to_member(tokens, tok)
+	    || is_member_call(tokens, tok)) {
+		return true;
+	}
+
+	/* If this is an rvalue, the previous if block will accept any rvalue
+	   type, meaning that checking if we have an operator after this is
+	   unnecessary, as we would return true even if there wasn't any
+	   operator. */
+
+	return false;
 }
 
 bool is_operator(token *tok)
@@ -238,19 +274,10 @@ bool is_comparison(token_list *tokens, token *tok)
 		offset = call_token_len(tokens, tok);
 	}
 
-	if (is_pointer_to(tokens, tok)) {
-		offset = 1;
-	} else if (is_member(tokens, tok)) {
-		offset = 2;
-	} else if (is_dereference(tokens, tok)) {
-		offset = 1;
-	} else if (is_pointer_to_member(tokens, tok)) {
-		offset = 3;
-	} else if (is_member_deref(tokens, tok)) {
-		offset = 3;
-	}
+	offset = rvalue_token_len(tokens, tok);
+	for (int i = 0; i < offset; i++)
+		tok = after_tok(tokens, tok);
 
-	tok = index_tok(tokens, tokens->iter + offset);
 	if (tok->type == T_EQ || tok->type == T_NEQ)
 		return true;
 
@@ -287,40 +314,78 @@ bool is_float(token *tok)
 }
 
 /**
- * name[.field][: type] = value
+ * [*]name[.field][: type] = value
  */
 bool is_var_assign(token_list *tokens, token *tok)
 {
-	int offset = 0;
-
-	if (tok->type == T_MUL) {
+	/* [*] */
+	if (tok->type == T_MUL)
 		tok = after_tok(tokens, tok);
-		offset++;
-	}
 
 	if (tok->type != T_IDENT)
 		return false;
 
-	tok = index_tok(tokens, tokens->iter + offset);
-	if (tok->type == T_DOT)
-		offset++;
+	tok = after_tok(tokens, tok);
 
-	tok = index_tok(tokens, tokens->iter + offset);
-	if (tok->type == T_IDENT)
-		offset++;
-
-	tok = index_tok(tokens, tokens->iter + offset);
-	if (TOK_IS(tok, T_PUNCT, ":")) {
-		offset++;
-		tok = index_tok(tokens, tokens->iter + offset);
-		if (tok->type != T_DATATYPE && tok->type != T_IDENT)
+	/* [.member] */
+	if (tok->type == T_DOT) {
+		tok = after_tok(tokens, tok);
+		if (tok->type != T_IDENT)
 			return false;
-		offset++;
+
+		tok = after_tok(tokens, tok);
 	}
 
-	tok = index_tok(tokens, tokens->iter + offset);
+	/* [: type] */
+	if (TOK_IS(tok, T_PUNCT, ":")) {
+		tok = after_tok(tokens, tok);
+		if (!is_type(tokens, tok))
+			return false;
+
+		tok = after_tok(tokens, tok);
+	}
+
 	if (tok->type != T_ASS)
 		return false;
 
 	return true;
+}
+
+int rvalue_token_len(token_list *tokens, token *tok)
+{
+	/* Note: keep these if statements from the highest toklen to the
+	   smallest, so it can be properly checked. */
+
+	/* '(' rvalue ')' */
+	if (tok->type == T_LPAREN) {
+		int offset = 0;
+		int depth = 0;
+
+		while (1) {
+			if (tok->type == T_LPAREN)
+				depth++;
+			if (tok->type == T_RPAREN)
+				depth--;
+			if (!depth)
+				break;
+
+			tok = after_tok(tokens, tok);
+			offset++;
+		}
+
+		return offset + 1;
+	}
+
+	if (is_call(tokens, tok) || is_member_call(tokens, tok))
+		return call_token_len(tokens, tok);
+	if (is_member_deref(tokens, tok) || is_pointer_to_member(tokens, tok))
+		return 4;
+	if (is_member(tokens, tok))
+		return 3;
+	if (is_dereference(tokens, tok) || is_pointer_to(tokens, tok))
+		return 2;
+	if (is_literal(tok) || is_symbol(tok))
+		return 1;
+
+	return 1;
 }

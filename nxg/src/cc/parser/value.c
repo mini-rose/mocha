@@ -57,10 +57,21 @@ static void parse_member(value_expr_t *node, expr_t *context,
 	node->return_type = temp_type;
 }
 
-err_t parse_single_value(settings_t *settings, expr_t *context, expr_t *mod,
-			 value_expr_t *node, token_list *tokens, token *tok)
+err_t parse_rvalue(settings_t *settings, expr_t *context, expr_t *mod,
+		   value_expr_t *node, token_list *tokens, token *tok)
 {
 	type_t *temp_type;
+
+	/* '(' rvalue ')' */
+	if (tok->type == T_LPAREN) {
+		tok = next_tok(tokens);
+
+		parse_value_expr(settings, context, mod, node, tokens, tok);
+		node->force_precendence = true;
+
+		tok = next_tok(tokens);
+		return ERR_OK;
+	}
 
 	/* literal */
 	if (is_literal(tok)) {
@@ -75,6 +86,22 @@ err_t parse_single_value(settings_t *settings, expr_t *context, expr_t *mod,
 		parse_inline_call(settings, context, mod, node->call, tokens,
 				  tok);
 		node->return_type = type_copy(node->call->func->return_type);
+		return ERR_OK;
+	}
+
+	/* member call */
+	if (is_member_call(tokens, tok)) {
+		node->type = VE_CALL;
+		node->call = slab_alloc(sizeof(*node->call));
+
+		node->call->object_name = slab_strndup(tok->value, tok->len);
+		tok = after_tok(tokens, tok);
+		tok = after_tok(tokens, tok);
+
+		parse_inline_call(settings, context, mod, node->call, tokens,
+				  tok);
+		node->return_type = type_copy(node->call->func->return_type);
+
 		return ERR_OK;
 	}
 
@@ -96,7 +123,7 @@ err_t parse_single_value(settings_t *settings, expr_t *context, expr_t *mod,
 	}
 
 	/* reference */
-	if (is_reference(tok)) {
+	if (is_symbol(tok)) {
 		parse_reference(node, context, tokens, tok);
 		return ERR_OK;
 	}
@@ -121,241 +148,157 @@ err_t parse_single_value(settings_t *settings, expr_t *context, expr_t *mod,
 		return ERR_OK;
 	}
 
+	error_at(tokens->source, tok->value, tok->len,
+		 "failed to parse single rvalue");
 	return ERR_SYNTAX;
 }
 
-static int twoside_find_op(token_list *tokens, token *tok)
-{
-	int offset = 0;
-
-	while (!is_operator(tok))
-		tok = index_tok(tokens, tokens->iter + offset++);
-	return tokens->iter + (offset - 1);
-}
-
-static value_expr_t *parse_twoside_value_expr(settings_t *settings,
-					      expr_t *context, expr_t *mod,
-					      value_expr_t *node,
-					      token_list *tokens, token *tok)
-{
-	token *left, *op, *right, *after_right;
-
-	left = tok;
-	op = index_tok(tokens, twoside_find_op(tokens, tok));
-	right = index_tok(tokens, twoside_find_op(tokens, tok) + 1);
-	after_right = index_tok(tokens, tokens->iter + 2);
-
-	if (!is_operator(op)) {
-		error_at(tokens->source, op->value, op->len,
-			 "expected operator, got `%.*s`", op->len, op->value);
-	}
-
-	if (!is_single_value(tokens, right)) {
-		error_at(tokens->source, right->value, op->len,
-			 "expected some value, got `%.*s`", right->len,
-			 right->value);
-	}
-
-	/* we have a two-sided value with an operator */
-	node->type = value_expr_type_from_op(op);
-
-	/* if there is a left node defined, it means that is already has been
-	   parsed and we only want to parse the right hand side */
-	if (!node->left) {
-		node->left = slab_alloc(sizeof(*node->left));
-		if (parse_single_value(settings, context, mod, node->left,
-				       tokens, left)) {
-			error_at(tokens->source, left->value, op->len,
-				 "syntax error when parsing value");
-		}
-		next_tok(tokens);
-	}
-
-	/* right hand side */
-	node->right = slab_alloc(sizeof(*node->right));
-	parse_single_value(settings, context, mod, node->right, tokens, right);
-	next_tok(tokens);
-
-	/* resolve the return type of the expression; for now, just
-	   assume that it's the same of whateever the return type of the
-	   left operand is */
-	node->return_type = type_copy(node->left->return_type);
-
-	/* if the is an operator after this expression, set this whole
-	   expression to the left-hand side, and pass it again to a
-	   parse_twoside */
-	if (is_operator(after_right)) {
-		value_expr_t *new_node;
-		new_node = slab_alloc(sizeof(*new_node));
-		new_node->left = node;
-		node = parse_twoside_value_expr(settings, context, mod,
-						new_node, tokens, right);
-		next_tok(tokens);
-	}
-
-	return node;
-}
-
-static bool __attribute__((unused)) is_operator_left_to_right(token *op)
-{
-	struct {
-		token_t operator;
-		bool right_to_left;
-	} operators[] = {{T_EQ, false},  {T_NEQ, false}, {T_ASS, true},
-			 {T_ADD, false}, {T_ADDA, true}, {T_DEC, true},
-			 {T_INC, true},  {T_SUBA, true}, {T_DIV, false},
-			 {T_MOD, false}, {T_DIVA, true}, {T_MODA, true},
-			 {T_MUL, false}, {T_SUB, false}};
-
-	for (int i = 0; i < LEN(operators); i++)
-		if (operators[i].operator == op->type)
-			return operators[i].right_to_left;
-
-	return false;
-}
-
 static bool __attribute__((unused))
-is_operator_priority(token *op, token *other)
+operator_predeces(value_expr_type self, value_expr_type other)
 {
 	// see more at: https://en.cppreference.com/w/cpp/language/operator_precedence
-	struct precedense {
-		token_t operator;
+	struct precendence
+	{
+		value_expr_type op;
 		int precedence;
-	} priority[] = {{T_EQ, 10},   {T_NEQ, 10}, {T_ASS, 16},  {T_ADD, 6},
-			{T_ADDA, 16}, {T_DEC, 3},  {T_INC, 3},   {T_SUBA, 16},
-			{T_DIV, 5},   {T_MOD, 5},  {T_DIVA, 16}, {T_MODA, 16},
-			{T_MUL, 5},   {T_SUB, 6}};
+	};
 
-	struct precedense first;
-	struct precedense second;
+	/* The lower the number is, the "more important" the operation is. */
+	static const struct precendence opp[] = {{VE_MUL, 5}, {VE_DIV, 5},
+						 {VE_ADD, 6}, {VE_SUB, 6},
+						 {VE_EQ, 10}, {VE_NEQ, 10}};
 
-	for (int i = 0; i < LEN(priority); i++)
-		if (priority[i].operator == op->type)
-			first = priority[i];
+	struct precendence self_p;
+	struct precendence other_p;
 
-	for (int i = 0; i < LEN(priority); i++)
-		if (priority[i].operator == other->type)
-			second = priority[i];
+	for (size_t i = 0; i < LEN(opp); i++) {
+		if (opp[i].op == self) {
+			self_p = opp[i];
+			break;
+		}
+	}
 
-	return first.precedence > second.precedence;
+	for (size_t i = 0; i < LEN(opp); i++) {
+		if (opp[i].op == other) {
+			other_p = opp[i];
+			break;
+		}
+	}
+
+	return self_p.precedence < other_p.precedence;
 }
 
-static value_expr_t *parse_math_value_expr(settings_t *settings,
-					   expr_t *context, expr_t *mod,
-					   value_expr_t *node,
-					   token_list *tokens, token *tok)
+static inline bool is_twoside_value(value_expr_t *node)
 {
-	// TODO: parse math
-	return parse_twoside_value_expr(settings, context, mod, node, tokens,
-					tok);
+	return node->left && node->right;
 }
 
-static value_expr_t *parse_comparison(settings_t *settings, expr_t *context,
-				      expr_t *mod, value_expr_t *node,
-				      token_list *tokens, token *tok)
+static void swap_evaluation_order(value_expr_t *node)
 {
-	token *left;
-	token *right;
+	/*
+	 * Before:
+	 * node: {left, op, right: {r_left, r_op, r_right}}
+	 *
+	 * After:
+	 * node: {left: {left, op, r_left}, r_op, r_right}
+	 */
+	value_expr_t *left, *r_left, *r_right;
+	value_expr_type op, r_op;
 
-	node->left = slab_alloc(sizeof(*node->left));
-	node->right = slab_alloc(sizeof(*node->right));
-	node->return_type = type_new_plain(PT_BOOL);
+	if (!is_twoside_value(node))
+		return;
 
-	if (!is_single_value(tokens, tok)) {
-		error_at(tokens->source, tok->value, tok->len,
-			 "left side of comparison is not a valid rvalue");
-	}
+	left = node->left;
+	r_left = node->right->left;
+	r_right = node->right->right;
 
-	left = tok;
-	parse_single_value(settings, context, mod, node->left, tokens, tok);
+	op = node->type;
+	r_op = node->right->type;
 
-	tok = next_tok(tokens);
-	if (tok->type == T_EQ)
-		node->type = VE_EQ;
-	if (tok->type == T_NEQ)
-		node->type = VE_NEQ;
+	node->left = slab_alloc(sizeof(value_expr_t));
+	node->left->left = left;
+	node->left->type = op;
+	node->left->right = r_left;
+	node->left->return_type = type_copy(left->return_type);
 
-	tok = next_tok(tokens);
-
-	if (!is_single_value(tokens, tok)) {
-		error_at(tokens->source, tok->value, tok->len,
-			 "right side of comparison is not a valid rvalue");
-	}
-
-	right = tok;
-	parse_single_value(settings, context, mod, node->right, tokens, tok);
-
-	if (node->left->return_type->kind != TY_PLAIN) {
-		highlight_t hi = highlight_value(tokens, left);
-		error_at(tokens->source, hi.value, hi.len,
-			 "cannot compare non-integer types");
-	}
-
-	if (node->right->return_type->kind != TY_PLAIN) {
-		highlight_t hi = highlight_value(tokens, right);
-		error_at(tokens->source, hi.value, hi.len,
-			 "cannot compare non-integer types");
-	}
-
-	return node;
+	node->type = r_op;
+	node->right = r_right;
 }
 
-/**
- * literal      ::= string | integer | float | "null"
- * reference    ::= ident
- * dereference  ::= *ident
- * pointer-to   ::= &ident
- * member       ::= ident.ident
- * member-deref ::= *ident.ident
- * member-ptr   ::= &ident.ident
- * value        ::= literal
- *              ::= reference
- *              ::= call
- *              ::= dereference
- *              ::= pointer-to
- *              ::= member
- *              ::= member-deref
- *              ::= member-ptr
- *              ::= value <op> value
- *
- * value
- */
+/* Parse a rvalue */
 value_expr_t *parse_value_expr(settings_t *settings, expr_t *context,
 			       expr_t *mod, value_expr_t *node,
 			       token_list *tokens, token *tok)
 {
-	token *next;
+	token *start = tok;
+	token *op = tok;
 
-	if (is_comparison(tokens, tok)) {
-		return parse_comparison(settings, context, mod, node, tokens,
-					tok);
-	}
+	/* rvalue op rvalue */
+	int skip = rvalue_token_len(tokens, tok);
+	for (int i = 0; i < skip; i++)
+		op = after_tok(tokens, op);
 
-	next = index_tok(tokens, tokens->iter);
-	if (is_operator(next)) {
-		return parse_math_value_expr(settings, context, mod, node,
-					     tokens, tok);
-	}
+	if (is_operator(op)) {
+		node->type = value_expr_type_from_op(tokens, op);
+		node->left = slab_alloc(sizeof(*node->left));
+		node->right = slab_alloc(sizeof(*node->right));
 
-	if (is_single_value(tokens, tok)) {
-		if (parse_single_value(settings, context, mod, node, tokens,
-				       tok)
-		    == ERR_SYNTAX) {
-			error_at(tokens->source, tok->value, tok->len,
-				 "syntax error, could not parse value");
+		parse_rvalue(settings, context, mod, node->left, tokens, tok);
+
+		/* Advance to after the operator */
+		while (tok->value != op->value)
+			tok = next_tok(tokens);
+		tok = next_tok(tokens);
+
+		node->right = parse_value_expr(settings, context, mod,
+					       node->right, tokens, tok);
+
+		/*
+		 * Now, if we have a higher operator precendence than the next
+		 * value expression, swap places with it. This will ensure that
+		 * the value for the us will be calculated first, before the
+		 * other value. Remember, that if the right hand side value is
+		 * enclosed in parenthesis (force_precendence=true), we auto-
+		 * -matically have a lower precendence.
+		 */
+
+		if (is_twoside_value(node->right)
+		    && operator_predeces(node->type, node->right->type)
+		    && !node->right->force_precendence) {
+			swap_evaluation_order(node);
 		}
 
+		tok = index_tok(tokens, tokens->iter - 1);
+		if (!type_cmp(node->left->return_type,
+			      node->right->return_type)) {
+			error_at(tokens->source, start->value,
+				 tok->value - start->value,
+				 "left and right side of operation are not of "
+				 "the same types");
+		}
+
+		if (node->type == VE_EQ || node->type == VE_NEQ)
+			node->return_type = type_new_plain(PT_BOOL);
+		else
+			node->return_type = type_copy(node->left->return_type);
 		return node;
 	}
 
-	error_at(tokens->source, tok->value, tok->len, "failed to parse value");
-	return node;
+	/* otherwise, parse a single value */
+	if (is_rvalue(tokens, start)) {
+		parse_rvalue(settings, context, mod, node, tokens, start);
+		return node;
+	}
+
+	error_at(tokens->source, start->value, start->len,
+		 "failed to parse value");
 }
 
 highlight_t highlight_value(token_list *tokens, token *tok)
 {
 	highlight_t hi;
 	token *tmp;
+	int skip;
 
 	hi.value = tok->value;
 
@@ -366,9 +309,24 @@ highlight_t highlight_value(token_list *tokens, token *tok)
 		} else {
 			hi.len = tok->len;
 		}
+
+	} else if (is_call(tokens, tok) || is_member_call(tokens, tok)) {
+		skip = call_token_len(tokens, tok);
+		tmp = tok;
+		for (int i = 0; i < skip; i++)
+			tmp = after_tok(tokens, tmp);
+		tmp = before_tok(tokens, tmp);
+
+		hi.len = (size_t) (tmp->value + tmp->len - tok->value);
+
+	} else if (is_dereference(tokens, tok) || is_pointer_to(tokens, tok)) {
+		tmp = after_tok(tokens, tok);
+		hi.len = (size_t) (tmp->value + tmp->len - tok->value);
+
 	} else if (is_member(tokens, tok)) {
 		tmp = after_tok(tokens, after_tok(tokens, tok));
 		hi.len = (size_t) (tmp->value + tmp->len - tok->value);
+
 	} else {
 		hi.len = tok->len;
 	}

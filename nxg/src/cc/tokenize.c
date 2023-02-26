@@ -12,6 +12,38 @@
 #include <stdlib.h>
 #include <string.h>
 
+static const char *tok_str[] = {[T_DATATYPE] = "DATATYPE",
+				[T_NEWLINE] = "NEWLINE",
+				[T_KEYWORD] = "KEYWORD",
+				[T_NUMBER] = "NUMBER",
+				[T_STRING] = "STRING",
+				[T_IDENT] = "IDENT",
+				[T_PUNCT] = "PUNCT",
+				[T_END] = "END",
+				[T_ASS] = "ASS",
+				[T_EQ] = "EQ",
+				[T_NEQ] = "NEQ",
+				[T_ADDA] = "ADDA",
+				[T_ARROW] = "ARROW",
+				[T_DEC] = "DEC",
+				[T_TRUE] = "TRUE",
+				[T_FALSE] = "FALSE",
+				[T_INC] = "INC",
+				[T_SUBA] = "SUBA",
+				[T_ADD] = "ADD",
+				[T_DIV] = "DIV",
+				[T_MOD] = "MOD",
+				[T_DIVA] = "DIVA",
+				[T_MODA] = "MODA",
+				[T_LPAREN] = "LPAREN",
+				[T_RPAREN] = "RPAREN",
+				[T_COMMA] = "COMMA",
+				[T_LBRACE] = "LBRACE",
+				[T_RBRACE] = "RBRACE",
+				[T_DOT] = "DOT",
+				[T_MUL] = "MUL",
+				[T_SUB] = "SUB"};
+
 void token_list_append(token_list *list, token *tok)
 {
 	list->tokens = realloc_ptr_array(list->tokens, ++list->length);
@@ -38,38 +70,6 @@ token *token_new(token_t type, const char *value, int len)
 
 void token_print(token *tok)
 {
-	static const char *tok_str[] = {[T_DATATYPE] = "DATATYPE",
-					[T_NEWLINE] = "NEWLINE",
-					[T_KEYWORD] = "KEYWORD",
-					[T_NUMBER] = "NUMBER",
-					[T_STRING] = "STRING",
-					[T_IDENT] = "IDENT",
-					[T_PUNCT] = "PUNCT",
-					[T_END] = "END",
-					[T_ASS] = "ASS",
-					[T_EQ] = "EQ",
-					[T_NEQ] = "NEQ",
-					[T_ADDA] = "ADDA",
-					[T_ARROW] = "ARROW",
-					[T_DEC] = "DEC",
-					[T_TRUE] = "TRUE",
-					[T_FALSE] = "FALSE",
-					[T_INC] = "INC",
-					[T_SUBA] = "SUBA",
-					[T_ADD] = "ADD",
-					[T_DIV] = "DIV",
-					[T_MOD] = "MOD",
-					[T_DIVA] = "DIVA",
-					[T_MODA] = "MODA",
-					[T_LPAREN] = "LPAREN",
-					[T_RPAREN] = "RPAREN",
-					[T_COMMA] = "COMMA",
-					[T_LBRACE] = "LBRACE",
-					[T_RBRACE] = "RBRACE",
-					[T_DOT] = "DOT",
-					[T_MUL] = "MUL",
-					[T_SUB] = "SUB"};
-
 	if (tok->type == T_NEWLINE)
 		printf("\033[37m%s\033[0m", tok_str[tok->type]);
 	else if (tok->type == T_END)
@@ -370,10 +370,5 @@ token_list *tokens(file_t *source)
 
 const char *tokname(token_t toktype)
 {
-	static const char *toknames[] = {"operator",   "datatype",    "newline",
-					 "keyword",    "number",      "string",
-					 "identifier", "punctuation", "end"};
-	if (toktype < 0 || toktype >= LEN(toknames))
-		return "<tokname() failed>";
-	return toknames[toktype];
+	return tok_str[toktype];
 }

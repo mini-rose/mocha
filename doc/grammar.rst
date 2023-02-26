@@ -44,15 +44,13 @@ expressions. Syntax parsers can be built using this specification::
         call ::= symbol '(' [rvalue (',' rvalue)*] ')'
         ret ::= 'ret' rvalue
 
-        condition ::= '(' (comparison | rvalue) ')' '?' (block | rvalue) [':' (block | rvalue)]
+        condition ::= '(' rvalue ')' '?' (block | rvalue) [':' (block | rvalue)]
         block ::= '{' (statement)* '}'
-
-        comparison ::= rvalue '==' rvalue
-                   ::= rvalue '!=' rvalue
 
         member-call ::= symbol '.' call
 
-        rvalue ::= literal
+        rvalue ::= '(' rvalue ')'
+               ::= literal
                ::= symbol
                ::= deref
                ::= pointer-to
@@ -60,6 +58,8 @@ expressions. Syntax parsers can be built using this specification::
                ::= member-deref
                ::= member-pointer-to
                ::= call
+               ::= member-call
+               ::= rvalue op rvalue
 
         lvalue ::= symbol
                ::= deref
@@ -82,3 +82,8 @@ expressions. Syntax parsers can be built using this specification::
         number ::= /\d+(\.\d+)?/
         boolean ::= 'true'
                 ::= 'false'
+
+        op ::= '+'
+           ::= '-'
+           ::= '*'
+           ::= '/'

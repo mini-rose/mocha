@@ -187,30 +187,12 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 
 	/* Arguments */
 	while (tok->type != T_RPAREN) {
-		if (is_call(tokens, tok)) {
-			arg = call_add_arg(data);
-			add_arg_token(&arg_tokens, tok);
-
-			arg->type = VE_CALL;
-			arg->call = slab_alloc(sizeof(*arg->call));
-			parse_inline_call(settings, parent, mod, arg->call,
-					  tokens, tok);
-
-			arg->return_type =
-			    type_copy(arg->call->func->return_type);
-
-		} else if (is_single_value(tokens, tok)) {
+		if (is_rvalue(tokens, tok)) {
 			arg = slab_alloc(sizeof(*arg));
 			add_arg_token(&arg_tokens, tok);
 			arg = parse_value_expr(settings, parent, mod, arg,
 					       tokens, tok);
 			call_push_arg(data, arg);
-
-		} else if (is_literal(tok)) {
-			arg = call_add_arg(data);
-			add_arg_token(&arg_tokens, tok);
-			parse_literal(arg, tokens, tok);
-
 		} else {
 			error_at(tokens->source, tok->value, tok->len,
 				 "expected value or variable name, got "

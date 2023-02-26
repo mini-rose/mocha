@@ -35,11 +35,25 @@ llvm = declare_dependency(link_args: '-lLLVM')
 libdir = get_option('prefix') / get_option('libdir')
 bindir = get_option('prefix') / get_option('bindir')
 
+c_args = [
+  '-Wall', '-Wextra',
+  '-DNXG_ROOT="' + libdir + '"'
+]
+
+link_args = []
+
+if get_option('buildtype') == 'debug'
+  c_args += ['-O0', '-ggdb', '-fsanitize=address', '-DALLOC_SLAB_INFO=1']
+  link_args += '-fsanitize=address'
+else
+  c_args += '-O3'
+endif
+
 exe = executable(
   'nxg', sources,
   include_directories: includes,
-  c_args: ['-O2', '-g', '-DNXG_ROOT="' + libdir + '"', '-DALLOC_SLAB_INFO'],
-  link_args: ['-Wall', '-Wextra', '-pedantic'],
+  c_args: c_args,
+  link_args: link_args,
   dependencies: llvm,
   install: true,
   install_dir: bindir

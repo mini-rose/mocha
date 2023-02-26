@@ -72,6 +72,7 @@ struct value_expr
 	type_t *return_type;
 	value_expr_type type;
 	char *member;
+	bool force_precendence;
 	union
 	{
 		char *name;
@@ -171,13 +172,14 @@ struct literal_expr
 expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 	      token_list *list, const char *module_id);
 void expr_print(expr_t *expr);
+void expr_print_value_expr(value_expr_t *val, int level);
 const char *expr_typename(expr_type type);
 
 void literal_default(literal_expr_t *literal);
 char *stringify_literal(literal_expr_t *literal);
 
 const char *value_expr_type_name(value_expr_type t);
-value_expr_type value_expr_type_from_op(token *op);
+value_expr_type value_expr_type_from_op(token_list *tokens, token *op);
 
 var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len);
 bool node_has_named_local(expr_t *node, const char *name, int len);
@@ -196,12 +198,12 @@ bool is_type(token_list *tokens, token *tok);
 bool is_call(token_list *tokens, token *tok);
 bool is_member_call(token_list *tokens, token *tok);
 bool is_literal(token *tok);
-bool is_reference(token *tok);
+bool is_symbol(token *tok);
 bool is_member(token_list *tokens, token *tok);
 bool is_pointer_to_member(token_list *tokens, token *tok);
 bool is_dereference(token_list *tokens, token *tok);
 bool is_pointer_to(token_list *tokens, token *tok);
-bool is_single_value(token_list *tokens, token *tok);
+bool is_rvalue(token_list *tokens, token *tok);
 bool is_operator(token *tok);
 bool is_comparison(token_list *tokens, token *tok);
 bool is_builtin_function(token *name);
@@ -210,14 +212,17 @@ bool is_float(token *tok);
 bool is_var_assign(token_list *tokens, token *tok);
 
 int call_token_len(token_list *tokens, token *tok);
+int rvalue_token_len(token_list *tokens, token *tok);
 
 err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 			 token *tok);
 err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 			call_expr_t *data, token_list *tokens, token *tok);
+
 value_expr_t *parse_value_expr(settings_t *settings, expr_t *context,
 			       expr_t *mod, value_expr_t *node,
 			       token_list *tokens, token *tok);
+
 void parse_call(settings_t *settings, expr_t *parent, expr_t *mod,
 		token_list *tokens, token *tok);
 void parse_member_call(settings_t *settings, expr_t *parent, expr_t *mod,
