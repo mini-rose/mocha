@@ -14,12 +14,14 @@ typedef enum
 	T_FALSE, // false
 	T_IDENT,
 	T_PUNCT,
-	T_LPAREN, // (
-	T_RPAREN, // )
-	T_LBRACE, // {
-	T_RBRACE, // }
-	T_COMMA,  // ,
-	T_DOT,    // .
+	T_LPAREN,   // (
+	T_RPAREN,   // )
+	T_LBRACE,   // {
+	T_RBRACE,   // }
+	T_LBRACKET, // [
+	T_RBRACKET, // ]
+	T_COMMA,    // ,
+	T_DOT,      // .
 	T_END,
 
 	/* Operator types */

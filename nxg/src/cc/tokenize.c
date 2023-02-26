@@ -40,6 +40,8 @@ static const char *tok_str[] = {[T_DATATYPE] = "DATATYPE",
 				[T_COMMA] = "COMMA",
 				[T_LBRACE] = "LBRACE",
 				[T_RBRACE] = "RBRACE",
+				[T_LBRACKET] = "LBRACKET",
+				[T_RBRACKET] = "RBRACKET",
 				[T_DOT] = "DOT",
 				[T_MUL] = "MUL",
 				[T_SUB] = "SUB"};
@@ -305,6 +307,16 @@ token_list *tokens(file_t *source)
 				break;
 			case '}':
 				tok = token_new(last = T_RBRACE, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			case '[':
+				tok = token_new(last = T_LBRACKET, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			case ']':
+				tok = token_new(last = T_RBRACKET, p, 1);
 				token_list_append(list, tok);
 				p++;
 				break;
