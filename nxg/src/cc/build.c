@@ -128,7 +128,6 @@ static void import_builtins(settings_t *settings, expr_t *module)
 {
 	module_std_import(settings, module, "std/builtin/stacktrace");
 	module_std_import(settings, module, "std/builtin/string");
-	module_std_import(settings, module, "std/builtin/print");
 }
 
 void compile(settings_t *settings)

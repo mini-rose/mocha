@@ -144,7 +144,7 @@ static inline char *maybe_missed_import(char *name)
 {
 	int i;
 
-	static char *std_io[] = {"open",         "close", "write",
+	static char *std_io[] = {"open",         "print", "close",   "write",
 				 "write_stream", "read",  "readline"};
 
 	static char *std_os[] = {"execute", "exit",      "getenv", "chmod",

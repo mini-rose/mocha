@@ -102,3 +102,14 @@ fn drop(self: &file_t) -> null {
 		close(self)
 	}
 }
+
+/* These printing routines print the object and a newline. */
+__builtin_decl_mangled("print", null, i8)
+__builtin_decl_mangled("print", null, i32)
+__builtin_decl_mangled("print", null, i64)
+__builtin_decl_mangled("print", null, &str)
+__builtin_decl_mangled("print", null, bool)
+
+fn print(__s: str) -> null {
+	print(&__s)
+}
