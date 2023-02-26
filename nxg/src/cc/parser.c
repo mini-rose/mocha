@@ -273,24 +273,16 @@ type_t *parse_type(expr_t *context, token_list *tokens, token *tok)
 	}
 
 array_part:
-	tok = index_tok(tokens, tokens->iter);
-	if (TOK_IS(tok, T_PUNCT, "[")) {
+	tok = after_tok(tokens, tok);
+	if (tok->type == T_LBRACKET) {
 		/* array type */
-		tok = next_tok(tokens);
-		tok = next_tok(tokens);
-
-		if (tok->type != T_NUMBER) {
-			error_at(tokens->source, tok->value, tok->len,
-				 "missing array size");
-		}
-
 		type_t *array_ty = type_new_null();
 		array_ty->kind = TY_ARRAY;
-		array_ty->len = strtol(tok->value, NULL, 10);
 		array_ty->v_base = ty;
 
 		tok = next_tok(tokens);
-		if (!TOK_IS(tok, T_PUNCT, "]")) {
+		tok = next_tok(tokens);
+		if (tok->type != T_RBRACKET) {
 			error_at(tokens->source, tok->value, tok->len,
 				 "expected closing bracket `]`");
 		}

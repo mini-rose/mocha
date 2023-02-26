@@ -21,6 +21,7 @@ typedef enum
 } mo_type;
 
 /* Mocha types */
+typedef bool mo_i1;
 typedef char mo_i8;
 typedef unsigned char mo_u8;
 typedef short mo_i16;
@@ -42,6 +43,12 @@ typedef struct
 	mo_i8 *ptr;
 	mo_i32 flags;
 } mo_str;
+
+typedef struct
+{
+	mo_i8 *values;
+	mo_i64 len;
+} mo_array;
 
 /* Max functions on the callstack. */
 #define MOCHA_STACKLIMIT 2048

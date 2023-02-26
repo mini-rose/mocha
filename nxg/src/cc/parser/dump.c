@@ -1,10 +1,9 @@
 /* parser/dump.c - dump expr trees
    Copyright (c) 2023 mini-rose */
 
-#include "nxg/cc/type.h"
-
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/parser.h>
+#include <nxg/cc/type.h>
 #include <nxg/utils/error.h>
 #include <nxg/utils/utils.h>
 #include <stdio.h>
@@ -32,9 +31,9 @@ const char *expr_typename(expr_type type)
 
 const char *value_expr_type_name(value_expr_type t)
 {
-	static const char *names[] = {"NULL", "REF",  "LIT",    "CALL", "ADD",
-				      "SUB",  "MUL",  "DIV",    "PTR",  "DEREF",
-				      "MREF", "MPTR", "MDEREF", "EQ",   "NEQ"};
+	static const char *names[] = {
+	    "NULL", "REF",   "LIT",  "CALL", "ADD",    "SUB", "MUL", "DIV",
+	    "PTR",  "DEREF", "MREF", "MPTR", "MDEREF", "EQ",  "NEQ", "TUPLE"};
 
 	if (t >= 0 && t < LEN(names))
 		return names[t];
@@ -75,7 +74,7 @@ static const char *expr_info(expr_t *expr)
 		case VE_LIT:
 		case VE_REF:
 		case VE_MREF:
-			marker = ' ';
+			marker = 1;
 			break;
 		case VE_DEREF:
 		case VE_MDEREF:
@@ -180,6 +179,12 @@ void expr_print_value_expr(value_expr_t *val, int level)
 		printf("comparison `!=`:\n");
 		expr_print_value_expr(val->left, level + 1);
 		expr_print_value_expr(val->right, level + 1);
+		break;
+	case VE_TUPLE:
+		printf("tuple %s[%d]:\n", type_name(val->tuple->element_type),
+		       val->tuple->len);
+		for (int i = 0; i < val->tuple->len; i++)
+			expr_print_value_expr(val->tuple->values[i], level + 1);
 		break;
 	default:
 		error("dump: cannot dump VE_%s value expr",

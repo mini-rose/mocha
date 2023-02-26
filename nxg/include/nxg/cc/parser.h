@@ -65,7 +65,15 @@ typedef enum
 	VE_MDEREF, /* *name.member */
 	VE_EQ,     /* left == right */
 	VE_NEQ,    /* left != right */
+	VE_TUPLE,  /* tuple */
 } value_expr_type;
+
+typedef struct
+{
+	int len;
+	type_t *element_type;
+	value_expr_t **values;
+} tuple_expr_t;
 
 struct value_expr
 {
@@ -79,6 +87,7 @@ struct value_expr
 		literal_expr_t *literal;
 		call_expr_t *call;
 		value_expr_t *left;
+		tuple_expr_t *tuple;
 	};
 	value_expr_t *right;
 };
@@ -213,6 +222,7 @@ bool is_var_assign(token_list *tokens, token *tok);
 
 int call_token_len(token_list *tokens, token *tok);
 int rvalue_token_len(token_list *tokens, token *tok);
+int type_token_len(token_list *tokens, token *tok);
 
 err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 			 token *tok);

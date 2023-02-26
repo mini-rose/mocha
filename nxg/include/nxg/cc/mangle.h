@@ -5,3 +5,4 @@
 #include <nxg/cc/parser.h>
 
 char *nxg_mangle(const fn_expr_t *func);
+char *nxg_mangle_type(type_t *ty, char *buf);

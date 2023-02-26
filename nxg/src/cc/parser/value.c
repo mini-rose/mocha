@@ -57,6 +57,80 @@ static void parse_member(value_expr_t *node, expr_t *context,
 	node->return_type = temp_type;
 }
 
+static void parse_tuple(settings_t *settings, expr_t *context, expr_t *mod,
+			value_expr_t *node, token_list *tokens, token *tok)
+{
+	value_expr_t *value;
+	tuple_expr_t *tuple;
+	token *val_start;
+	int depth;
+
+	tok = next_tok(tokens);
+
+	node->type = VE_TUPLE;
+	node->return_type = type_new();
+	node->return_type->kind = TY_ARRAY;
+	node->return_type->v_base = type_new_null();
+
+	node->tuple = slab_alloc(sizeof(*node->tuple));
+	tuple = node->tuple;
+
+	/* The tuple can be empty. */
+	if (tok->type == T_RBRACKET) {
+		node->tuple->element_type = type_new_null();
+		return;
+	}
+
+	depth = 1;
+
+	while (1) {
+		/* Append a new value */
+		tuple->values =
+		    realloc_ptr_array(tuple->values, tuple->len + 1);
+		tuple->values[tuple->len] = slab_alloc(sizeof(value_expr_t));
+		value = tuple->values[tuple->len++];
+
+		val_start = tok;
+		parse_value_expr(settings, context, mod, value, tokens, tok);
+		tok = next_tok(tokens);
+
+		if (!node->tuple->element_type) {
+			node->tuple->element_type =
+			    type_copy(value->return_type);
+		} else {
+			/* Check if this value matches the rest. */
+			if (!type_cmp(node->tuple->element_type,
+				      value->return_type)) {
+				highlight_t hi =
+				    highlight_value(tokens, val_start);
+				error_at(tokens->source, hi.value, hi.len,
+					 "tuples can only have one type, found "
+					 "a %s in a %s tuple",
+					 type_name(value->return_type),
+					 type_name(node->tuple->element_type));
+			}
+		}
+
+		if (tok->type == T_LBRACKET)
+			depth++;
+		if (tok->type == T_RBRACKET)
+			depth--;
+
+		if (!depth)
+			break;
+
+		if (tok->type != T_COMMA) {
+			error_at_with_fix(
+			    tokens->source, tok->value, tok->len, ",",
+			    "expected comma between tuple values");
+		}
+
+		tok = next_tok(tokens);
+	}
+
+	node->return_type->v_base = type_copy(node->tuple->element_type);
+}
+
 err_t parse_rvalue(settings_t *settings, expr_t *context, expr_t *mod,
 		   value_expr_t *node, token_list *tokens, token *tok)
 {
@@ -70,6 +144,12 @@ err_t parse_rvalue(settings_t *settings, expr_t *context, expr_t *mod,
 		node->force_precendence = true;
 
 		tok = next_tok(tokens);
+		return ERR_OK;
+	}
+
+	/* '[' ... ']' */
+	if (tok->type == T_LBRACKET) {
+		parse_tuple(settings, context, mod, node, tokens, tok);
 		return ERR_OK;
 	}
 

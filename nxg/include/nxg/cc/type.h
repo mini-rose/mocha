@@ -58,7 +58,6 @@ typedef struct
 struct type
 {
 	type_kind kind;
-	size_t len; /* in case of array type */
 	char *alias; /* aliased name */
 	union
 	{

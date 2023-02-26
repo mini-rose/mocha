@@ -22,17 +22,19 @@ static void emit_copy(LLVMBuilderRef builder, fn_context_t *context,
 static LLVMValueRef gen_zero_value_for(LLVMBuilderRef builder,
 				       LLVMModuleRef mod, type_t *ty);
 static LLVMValueRef fn_find_local(fn_context_t *context, const char *name);
-void emit_stackpop(LLVMBuilderRef builder, LLVMModuleRef mod);
-void emit_stackpush(LLVMBuilderRef builder, LLVMModuleRef mod,
-		    const char *symbol, const char *file);
+static void emit_stackpop(LLVMBuilderRef builder, LLVMModuleRef mod);
+static void emit_stackpush(LLVMBuilderRef builder, LLVMModuleRef mod,
+			   const char *symbol, const char *file);
 static LLVMValueRef gen_ptr_to_member(LLVMBuilderRef builder,
 				      fn_context_t *context,
 				      value_expr_t *node);
 static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 				  value_expr_t *value);
-void emit_node(LLVMBuilderRef builder, fn_context_t *context, expr_t *node);
+static void emit_node(LLVMBuilderRef builder, fn_context_t *context,
+		      expr_t *node);
 static void emit_drop(LLVMBuilderRef builder, fn_context_t *context,
 		      auto_drop_rule_t *rule);
+static LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty);
 
 static void fn_context_add_local(fn_context_t *context, LLVMValueRef ref,
 				 char *name)
@@ -99,6 +101,30 @@ static LLVMTypeRef gen_object_type(LLVMModuleRef mod, type_t *ty)
 	return type;
 }
 
+static LLVMTypeRef gen_array_type(LLVMModuleRef mod, type_t *ty)
+{
+	LLVMTypeRef fields[2];
+	LLVMTypeRef res;
+	char *qualname;
+
+	qualname = slab_alloc(1024);
+	qualname[0] = '.';
+	nxg_mangle_type(ty, qualname + 1);
+
+	res = LLVMGetTypeByName(mod, qualname);
+	if (res)
+		return res;
+
+	/* Create the array type */
+	fields[0] = LLVMPointerType(gen_type(mod, ty->v_base), 0);
+	fields[1] = LLVMInt64Type();
+
+	res = LLVMStructCreateNamed(LLVMGetModuleContext(mod), qualname);
+	LLVMStructSetBody(res, fields, 2, false);
+
+	return res;
+}
+
 LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty)
 {
 	if (ty->kind == TY_PLAIN)
@@ -106,7 +132,7 @@ LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty)
 	if (ty->kind == TY_POINTER)
 		return LLVMPointerType(gen_type(mod, ty->v_base), 0);
 	if (ty->kind == TY_ARRAY)
-		return LLVMArrayType(gen_type(mod, ty->v_base), ty->len);
+		return gen_array_type(mod, ty);
 	if (is_str_type(ty))
 		return gen_str_type(mod);
 	if (ty->kind == TY_OBJECT)
@@ -313,6 +339,59 @@ static LLVMValueRef gen_cmp(LLVMBuilderRef builder, fn_context_t *context,
 	return LLVMBuildICmp(builder, op, left, right, "");
 }
 
+static LLVMValueRef gen_const_array(LLVMBuilderRef builder,
+				    fn_context_t *context, value_expr_t *value)
+{
+	tuple_expr_t *tuple;
+	LLVMValueRef array;
+	LLVMValueRef fields[2];
+	LLVMValueRef *zero_values;
+	LLVMTypeRef ty;
+	LLVMTypeRef elem_ty;
+
+	if (value->type != VE_TUPLE)
+		error("emit: tried to gen const array from non-tuple value");
+
+	tuple = value->tuple;
+	ty = gen_array_type(context->llvm_mod, value->return_type);
+	elem_ty = gen_type(context->llvm_mod, value->return_type->v_base);
+
+	/* Create a global which will store our data. */
+	array = LLVMAddGlobal(context->llvm_mod,
+			      LLVMArrayType(elem_ty, tuple->len), "");
+
+	/* Initialize it all to 0. */
+	zero_values = slab_alloc_array(tuple->len, sizeof(LLVMValueRef));
+	for (int i = 0; i < tuple->len; i++) {
+		zero_values[i] = gen_zero_value_for(builder, context->llvm_mod,
+						    tuple->element_type);
+	}
+
+	LLVMSetInitializer(array,
+			   LLVMConstArray(elem_ty, zero_values, tuple->len));
+	LLVMSetLinkage(array, LLVMPrivateLinkage);
+
+	/* Insert the elements into said global array. */
+	for (int i = 0; i < tuple->len; i++) {
+		LLVMValueRef indices[2];
+		LLVMValueRef ptr;
+
+		indices[0] = LLVMConstInt(LLVMInt32Type(), 0, false);
+		indices[1] = LLVMConstInt(LLVMInt32Type(), i, false);
+
+		ptr = LLVMBuildGEP2(builder, LLVMArrayType(elem_ty, tuple->len),
+				    array, indices, 2, "");
+		LLVMBuildStore(
+		    builder, gen_new_value(builder, context, tuple->values[i]),
+		    ptr);
+	}
+
+	fields[0] = array;
+	fields[1] = LLVMConstInt(LLVMInt64Type(), tuple->len, false);
+
+	return LLVMConstNamedStruct(ty, fields, 2);
+}
+
 /**
  * Generate a new value in the block from the value expression given. It can be
  * a reference to a variable, a literal value, a call or two-hand-side
@@ -345,6 +424,8 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 		return gen_cmp(builder, context, value, LLVMIntEQ);
 	case VE_NEQ:
 		return gen_cmp(builder, context, value, LLVMIntNE);
+	case VE_TUPLE:
+		return gen_const_array(builder, context, value);
 	default:
 		if (!value->left || !value->right) {
 			error("emit: undefined value: two-side op with only "

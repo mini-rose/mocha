@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MANGLE_BUF_SIZ 1024
+
 static char mangled_type_char(plain_type t)
 {
 	/* This table is based on the Itanium C++ ABI
@@ -25,22 +27,19 @@ static char mangled_type_char(plain_type t)
 	return 'v';
 }
 
-char *mangled_type_str(type_t *ty, char *buf)
+char *nxg_mangle_type(type_t *ty, char *buf)
 {
-	int offt;
-
 	if (!buf)
-		buf = slab_alloc(512);
+		buf = slab_alloc(MANGLE_BUF_SIZ);
 
 	if (ty->kind == TY_PLAIN) {
 		buf[0] = mangled_type_char(ty->v_plain);
 	} else if (ty->kind == TY_POINTER) {
 		buf[0] = 'P';
-		mangled_type_str(ty->v_base, &buf[1]);
+		nxg_mangle_type(ty->v_base, &buf[1]);
 	} else if (ty->kind == TY_ARRAY) {
-		buf[0] = 'A';
-		offt = sprintf(&buf[1], "%zu_", ty->len);
-		mangled_type_str(ty->v_base, &buf[offt + 1]);
+		sprintf(buf, "A_");
+		nxg_mangle_type(ty->v_base, &buf[2]);
 	} else if (ty->kind == TY_OBJECT) {
 		/* parse this as the fully qualified name of the type */
 		sprintf(buf, "%zu%s", strlen(ty->v_object->name),
@@ -54,19 +53,19 @@ char *mangled_type_str(type_t *ty, char *buf)
 
 char *nxg_mangle(const fn_expr_t *func)
 {
-	char *name = slab_alloc(512);
+	char *name = slab_alloc(MANGLE_BUF_SIZ);
 
 	if (func->object) {
-		snprintf(name, 512, "_MN%d%s%d%sE",
+		snprintf(name, MANGLE_BUF_SIZ, "_MN%d%s%d%sE",
 			 (int) strlen(func->object->name), func->object->name,
 			 (int) strlen(func->name), func->name);
 	} else {
-		snprintf(name, 512, "_M%d%s", (int) strlen(func->name),
-			 func->name);
+		snprintf(name, MANGLE_BUF_SIZ, "_M%d%s",
+			 (int) strlen(func->name), func->name);
 	}
 
 	for (int i = 0; i < func->n_params; i++)
-		mangled_type_str(func->params[i]->type, &name[strlen(name)]);
+		nxg_mangle_type(func->params[i]->type, &name[strlen(name)]);
 
 	if (!func->n_params)
 		name[strlen(name)] = mangled_type_char(PT_NULL);

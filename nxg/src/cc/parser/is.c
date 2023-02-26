@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 
+static int block_width(token_list *tokens, token *tok, token_t left,
+		       token_t right);
+
 /**
  * name: type
  */
@@ -225,9 +228,11 @@ bool is_pointer_to(token_list *tokens, token *tok)
  *        ::= member-pointer-to
  *        ::= call
  *        ::= member-call
+ *        ::= tuple
  */
 bool is_rvalue(token_list *tokens, token *tok)
 {
+
 	/* '(' rvalue ')' */
 	if (tok->type == T_LPAREN) {
 		int offset = rvalue_token_len(tokens, tok) - 1;
@@ -237,6 +242,23 @@ bool is_rvalue(token_list *tokens, token *tok)
 		if (tok->type != T_RPAREN)
 			return false;
 		return true;
+	}
+
+	/* '[' ... ']' */
+	if (tok->type == T_LBRACKET) {
+		int depth = 0;
+		while (1) {
+			if (tok->type == T_LBRACKET)
+				depth++;
+			if (tok->type == T_RBRACKET)
+				depth--;
+			if (!depth)
+				break;
+
+			tok = after_tok(tokens, tok);
+		}
+
+		return tok->type == T_RBRACKET;
 	}
 
 	/* single rvalue */
@@ -342,7 +364,9 @@ bool is_var_assign(token_list *tokens, token *tok)
 		if (!is_type(tokens, tok))
 			return false;
 
-		tok = after_tok(tokens, tok);
+		int offt = type_token_len(tokens, tok);
+		for (int i = 0; i < offt; i++)
+			tok = after_tok(tokens, tok);
 	}
 
 	if (tok->type != T_ASS)
@@ -351,30 +375,39 @@ bool is_var_assign(token_list *tokens, token *tok)
 	return true;
 }
 
+static int block_width(token_list *tokens, token *tok, token_t left,
+		       token_t right)
+{
+	int offset = 0;
+	int depth = 0;
+
+	while (1) {
+		if (tok->type == left)
+			depth++;
+		if (tok->type == right)
+			depth--;
+		if (!depth)
+			break;
+
+		tok = after_tok(tokens, tok);
+		offset++;
+	}
+
+	return offset + 1;
+}
+
 int rvalue_token_len(token_list *tokens, token *tok)
 {
 	/* Note: keep these if statements from the highest toklen to the
 	   smallest, so it can be properly checked. */
 
 	/* '(' rvalue ')' */
-	if (tok->type == T_LPAREN) {
-		int offset = 0;
-		int depth = 0;
+	if (tok->type == T_LPAREN)
+		return block_width(tokens, tok, T_LPAREN, T_RPAREN);
 
-		while (1) {
-			if (tok->type == T_LPAREN)
-				depth++;
-			if (tok->type == T_RPAREN)
-				depth--;
-			if (!depth)
-				break;
-
-			tok = after_tok(tokens, tok);
-			offset++;
-		}
-
-		return offset + 1;
-	}
+	/* '[' ... ']' */
+	if (tok->type == T_LBRACKET)
+		return block_width(tokens, tok, T_LBRACKET, T_RBRACKET);
 
 	if (is_call(tokens, tok) || is_member_call(tokens, tok))
 		return call_token_len(tokens, tok);
@@ -388,4 +421,22 @@ int rvalue_token_len(token_list *tokens, token *tok)
 		return 1;
 
 	return 1;
+}
+
+int type_token_len(token_list *tokens, token *tok)
+{
+	int len = 1;
+
+	if (TOK_IS(tok, T_PUNCT, "&")) {
+		tok = after_tok(tokens, tok);
+		len++;
+	}
+
+	if (tok->type == T_IDENT || tok->type == T_DATATYPE)
+		tok = after_tok(tokens, tok);
+
+	if (tok->type == T_LBRACKET)
+		len += 2;
+
+	return len;
 }

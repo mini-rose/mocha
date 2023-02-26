@@ -172,7 +172,6 @@ type_t *type_copy(type_t *ty)
 	new_ty = slab_alloc(sizeof(*new_ty));
 
 	new_ty->kind = ty->kind;
-	new_ty->len = ty->len;
 
 	if (ty->kind == TY_POINTER || ty->kind == TY_ARRAY) {
 		new_ty->v_base = type_copy(ty->v_base);
@@ -246,8 +245,6 @@ bool type_cmp(type_t *left, type_t *right)
 		return type_cmp(left->v_base, right->v_base);
 
 	if (left->kind == TY_ARRAY) {
-		if (left->len != right->len)
-			return false;
 		return type_cmp(left->v_base, right->v_base);
 	}
 
@@ -288,7 +285,7 @@ char *type_name(type_t *ty)
 		snprintf(name, 512, "&%s", tmp);
 	} else if (ty->kind == TY_ARRAY) {
 		tmp = type_name(ty->v_base);
-		snprintf(name, 512, "%s[%zu]", tmp, ty->len);
+		snprintf(name, 512, "%s[]", tmp);
 	} else if (is_str_type(ty)) {
 		snprintf(name, 512, "str");
 	} else if (ty->kind == TY_OBJECT) {

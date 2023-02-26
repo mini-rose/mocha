@@ -29,7 +29,7 @@ expressions. Syntax parsers can be built using this specification::
 
         builtin-call ::= symbol '(' [(rvalue | type) (',' (rvalue | type))*] ')'
 
-        type ::= ['&'] symbol ['[' number ']']
+        type ::= ['&'] symbol ['[' ']']
 
         statement ::= var-decl
                   ::= var-assign
@@ -60,6 +60,7 @@ expressions. Syntax parsers can be built using this specification::
                ::= call
                ::= member-call
                ::= rvalue op rvalue
+               ::= tuple
 
         lvalue ::= symbol
                ::= deref
@@ -68,6 +69,8 @@ expressions. Syntax parsers can be built using this specification::
 
         deref ::= '*' lvalue
         pointer-to ::= '&' lvalue
+
+        tuple ::= '[' [rvalue (',' rvalue)*] ']'
 
         member ::= symbol '.' symbol
         member-deref ::= '*' member
