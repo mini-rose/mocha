@@ -43,7 +43,9 @@ c_args = [
 link_args = []
 
 if get_option('buildtype') == 'debug'
-  c_args += ['-O0', '-ggdb', '-fsanitize=address', '-DALLOC_SLAB_INFO=1']
+  c_args += ['-O0', '-ggdb', '-fsanitize=address',
+    '-DOPT_ALLOC_SLAB_INFO=1', '-DOPT_DEBUG_INFO=1', '-DOPT_ASAN=1',
+  ]
   link_args += '-fsanitize=address'
 else
   c_args += '-O3'

@@ -1,11 +1,11 @@
 /* nxg - mocha compiler, build system & package manager
    Copyright (c) 2023 mini-rose */
 
-#include "nxg/nxg.h"
-
 #include <getopt.h>
 #include <nxg/bs/buildfile.h>
 #include <nxg/cc/alloc.h>
+#include <nxg/nxg.h>
+#include <nxg/opt.h>
 #include <nxg/pkg/pm.h>
 #include <nxg/utils/error.h>
 #include <stdio.h>
@@ -57,8 +57,19 @@ static inline void full_help()
 static inline void version()
 {
 	printf("nxg %d.%d\n", NXG_MAJOR, NXG_MINOR);
-	printf("target: x86_64\n");
+	printf("target: %s\n", NXG_TARGET);
 	printf("root: %s\n", NXG_ROOT);
+	printf("lld: %s\n", DEFAULT_LD);
+	printf("opt: ");
+
+	if (OPT_ALLOC_SLAB_INFO)
+		fputs("alloc-slab-info ", stdout);
+	if (OPT_DEBUG_INFO)
+		fputs("debug-info ", stdout);
+	if (OPT_ASAN)
+		fputs("asan ", stdout);
+
+	fputc('\n', stdout);
 	exit(0);
 }
 
@@ -248,8 +259,11 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (settings.input == NULL)
+	if (settings.input == NULL) {
+		if (optind >= argc)
+			error("missing source file name");
 		settings.input = slab_strdup(argv[optind]);
+	}
 
 	int n = strlen(settings.sysroot);
 	if (settings.sysroot[n - 1] == '/')

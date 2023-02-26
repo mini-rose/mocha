@@ -146,7 +146,7 @@ static void sanitizer_buffer_error(struct slab *allocator, const char *problem,
 	info = sanitizer_get_alloc_details(base);
 	if (!info) {
 		printf("alloc:   no alloc details, compile with "
-		       "`-DALLOC_SLAB_INFO`\n");
+		       "`-DOPT_ALLOC_SLAB_INFO=1`\n");
 	} else {
 		printf("alloc:   allocated \e[92m%d\e[0m bytes \e[34min %s at "
 		       "%s:%d\e[0m\n",

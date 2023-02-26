@@ -153,8 +153,7 @@ err_t parse_rvalue(settings_t *settings, expr_t *context, expr_t *mod,
 	return ERR_SYNTAX;
 }
 
-static bool __attribute__((unused))
-operator_predeces(value_expr_type self, value_expr_type other)
+static bool operator_predeces(value_expr_type self, value_expr_type other)
 {
 	// see more at: https://en.cppreference.com/w/cpp/language/operator_precedence
 	struct precendence
@@ -168,8 +167,8 @@ operator_predeces(value_expr_type self, value_expr_type other)
 						 {VE_ADD, 6}, {VE_SUB, 6},
 						 {VE_EQ, 10}, {VE_NEQ, 10}};
 
-	struct precendence self_p;
-	struct precendence other_p;
+	struct precendence self_p = {VE_NULL, 100};
+	struct precendence other_p = {VE_NULL, 100};
 
 	for (size_t i = 0; i < LEN(opp); i++) {
 		if (opp[i].op == self) {

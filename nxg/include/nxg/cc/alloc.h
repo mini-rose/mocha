@@ -33,7 +33,7 @@ void slab_create(struct slab *allocator, int block_size, bool sanitize);
 void slab_destroy(struct slab *allocator);
 void slab_sanitize(struct slab *allocator);
 
-#if defined ALLOC_SLAB_INFO
+#if defined OPT_ALLOC_SLAB_INFO
 # define slab_alloc(N) slab_alloc_info((N), __FILE__, __func__, __LINE__)
 #else
 # define slab_alloc(N) slab_alloc_simple(N)
