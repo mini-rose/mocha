@@ -19,6 +19,7 @@ __builtin_decl("__c_isabs", bool, &str)
 __builtin_decl("__c_abspath", &str, &str)
 __builtin_decl("__c_basename", &str, &str)
 __builtin_decl("__c_dirname", &str, &str)
+__builtin_decl("__c_expanduser", &str, &str)
 
 /* os.ff
    Copyright (c) 2023 mini-rose */
@@ -166,5 +167,16 @@ type path {
 
 	dirname: fn (self: &path, path: str) -> &str {
 		ret __c_dirname(&path)
+	}
+
+	/* Expand ~ and ~user constructions.
+	   If user or $HOME is unknown, do nothing. */
+
+	expanduser: fn (self: &path, path: &str) -> &str {
+		ret __c_expanduser(path)
+	}
+
+	expanduser: fn (self: &path, path: str) -> &str {
+		ret __c_expanduser(&path)
 	}
 }

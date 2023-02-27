@@ -1,5 +1,5 @@
 project(
-  'nextgen', 'c', version: '0.1',
+  'nextgen', 'c', version: '0.9',
   default_options: [
     'prefix=/usr',
     'libdir=lib/mocha',

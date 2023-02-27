@@ -181,3 +181,28 @@ mo_str *__c_dirname(mo_str *_path)
 	self->len = strlen(self->ptr);
 	return self;
 }
+
+mo_str *__c_expanduser(mo_str *_path)
+{
+	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
+	char __path[_path->len];
+	char __expanded[PATH_MAX];
+	char *home_path;
+	memcpy(__path, _path->ptr, _path->len);
+	__path[_path->len] = '\0';
+	home_path = getenv("HOME");
+
+	if (!home_path || *__path != '~') {
+		self->ptr = strdup("");
+		self->len = 0;
+	}
+
+	strcat(__expanded, home_path);
+	strcat(__expanded, __path + 1);
+
+	puts(__expanded);
+	self->ptr = strdup(__expanded);
+	self->len = strlen(self->ptr);
+
+	return self;
+}

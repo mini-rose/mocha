@@ -60,7 +60,9 @@ static inline void version()
 	printf("target: %s\n", NXG_TARGET);
 	printf("root: %s\n", NXG_ROOT);
 	printf("lld: %s\n", DEFAULT_LD);
-	printf("opt: ");
+
+	if (OPT_ALLOC_SLAB_INFO || OPT_DEBUG_INFO || OPT_ASAN)
+		printf("opt: ");
 
 	if (OPT_ALLOC_SLAB_INFO)
 		fputs("alloc-slab-info ", stdout);
