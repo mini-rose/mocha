@@ -264,11 +264,12 @@ token_list *tokens(file_t *source)
 		}
 
 		/* Tokenize number */
-		if (isdigit(*p) || (*p == '.' && isdigit(*(p + 1)))) {
+		if (isdigit(*p) || (*p == '.' && isdigit(*(p + 1)))
+		    || (*p == '-' && isdigit(*(p + 1)))) {
 			token *tok;
 			char *q = p;
 
-			if (*q == '.')
+			if (*q == '.' || *q == '-')
 				q++;
 
 			while (isdigit(*q) || *q == '.')

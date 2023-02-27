@@ -164,10 +164,13 @@ struct literal_expr
 	type_t *type;
 	union
 	{
+		bool v_bool;
+		unsigned char v_i8;
+		short v_i16;
 		int v_i32;
 		long v_i64;
 		float v_f32;
-		bool v_bool;
+		double v_f64;
 		sized_string_t v_str;
 	};
 };

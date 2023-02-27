@@ -86,6 +86,8 @@ char *type_name(type_t *ty);
 const char *type_example_varname(type_t *ty);
 int type_sizeof(type_t *t);
 
+bool type_can_be_converted(type_t *from, type_t *to);
+
 void type_object_add_field(object_type_t *o, char *name, type_t *ty);
 type_t *type_object_field_type(object_type_t *o, char *name);
 int type_object_field_index(object_type_t *o, char *name);

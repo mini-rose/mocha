@@ -2,6 +2,7 @@
    Copyright (c) 2023 mini-rose */
 
 #include <ctype.h>
+#include <limits.h>
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
@@ -177,14 +178,17 @@ void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 		node->literal = slab_alloc(sizeof(*node->literal));
 		char *tmp = slab_strndup(tok->value, tok->len);
 
+		/* Expand the literal to the biggest possible value, worry about
+		   if it fits later. */
+
 		if (is_integer(tok)) {
-			node->return_type = type_new_plain(PT_I32);
-			node->literal->type = type_new_plain(PT_I32);
-			node->literal->v_i32 = strtol(tmp, NULL, 10);
+			node->return_type = type_new_plain(PT_I64);
+			node->literal->type = type_new_plain(PT_I64);
+			node->literal->v_i64 = strtol(tmp, NULL, 10);
 		} else if (is_float(tok)) {
-			node->return_type = type_new_plain(PT_F32);
-			node->literal->type = type_new_plain(PT_F32);
-			node->literal->v_f32 = strtof(tmp, NULL);
+			node->return_type = type_new_plain(PT_F64);
+			node->literal->type = type_new_plain(PT_F64);
+			node->literal->v_f64 = strtof(tmp, NULL);
 		} else {
 			error_at(tokens->source, tok->value, tok->len,
 				 "cannot parse this number");
@@ -350,6 +354,72 @@ static err_t parse_var_decl(expr_t *parent, expr_t *module, token_list *tokens,
 	return ERR_OK;
 }
 
+static long get_int_literal(value_expr_t *value)
+{
+	literal_expr_t *lit = value->literal;
+
+	/* We have to pull each value depending on the type as cast it into
+	   something bigger, because IIRC treating the padding of a union as a
+	   value is undefined behaviour. */
+
+	switch (value->return_type->v_plain) {
+	case PT_BOOL:
+		return lit->v_bool;
+	case PT_I8:
+		return lit->v_i8;
+	case PT_I16:
+		return lit->v_i16;
+	case PT_I32:
+		return lit->v_i32;
+	case PT_I64:
+		return lit->v_i64;
+	default:
+		return 0;
+	}
+}
+
+static bool convert_value(value_expr_t *value, type_t *into_type)
+{
+	long val;
+
+	if (type_cmp(value->return_type, into_type))
+		return true;
+
+	if (value->type != VE_LIT)
+		return true;
+
+	val = get_int_literal(value);
+
+	switch (into_type->v_plain) {
+	case PT_BOOL:
+		value->literal->v_bool = val;
+		break;
+	case PT_I8:
+		if (val < CHAR_MIN || val > CHAR_MAX)
+			return false;
+		value->literal->v_i8 = val;
+		break;
+	case PT_I16:
+		if (val < SHRT_MIN || val > SHRT_MAX)
+			return false;
+		value->literal->v_i16 = val;
+		break;
+	case PT_I32:
+		if (val < INT_MIN || val > INT_MAX)
+			return false;
+		value->literal->v_i32 = val;
+		break;
+	case PT_I64:
+		value->literal->v_i64 = val;
+		break;
+	default:
+		break;
+	}
+
+	value->return_type = type_copy(into_type);
+	return true;
+}
+
 /**
  * name[: type] = value
  */
@@ -501,11 +571,29 @@ static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
 			}
 		}
 
-		error_at(tokens->source, name->value, name->len,
-			 "mismatched types in assignment: left is `%s` and "
-			 "right is `%s`",
-			 type_name(data->to->return_type),
-			 type_name(data->value->return_type));
+		/* If we have a literal and it can be converted, convert is
+		   automatically so we can assign values to i64 for example. */
+		if (data->value->type == VE_LIT
+		    && type_can_be_converted(data->value->return_type,
+					     data->to->return_type)) {
+
+			long previous_val = get_int_literal(data->value);
+			if (!convert_value(data->value,
+					   data->to->return_type)) {
+				error_at(tokens->source, tok->value, tok->len,
+					 "cannot fit %ld into an %s",
+					 previous_val,
+					 type_name(data->to->return_type));
+			}
+
+		} else {
+			error_at(
+			    tokens->source, name->value, name->len,
+			    "mismatched types in assignment: left is `%s` and "
+			    "right is `%s`",
+			    type_name(data->to->return_type),
+			    type_name(data->value->return_type));
+		}
 	}
 
 	return ERR_OK;

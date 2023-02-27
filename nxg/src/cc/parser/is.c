@@ -311,7 +311,13 @@ bool is_comparison(token_list *tokens, token *tok)
 
 bool is_integer(token *tok)
 {
-	for (int i = 0; i < tok->len; i++) {
+	const char *p = tok->value;
+	int i = 0;
+
+	if (*p == '.' || *p == '-')
+		i++;
+
+	for (; i < tok->len; i++) {
 		if (!isdigit(tok->value[i]))
 			return false;
 	}
