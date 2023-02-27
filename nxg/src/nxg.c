@@ -244,14 +244,14 @@ int main(int argc, char **argv)
 		}
 
 		if (!strncmp(argv[i], "new", 4)) {
-			if (argc < i + 1)
+			if (!argv[i + 1])
 				error("expected package name after 'new'.");
-			create_pkg(argv[i + 1]);
+			pm_create_pkg(argv[i + 1]);
 			exit(0);
 		}
 
 		if (!strncmp(argv[i], "build", 6)) {
-			build(&settings);
+			pm_build(&settings);
 		}
 
 		if (!strncmp(argv[i], "run", 4)) {

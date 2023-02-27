@@ -1,7 +1,7 @@
 #include <limits.h>
-#include <linux/limits.h>
 #include <nxg/bs/buildfile.h>
 #include <nxg/nxg.h>
+#include <nxg/pkg/pm.h>
 #include <nxg/utils/error.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,7 +56,7 @@ void create_main_file(const char *srcdir)
 	fclose(fp);
 }
 
-void create_pkg(const char *name)
+void pm_create_pkg(const char *name)
 {
 	char buf[PATH_MAX];
 
@@ -71,7 +71,7 @@ void create_pkg(const char *name)
 	create_main_file(buf);
 }
 
-void build(settings_t *settings)
+void pm_build(settings_t *settings)
 {
 	while (!file_exists(".mocha")) {
 		chdir("..");
@@ -90,6 +90,8 @@ void pm_run(settings_t *settings)
 	while (!file_exists(".mocha")) {
 		chdir("..");
 	}
+
+	mkdir("build", S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
 
 	if (!settings->using_bs) {
 		buildfile(settings);
