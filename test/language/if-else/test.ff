@@ -1,0 +1,15 @@
+use std.io
+
+fn main {
+	(true) ? {
+		print('correct')
+	} : {
+		print('wrong')
+	}
+
+	(1 == 4) ? {
+		print('wrong')
+	} : {
+		print('correct')
+	}
+}
