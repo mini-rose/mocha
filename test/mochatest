@@ -93,6 +93,9 @@ def run_test(test_name: str) -> bool:
         print(str(res.stderr, 'utf8'))
         return False
 
+    if settings.fields['fails'] and not len(res.stderr):
+        return False
+
     # If it compiles, run it.
     res = subprocess.run(['__out__/test'], capture_output=True)
     if os.path.exists(path + '/test.result'):
