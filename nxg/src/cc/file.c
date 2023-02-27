@@ -1,3 +1,6 @@
+/* nxg/file.c - file operations and utilities
+   Copyright (c) 2023 mini-rose */
+
 #include <nxg/cc/alloc.h>
 #include <nxg/utils/error.h>
 #include <nxg/utils/file.h>

@@ -1,3 +1,6 @@
+/* error.h - error & warning messages
+   Copyright (c) 2023 mini-rose */
+
 #pragma once
 
 #include <nxg/utils/file.h>

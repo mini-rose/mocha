@@ -1,3 +1,6 @@
+/* buildfile.c - build system
+   Copyright (c) 2023 mini-rose */
+
 #include <ctype.h>
 #include <nxg/bs/buildfile.h>
 #include <nxg/cc/alloc.h>

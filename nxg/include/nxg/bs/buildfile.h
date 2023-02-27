@@ -1,3 +1,5 @@
+/* buildfile.h - parse the build system file
+   Copyright (c) 2023 mini-rose */
 #pragma once
 
 #include <nxg/nxg.h>

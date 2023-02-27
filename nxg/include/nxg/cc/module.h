@@ -1,3 +1,6 @@
+/* module.h - module operations
+   Copyright (c) 2023 mini-rose */
+
 #pragma once
 
 #include <nxg/cc/fn_resolve.h>

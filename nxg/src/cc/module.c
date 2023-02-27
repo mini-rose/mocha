@@ -1,3 +1,6 @@
+/* nxg/module.c - module operations
+   Copyright (c) 2023 mini-rose */
+
 #include <libgen.h>
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>

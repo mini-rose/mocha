@@ -1,3 +1,6 @@
+/* keyword.h - keyword types
+   Copyright (c) 2023 mini-rose */
+
 #pragma once
 
 #define bool _Bool

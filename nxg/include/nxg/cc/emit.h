@@ -1,3 +1,6 @@
+/* emit.h - LLVM IR emitter
+   Copyright (c) 2023 mini-rose */
+
 #pragma once
 
 #include <llvm-c/Core.h>

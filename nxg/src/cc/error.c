@@ -1,3 +1,6 @@
+/* nxg/error.c - print error and warning messages
+   Copyright (c) 2023 mini-rose */
+
 #include <nxg/utils/error.h>
 #include <nxg/utils/file.h>
 #include <stdarg.h>

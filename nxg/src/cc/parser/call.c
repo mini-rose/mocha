@@ -1,3 +1,6 @@
+/* parser/call.c - parse calls
+   Copyright (c) 2023 mini-rose */
+
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>

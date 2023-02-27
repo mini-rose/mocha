@@ -1,4 +1,4 @@
-/* parser.c - parse a token list into an AST
+/* nxg/parser.c - parse a token list into an AST
    Copyright (c) 2023 mini-rose */
 
 #include <ctype.h>

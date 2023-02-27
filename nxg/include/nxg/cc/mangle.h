@@ -1,4 +1,4 @@
-/* nxg/mangle.h - function for mangling names
+/* mangle.h - function for mangling names
    Copyright (c) 2023 mini-rose */
 
 #pragma once

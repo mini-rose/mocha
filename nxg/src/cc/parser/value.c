@@ -1,3 +1,6 @@
+/* parser/value.c - parse rvalues & lvalues
+   Copyright (c) 2023 mini-rose */
+
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/parser.h>
 #include <nxg/cc/tokenize.h>

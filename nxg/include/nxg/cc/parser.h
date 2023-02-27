@@ -1,4 +1,8 @@
+/* parser.h - mocha tokens to AST parser
+   Copyright (c) 2023 mini-rose */
+
 #pragma once
+
 #include <nxg/cc/expr.h>
 #include <nxg/cc/tokenize.h>
 #include <nxg/cc/type.h>

@@ -1,4 +1,4 @@
-/* nxg/build.c
+/* nxg/build.c - build & compile files
    Copyright (c) 2023 mini-rose */
 
 #include <libgen.h>

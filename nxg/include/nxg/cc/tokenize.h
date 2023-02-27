@@ -1,3 +1,6 @@
+/* tokenize.h - source code to token_list tokenizer
+   Copyright (c) 2023 mini-rose */
+
 #pragma once
 
 #include <nxg/utils/file.h>

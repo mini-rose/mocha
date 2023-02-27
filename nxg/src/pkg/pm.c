@@ -1,3 +1,6 @@
+/* pkg/pm.c - package manager
+   Copyright (c) 2023 mini-rose */
+
 #include <limits.h>
 #include <nxg/bs/buildfile.h>
 #include <nxg/nxg.h>

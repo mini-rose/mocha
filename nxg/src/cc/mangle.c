@@ -1,4 +1,4 @@
-/* nxg/mangle.c
+/* nxg/mangle.c - mangle functions and types
    Copyright (c) 2023 mini-rose */
 
 #include <nxg/cc/alloc.h>

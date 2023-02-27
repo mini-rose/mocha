@@ -1,4 +1,4 @@
-/* Results type from resolve functions.
+/* fn_resolve.h - results type from resolve functions
    Copyright (c) 2023 mini-rose */
 
 #pragma once

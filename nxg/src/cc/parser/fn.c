@@ -1,3 +1,6 @@
+/* parser/fn.c - function utilities
+   Copyright (c) 2023 mini-rose */
+
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/parser.h>
 #include <stdlib.h>

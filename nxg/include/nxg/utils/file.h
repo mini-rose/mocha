@@ -1,3 +1,6 @@
+/* file.h - file operations
+   Copyright (c) 2023 mini-rose */
+
 #pragma once
 
 typedef struct {

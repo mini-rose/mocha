@@ -1,3 +1,6 @@
+/* nxg/tokenize.c - source code to token list tokenizer
+   Copyright (c) 2023 mini-rose */
+
 #include <ctype.h>
 #include <memory.h>
 #include <nxg/cc/alloc.h>

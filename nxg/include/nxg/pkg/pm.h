@@ -1,3 +1,6 @@
+/* pm.h - package manager
+   Copyright (c) 2023 mini-rose */
+
 #pragma once
 
 #include <nxg/nxg.h>

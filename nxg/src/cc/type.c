@@ -1,3 +1,6 @@
+/* nxg/type.c - type routines
+   Copyright (c) 2023 mini-rose */
+
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/fn_resolve.h>
 #include <nxg/cc/parser.h>

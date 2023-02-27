@@ -1,3 +1,6 @@
+/* nxg/keyword.c - keyword types
+   Copyright (c) 2023 mini-rose */
+
 #include <nxg/cc/keyword.h>
 #include <nxg/utils/error.h>
 #include <nxg/utils/utils.h>

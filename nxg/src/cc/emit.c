@@ -1,3 +1,6 @@
+/* nxg/emit.c - emit LLVM IR from an AST
+   Copyright (c) 2023 mini-rose */
+
 #include <llvm-c/Analysis.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/Types.h>

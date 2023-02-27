@@ -1,3 +1,6 @@
+/* parser/is.c - check following tokens for a pattern
+   Copyright (c) 2023 mini-rose */
+
 #include <ctype.h>
 #include <nxg/cc/parser.h>
 #include <nxg/cc/tokenize.h>

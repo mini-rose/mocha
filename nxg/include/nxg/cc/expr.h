@@ -1,4 +1,4 @@
-/* single expression in the AST
+/* expr.h - single expression in the AST
    Copyright (c) 2023 mini-rose */
 
 #pragma once
