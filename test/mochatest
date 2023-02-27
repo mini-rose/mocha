@@ -139,7 +139,7 @@ def main():
     else:
         print('\033[91m', end='')
 
-    print(f'Passed [{passed}/{len(tests)}] tests')
+    print(f'Passed [{passed}/{len(tests)}] tests\033[0m')
 
     if os.path.exists('__out__'):
         shutil.rmtree('__out__')

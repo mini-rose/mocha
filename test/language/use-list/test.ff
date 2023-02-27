@@ -1,6 +1,9 @@
 use {
-	std.io
 	std.os
+	std.io
 }
 
-fn main {}
+fn main {
+	o: os 		// something from os
+	print(1) 	// something from io
+}

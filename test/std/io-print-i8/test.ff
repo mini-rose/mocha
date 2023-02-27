@@ -1,6 +1,6 @@
 use std.io
 
 fn main {
-	x: i8 = 254
+	x: i8 = 127
 	print(x)
 }
