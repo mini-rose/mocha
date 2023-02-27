@@ -248,6 +248,8 @@ type_t *parse_type(expr_t *context, token_list *tokens, token *tok);
 void parse_literal(value_expr_t *node, token_list *tokens, token *tok);
 expr_t *expr_add_child(expr_t *parent);
 
+bool convert_int_value(value_expr_t *value, type_t *into_type);
+
 typedef struct
 {
 	const char *value;

@@ -1,6 +1,8 @@
 /* parser/call.c - parse calls
    Copyright (c) 2023 mini-rose */
 
+#include "nxg/cc/type.h"
+
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>
 #include <nxg/cc/parser.h>
@@ -165,6 +167,16 @@ static inline char *maybe_missed_import(char *name)
 	return NULL;
 }
 
+static bool possibly_convert_val(value_expr_t *value, type_t *into)
+{
+	/* Check if we can maybe convert a literal. */
+	if (type_can_be_converted(value->return_type, into)) {
+		return convert_int_value(value, into);
+	}
+
+	return false;
+}
+
 err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 			call_expr_t *data, token_list *tokens, token *tok)
 {
@@ -279,6 +291,8 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 
 	bool try_next;
 
+try_matching_types_again:
+
 	/* Find the matching candidate */
 	for (int i = 0; i < resolved->n_candidates; i++) {
 		fn_expr_t *match = resolved->candidate[i];
@@ -303,6 +317,27 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 		data->func = match;
 
 		goto end;
+	}
+
+	/* We cannot find any matching overloads, so maybe we can find a literal
+	   that can be converted to match the type. */
+	for (int i = 0; i < resolved->n_candidates; i++) {
+		fn_expr_t *match = resolved->candidate[i];
+		try_next = false;
+
+		if (match->n_params != data->n_args)
+			continue;
+
+		/* Check for argument types */
+		for (int j = 0; j < match->n_params; j++) {
+			if (possibly_convert_val(data->args[j],
+						 match->params[j]->type)) {
+				goto try_matching_types_again;
+			}
+		}
+
+		if (try_next)
+			continue;
 	}
 
 	fprintf(stderr,

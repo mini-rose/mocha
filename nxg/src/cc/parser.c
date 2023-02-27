@@ -378,7 +378,7 @@ static long get_int_literal(value_expr_t *value)
 	}
 }
 
-static bool convert_value(value_expr_t *value, type_t *into_type)
+bool convert_int_value(value_expr_t *value, type_t *into_type)
 {
 	long val;
 
@@ -417,6 +417,7 @@ static bool convert_value(value_expr_t *value, type_t *into_type)
 	}
 
 	value->return_type = type_copy(into_type);
+	value->literal->type = type_copy(into_type);
 	return true;
 }
 
@@ -578,8 +579,8 @@ static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
 					     data->to->return_type)) {
 
 			long previous_val = get_int_literal(data->value);
-			if (!convert_value(data->value,
-					   data->to->return_type)) {
+			if (!convert_int_value(data->value,
+					       data->to->return_type)) {
 				error_at(tokens->source, tok->value, tok->len,
 					 "cannot fit %ld into an %s",
 					 previous_val,
