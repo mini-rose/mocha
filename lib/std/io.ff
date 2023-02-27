@@ -152,7 +152,7 @@ type File {
  	 * The offset is relative to the end of the file.
 	 */
 	seek_end: fn (self: &File, offset: i64) {
-		__c_seek_cend(self.__fp, offset)
+		__c_seek_end(self.__fp, offset)
 	}
 }
 
