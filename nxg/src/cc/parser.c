@@ -1192,13 +1192,10 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 		parse_single_use(settings, module, tokens, tok);
 	} else if (tok->type == T_LBRACE) {
 		while ((tok = next_tok(tokens))->type != T_RBRACE) {
-			if (tok->type == T_NEWLINE)
-				continue;
+			while (tok->type == T_NEWLINE)
+				tok = next_tok(tokens);
 
 			parse_single_use(settings, module, tokens, tok);
-
-			while (tok->type != T_NEWLINE)
-				tok = next_tok(tokens);
 		}
 	}
 }

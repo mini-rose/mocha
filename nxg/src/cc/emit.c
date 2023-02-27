@@ -280,6 +280,10 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 				      fn_context_t *context,
 				      literal_expr_t *lit)
 {
+	if (lit->type->v_plain == PT_I8)
+		return LLVMConstInt(LLVMInt8Type(), lit->v_i8, false);
+	if (lit->type->v_plain == PT_I16)
+		return LLVMConstInt(LLVMInt16Type(), lit->v_i16, false);
 	if (lit->type->v_plain == PT_I32)
 		return LLVMConstInt(LLVMInt32Type(), lit->v_i32, false);
 	if (lit->type->v_plain == PT_I64)
