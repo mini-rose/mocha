@@ -1,0 +1,7 @@
+use std.io
+
+fn main {
+	x = 123
+	print(x)
+	print(321)
+}

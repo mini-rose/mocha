@@ -1,5 +1,7 @@
 use std.io
 
 fn main {
-	print(544)
+	x: i64 = 12
+
+	print(x)
 }

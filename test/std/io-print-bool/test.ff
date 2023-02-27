@@ -1,0 +1,8 @@
+use std.io
+
+fn main {
+	print(true)
+
+	x = false
+	print(x)
+}

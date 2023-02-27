@@ -1,0 +1,6 @@
+use {
+	std.io
+	std.os
+}
+
+fn main {}

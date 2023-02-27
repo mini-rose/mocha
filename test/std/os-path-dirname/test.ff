@@ -1,0 +1,7 @@
+use std.io
+use std.os
+
+fn main {
+	p: path
+	print(p.dirname("./dirname/mocha.txt"))
+}

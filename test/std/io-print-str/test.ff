@@ -1,0 +1,11 @@
+use std.io
+
+fn main {
+	print("1")
+
+	second = "2"
+	print(second)
+
+	third = "3"
+	print(&third)
+}
