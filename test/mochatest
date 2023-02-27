@@ -123,13 +123,16 @@ def main():
     if not os.path.exists('__out__'):
         os.mkdir('__out__')
 
-    for test in tests:
-        print('  \033[97mrunning\033[0m', test, end=' ')
-        if run_test(test):
-            print('\033[92mOK\033[0m')
-            passed += 1
-        else:
-            print('\033[91mFAIL\033[0m')
+    try:
+        for test in tests:
+            print('  \033[97mrunning\033[0m', test, end=' ')
+            if run_test(test):
+                print('\033[92mOK\033[0m')
+                passed += 1
+            else:
+                print('\033[91mFAIL\033[0m')
+    except KeyboardInterrupt:
+        print()
 
     if len(tests) == passed:
         print('\033[92m', end='')
