@@ -1,0 +1,15 @@
+use std.io
+
+type Container {
+	field1: str
+	field2: i32
+}
+
+fn drop(self: &Container) {
+	print('dropped Container')
+	drop(&self.field1)
+}
+
+fn main {
+	c: Container
+}

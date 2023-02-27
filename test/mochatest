@@ -27,12 +27,14 @@ class TestSettings:
     options for a test."""
 
     __name: str
-    fields = {
-        'fails': False
-    }
+    fields: dict
 
     def __init__(self, name: str):
         self.__name = name
+        self.fields = {
+            'fails': False,
+            'flags': ''
+        }
 
     @staticmethod
     def parse_value(value: str):
@@ -40,6 +42,8 @@ class TestSettings:
             return True
         if value == 'false':
             return False
+        else:
+            return value
 
     def set_value(self, line: str):
         """Set a value of the settings. Takes a `key=value` line. """
@@ -77,12 +81,17 @@ def run_test(test_name: str) -> bool:
     path = test_name.replace('.', '/')
     settings = parse_test_info(test_name, path)
 
-    res = subprocess.run(['nxg', '-o__out__/test', path + '/test.ff'], capture_output=True)
+    cmd = ['nxg', '-o__out__/test', path + '/test.ff']
+    if settings.fields['flags']:
+        cmd.extend(settings.fields['flags'].split())
+
+    res = subprocess.run(cmd, capture_output=True)
     if len(res.stderr):
         # if the test should fail, make it pass.
         if settings.fields['fails']:
             return True
         print(str(res.stderr, 'utf8'))
+        return False
 
     # If it compiles, run it.
     res = subprocess.run(['__out__/test'], capture_output=True)
@@ -91,7 +100,12 @@ def run_test(test_name: str) -> bool:
             should_be = f.read()
 
         if should_be != res.stdout:
+            print('\nOutput does not match, should be:')
+            print('\033[92m' + str(should_be, 'utf8') + '\033[0m')
+            print('And is:')
+            print('\033[91m' + str(res.stdout, 'utf8') + '\033[0m')
             return False
+
         return True
 
     return True
@@ -114,11 +128,12 @@ def main():
         else:
             print('\033[91mFAIL\033[0m')
 
-    print(f'Passed [{passed}/{len(tests)}] tests', end=' ')
     if len(tests) == passed:
-        print('\033[92mOK :)\033[0m')
+        print('\033[92m', end='')
     else:
-        print('\033[91mFAILED >:(\033[0m')
+        print('\033[91m', end='')
+
+    print(f'Passed [{passed}/{len(tests)}] tests')
 
     if os.path.exists('__out__'):
         shutil.rmtree('__out__')
