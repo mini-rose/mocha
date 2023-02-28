@@ -1,0 +1,12 @@
+use std.io
+
+type Container {
+	method: fn (self: &Container) {
+		print('called method')
+	}
+}
+
+fn main {
+	c: Container
+	c.method()
+}

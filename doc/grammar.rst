@@ -23,7 +23,7 @@ expressions. Syntax parsers can be built using this specification::
 
         type-decl ::= 'type' symbol '{' (type-field)* '}'
         type-field ::= symbol ':' (type | type-method)
-        type-method ::= 'fn' [function-params] ['->' type] block
+        type-method ::= ['static'] 'fn' [function-params] ['->' type] block
 
         type-alias ::= 'type' symbol '=' type
 

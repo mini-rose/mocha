@@ -19,7 +19,7 @@ def collect_tests() -> list:
                 continue
             tests.append(group + '.' + dir)
 
-    return tests
+    return sorted(tests)
 
 
 class TestSettings:

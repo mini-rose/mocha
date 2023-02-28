@@ -1226,41 +1226,66 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
 
 		tok = next_tok(tokens);
 
-		if (TOK_IS(tok, T_KEYWORD, "fn")) {
-			tok = next_tok(tokens);
+		if (TOK_IS(tok, T_KEYWORD, "fn")
+		    || TOK_IS(tok, T_IDENT, "static")) {
 
 			/* Type method */
 			expr_t *method = type_object_add_method(ty->v_object);
 			fn_expr_t *func = slab_alloc(sizeof(*func));
+
+			if (TOK_IS(tok, T_IDENT, "static")) {
+				tok = next_tok(tokens);
+				if (!TOK_IS(tok, T_KEYWORD, "fn")) {
+					error_at_with_fix(
+					    tokens->source, tok->value,
+					    tok->len, "fn",
+					    "expected `fn` keyword after "
+					    "static method declaration");
+				}
+
+				func->is_static = true;
+			}
 
 			method->type = E_FUNCTION;
 			method->data = func;
 			func->name = ident;
 			func->object = ty->v_object;
 
+			tok = next_tok(tokens);
+
 			if (tok->type == T_LPAREN)
 				parse_fn_params(module, func, tokens, tok);
+			else
+				tokens->iter--;
 
-			/* Check if self is present and is the same type as the
-			 * &T. */
-			bool self_correct_type = type_cmp(func->params[0]->type,
-							  type_pointer_of(ty));
-			char *fix = slab_alloc(256);
-			snprintf(fix, 256, "self: &%s", ty->v_object->name);
+			    if (!func->is_static) {
+				/* If method is non-static, the first argument
+				   should be `self`. */
 
-			if (func->n_params == 0 || !self_correct_type) {
-				error_at_with_fix(
-				    tokens->source, tok->value, tok->len, fix,
-				    "the first parameter of a method must take "
-				    "a reference to this object");
-			}
+				bool self_correct_type = type_cmp(
+				    func->params[0]->type, type_pointer_of(ty));
+				char *fix = slab_alloc(256);
+				snprintf(fix, 256, "self: &%s",
+					 ty->v_object->name);
 
-			if (settings->warn_self_name
-			    && strcmp(func->params[0]->name, "self")) {
-				tok = after_tok(tokens, tok);
-				warning_at(tokens->source, tok->value, tok->len,
-					   "the reference to the object should "
-					   "be named `self`");
+				if (func->n_params == 0 || !self_correct_type) {
+					error_at_with_fix(
+					    tokens->source, tok->value,
+					    tok->len, fix,
+					    "the first parameter of a method "
+					    "must take "
+					    "a reference to this object");
+				}
+
+				if (settings->warn_self_name
+				    && strcmp(func->params[0]->name, "self")) {
+					tok = after_tok(tokens, tok);
+					warning_at(tokens->source, tok->value,
+						   tok->len,
+						   "the reference to the "
+						   "object should "
+						   "be named `self`");
+				}
 			}
 
 			tok = index_tok(tokens, tokens->iter);

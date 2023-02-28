@@ -26,6 +26,18 @@ static value_expr_t *call_add_arg(call_expr_t *call)
 	return node;
 }
 
+static void call_popfront_arg(call_expr_t *call)
+{
+	value_expr_t **old_args = call->args;
+	int old_n = call->n_args - 1;
+
+	call->args = realloc_ptr_array(NULL, old_n);
+	call->n_args = 0;
+
+	for (int i = 0; i < old_n; i++)
+		call_push_arg(call, old_args[i + 1]);
+}
+
 bool is_builtin_function(token *name)
 {
 	static const char *builtins[] = {"__builtin_decl",
@@ -183,6 +195,7 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 	arg_tokens_t arg_tokens = {0};
 	token *fn_name_tok;
 	value_expr_t *self_arg = NULL;
+	bool static_method = false;
 	value_expr_t *arg;
 
 	if (is_builtin_function(tok))
@@ -194,7 +207,8 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 	tok = next_tok(tokens);
 	tok = next_tok(tokens);
 
-	/* If this is a method, the first argument is always `self`. */
+	/* If this is a method, the first argument is always `self` (unless its
+	   static). */
 	if (data->object_name) {
 		self_arg = call_add_arg(data);
 		add_arg_token(&arg_tokens, tok);
@@ -235,20 +249,32 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 		var_decl_expr_t *var;
 		type_t *obj_type;
 		token *o_name;
+		type_t *o_type;
 
 		/* Little hack: if we know its a member call, step 2 tokens back
 		   to get the name token. */
 		o_name = before_tok(tokens, fn_name_tok);
-		o_name = before_tok(tokens, fn_name_tok);
+		o_name = before_tok(tokens, o_name);
 
 		/* Get the type of the object */
 		var = node_resolve_local(parent, data->object_name, 0);
 		if (!var) {
-			error_at(tokens->source, o_name->value, o_name->len,
-				 "use of an undeclared object variable");
+			/* Maybe we want to call a static method? Try getting
+			   the type here. */
+
+			o_type = module_find_named_type(mod, data->object_name);
+			if (!o_type) {
+				error_at(tokens->source, o_name->value,
+					 o_name->len,
+					 "use of an undeclared variable");
+			}
+
+			static_method = true;
+			obj_type = o_type;
+		} else {
+			obj_type = var->type;
 		}
 
-		obj_type = var->type;
 		if (obj_type->kind == TY_POINTER)
 			obj_type = obj_type->v_base;
 
@@ -258,10 +284,15 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 		}
 
 		/* Add `self` to the call. */
-		self_arg->type =
-		    var->type->kind == TY_POINTER ? VE_REF : VE_PTR;
-		self_arg->return_type = type_pointer_of(obj_type);
-		self_arg->name = slab_strdup(var->name);
+		if (!static_method) {
+			self_arg->type =
+			    var->type->kind == TY_POINTER ? VE_REF : VE_PTR;
+			self_arg->return_type = type_pointer_of(obj_type);
+			self_arg->name = slab_strdup(var->name);
+		} else {
+			/* Remove the implcit `self` argument. */
+			call_popfront_arg(data);
+		}
 
 		resolved = type_object_find_fn_candidates(obj_type->v_object,
 							  data->name);

@@ -128,6 +128,7 @@ struct fn_expr
 	char *name;
 	expr_t *module;
 	object_type_t *object; /* method if non-null */
+	bool is_static;
 	var_decl_expr_t **params;
 	var_decl_expr_t **locals;
 	int n_params;
