@@ -1,0 +1,14 @@
+use std.io
+
+fn f(string: str) {
+	print(&string)
+}
+
+fn f(num: i32) {
+	print(num)
+}
+
+fn main {
+	f('hello')
+	f(123)
+}

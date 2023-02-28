@@ -28,77 +28,77 @@ __builtin_decl("__c_expanduser", &str, &str)
 type os {
 	/* Cause normal process termination */
 
-	exit: fn (self: &os, status: i32) -> null {
+	exit: static fn (status: i32) -> null {
 		__c_exit(status)
 	}
 
 	/* Execute a shell command */
 
-	execute: fn (self: &os, command: &str) -> null {
+	execute: static fn (command: &str) -> null {
 		__c_execute(command)
 	}
 
-	execute: fn (self: &os, command: str) -> null {
+	execute: static fn (command: str) -> null {
 		__c_execute(&command)
 	}
 
 	/* Get an environment variable */
 
-	getenv: fn (self: &os, name: &str) -> &str {
+	getenv: static fn (name: &str) -> &str {
 		ret __c_getenv(name)
 	}
 
-	getenv: fn (self: &os, name: str) -> &str {
+	getenv: static fn (name: str) -> &str {
 		ret __c_getenv(&name)
 	}
 
 	/* Get current working directory */
 
-	getcwd: fn (self: &os) -> &str {
+	getcwd: static fn (self: &os) -> &str {
 		ret __c_getcwd()
 	}
 
 	/* Change file mode bits */
 
-	chmod: fn (self: &os, path: &str, mode: i32) -> i32 {
+	chmod: static fn (path: &str, mode: i32) -> i32 {
 		ret __c_chmod(path, mode)
 	}
 
-	chmod: fn (self: &os, path: str, mode: i32) -> i32 {
+	chmod: static fn (path: str, mode: i32) -> i32 {
 		ret __c_chmod(&path, mode)
 	}
 
 	/* Make directory */
 
-	mkdir: fn (self: &os, path: &str) -> i32 {
+	mkdir: static fn (path: &str) -> i32 {
 		ret __c_mkdir(path)
 	}
 
-	mkdir: fn (self: &os, path: str) -> i32 {
+	mkdir: static fn (path: str) -> i32 {
 		ret __c_mkdir(&path)
 	}
 
 	/* Create file */
 
-	touch: fn (self: &os, path: &str) -> i32 {
+	touch: static fn (path: &str) -> i32 {
 		ret __c_touch(path)
 	}
 
-	touch: fn (self: &os, path: str) -> i32 {
+	touch: static fn (path: str) -> i32 {
 		ret __c_touch(&path)
 	}
 
 	/* Rename file */
 
-	rename: fn (self: &os, old: &str, new: &str) -> i32 {
+	rename: static fn (old: &str, new: &str) -> i32 {
 		ret __c_rename(old, new)
 	}
 
-	rename: fn (self: &os, old: str, new: str) -> i32 {
+	rename: static fn (old: str, new: str) -> i32 {
 		ret __c_rename(&old, &new)
 	}
 
-	sleep: fn (self: &os, seconds: i32) {
+	sleep: static fn (seconds: i32) {
 		__c_sleep(seconds)
 	}
 }
