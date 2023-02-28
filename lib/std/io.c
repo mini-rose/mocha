@@ -122,3 +122,28 @@ mo_null __c_seek_end(mo_i8 *file, mo_i64 offset)
 {
 	fseek((FILE *) file, offset, SEEK_END);
 }
+
+mo_null _M9__c_flushPa(mo_i8 *file)
+{
+	fflush((FILE *) file);
+}
+
+mo_null _M9__c_flushv()
+{
+	fflush(NULL);
+}
+
+mo_null _M9__c_flushi(mo_i32 *stream)
+{
+	switch (*stream) {
+	case 0:
+		fflush(stdin);
+		break;
+	case 1:
+		fflush(stdout);
+		break;
+	case 2:
+		fflush(stderr);
+		break;
+	}
+}

@@ -294,6 +294,11 @@ token_list *tokens(file_t *source)
 			    [T_MODA] = "%=", [T_MUL] = "*",    [T_SUB] = "-"};
 
 			switch (*p) {
+			case '\\':
+				if (*(p + 1) == '\n') {
+					p += 2;
+					continue;
+				}
 			case '(':
 				tok = token_new(last = T_LPAREN, p, 1);
 				token_list_append(list, tok);

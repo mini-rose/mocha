@@ -20,6 +20,9 @@ __builtin_decl("__c_tell", i64, &i8)
 __builtin_decl("__c_seek_set", null, &i8, i64)
 __builtin_decl("__c_seek_cur", null, &i8, i64)
 __builtin_decl("__c_seek_end", null, &i8, i64)
+__builtin_decl_mangled("__c_flush", null, &i8)
+__builtin_decl_mangled("__c_flush", null, i32)
+__builtin_decl_mangled("__c_flush", null)
 
 /* io.ff - standard input/output
    Copyright (c) 2023 mini-rose */
@@ -154,6 +157,11 @@ type File {
 	seek_end: fn (self: &File, offset: i64) {
 		__c_seek_end(self.__fp, offset)
 	}
+
+	/* Flush file */
+	flush: fn (self: &File) {
+		__c_flush(self.__fp);
+	}
 }
 
 type io {
@@ -169,6 +177,16 @@ type io {
 
 	write: fn (self: &io, stream: i32, buf: str) {
 		__c_write_stream(stream, buf.ptr, buf.len)
+	}
+
+	/* Flush stream */
+	flush: fn (self: &io, stream: i32) {
+		__c_flush(stream);
+	}
+
+	/* Flush all streams  */
+	flush: fn (self: &io) {
+		__c_flush();
 	}
 }
 

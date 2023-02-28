@@ -5,6 +5,7 @@
  */
 
 __builtin_decl("__c_exit", null, i32)
+__builtin_decl("__c_sleep", null, i32)
 __builtin_decl("__c_execute", i32, &str)
 __builtin_decl("__c_getenv", &str, &str)
 __builtin_decl("__c_getcwd", &str)
@@ -95,6 +96,10 @@ type os {
 
 	rename: fn (self: &os, old: str, new: str) -> i32 {
 		ret __c_rename(&old, &new)
+	}
+
+	sleep: fn (self: &os, seconds: i32) {
+		__c_sleep(seconds)
 	}
 }
 

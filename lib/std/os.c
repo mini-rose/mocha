@@ -206,3 +206,7 @@ mo_str *__c_expanduser(mo_str *_path)
 
 	return self;
 }
+
+mo_null __c_sleep(mo_i32 seconds) {
+	sleep(seconds);
+}
