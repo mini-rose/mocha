@@ -152,6 +152,9 @@ static void parse_string_literal(sized_string_t *val, token *tok)
 		if (!strncmp(&tok->value[i], "\\n", 2)) {
 			buf[j++] = '\n';
 			i++;
+		} else if (!strncmp(&tok->value[i], "\\033", 4)) {
+			buf[j++] = '\033';
+			i += 3;
 		} else {
 			buf[j++] = tok->value[i];
 		}
