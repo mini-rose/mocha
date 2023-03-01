@@ -16,7 +16,7 @@ static void parse_reference(value_expr_t *node, expr_t *context,
 {
 	if (!node_has_named_local(context, tok->value, tok->len)) {
 		error_at(tokens->source, tok->value, tok->len,
-			 "use of undeclared variable");
+			 "not found in this scope");
 	}
 
 	node->type = VE_REF;
@@ -41,8 +41,11 @@ static void parse_member(value_expr_t *node, expr_t *context,
 		o_type = o_type->v_base;
 
 	if (o_type->kind != TY_OBJECT) {
-		error_at(tokens->source, tok->value, tok->len,
-			 "cannot access members of non-object type");
+		error_at(
+		    tokens->source, tok->value,
+		    tok->len + index_tok(tokens, tokens->iter)->len,
+		    "`%s` is primitive type and therefore doesn't have fields",
+		    type_name(o_type));
 	}
 
 	tok = next_tok(tokens);
@@ -53,8 +56,7 @@ static void parse_member(value_expr_t *node, expr_t *context,
 	temp_type = type_object_field_type(o_type->v_object, node->member);
 	if (temp_type->kind == TY_NULL) {
 		error_at(tokens->source, tok->value, tok->len,
-			 "no field named %s found in %s", node->member,
-			 o_type->v_object->name);
+			 "unknown field on type `%s`", o_type->v_object->name);
 	}
 
 	node->return_type = temp_type;

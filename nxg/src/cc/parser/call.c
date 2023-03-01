@@ -214,9 +214,8 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 			break;
 
 		if (tok->type != T_COMMA) {
-			error_at_with_fix(
-			    tokens->source, tok->value, tok->len, ",",
-			    "expected comma seperating the arguments");
+			error_at(tokens->source, tok->value - 1, 1,
+				 "missing `,`");
 		}
 
 		tok = next_tok(tokens);
@@ -255,7 +254,7 @@ auto_imported:
 
 				error_at(tokens->source, o_name->value,
 					 o_name->len,
-					 "use of an undeclared variable");
+					 "not found in this scope");
 			}
 
 			static_method = true;
@@ -304,7 +303,7 @@ auto_imported:
 			goto auto_imported;
 
 		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
-			 "no function named `%s` found", data->name);
+			 "cannot find function in this scope");
 	}
 
 	bool try_next;
@@ -358,13 +357,19 @@ try_matching_types_again:
 			continue;
 	}
 
-	fprintf(stderr,
-		"\e[1;91moverload mismatch\e[0m, found \e[92m%d\e[0m potential "
-		"candidate(s), but none of them match:\n",
-		resolved->n_candidates);
+	if (resolved->n_candidates == 1)
+		fprintf(stderr, "\n\e[36minfo:\e[0m found potential "
+				"candidate\n");
+	else
+		fprintf(stderr,
+			"\n\e[36minfo:\e[0m found "
+			"\e[34m%d\e[0m potential "
+			"candidates:\n",
+			resolved->n_candidates);
+
 	for (int i = 0; i < resolved->n_candidates; i++) {
 		char *sig = fn_str_signature(resolved->candidate[i], true);
-		fprintf(stderr, "  %s\n", sig);
+		fprintf(stderr, "%*s• %s\n", (int) strlen("INFO: "), " ", sig);
 	}
 
 	int max_params, min_params;
@@ -433,18 +438,8 @@ try_matching_types_again:
 		}
 	}
 
-	char more_info[128] = "";
-
-	if (max_params < data->n_args) {
-		snprintf(more_info, 128, ", `%s` takes at most %d parameters",
-			 data->name, max_params);
-	} else if (min_params > data->n_args) {
-		snprintf(more_info, 128, ", `%s` takes at least %d parameters",
-			 data->name, min_params);
-	}
-
 	error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
-		 "could not find a matching overload%s", more_info);
+		 "could not find a matching overload");
 
 end:
 	/* Common case: print() takes both a string reference and a string copy

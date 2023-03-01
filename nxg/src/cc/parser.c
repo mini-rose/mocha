@@ -691,7 +691,7 @@ static void parse_fn_params(expr_t *module, fn_expr_t *decl, token_list *tokens,
 			int errlen;
 			type = parse_type(module, tokens, tok);
 			name = index_tok(tokens, tokens->iter);
-			errlen = tok->len;
+			errlen = tok->len + name->len + 1;
 
 			snprintf(fix, 128, "%.*s: %s", name->len, name->value,
 				 type_name(type));
@@ -706,9 +706,9 @@ static void parse_fn_params(expr_t *module, fn_expr_t *decl, token_list *tokens,
 				errlen +=
 				    index_tok(tokens, tokens->iter - 1)->len;
 
-			error_at_with_fix(
-			    tokens->source, tok->value, errlen, fix,
-			    "the parameter name comes first, not the type");
+			error_at_with_fix(tokens->source,
+					  tok->value + name->len, errlen, fix,
+					  "declare the type after idenitifer");
 		}
 
 		if (tok->type != T_IDENT) {

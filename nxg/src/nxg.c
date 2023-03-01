@@ -14,42 +14,45 @@
 
 static inline void help()
 {
-	puts("usage: nxg [-o output] [-h] [option]... <input>");
+	puts("usage: nxg [option]... [action/<input>]");
 }
 
 static inline void full_help()
 {
+	puts("");
 	help();
 	fputs(
 	    "Compile, build and link mocha source code into an executable.\n\n"
-	    "Common:\n"
-	    "  -h, --help      show this page\n"
-	    "  -o <path>       output binary file name (default: " DEFAULT_OUT
-	    ")\n"
-	    "  -a, --alloc     dump allocation stats\n"
-	    "  -O <level>      optimization level, one of: 0 1 2 3 s\n"
-	    "  -p              show generated AST\n"
-	    "  -r, --root <path> mocha root path (default: " NXG_ROOT ")\n"
-	    "  -t              show generated tokens\n"
-	    "  -v, --version   show the compiler version\n"
-	    "  -V              be verbose, show ran shell commands\n"
-	    "  -Xsanitize-alloc sanitize the internal allocator\n"
-	    "\nLint:\n"
-	    "  -Wno-unused     unused variables\n"
-	    "  -Wno-random     random stuff that don't fit into any other "
+	    "\e[1;34mActions\e[0m\n"
+	    "\tnew <name>         create new project\n"
+	    "\tbuild              build project\n"
+	    "\trun                build and run project\n"
+	    "\t.                  use .mocha buildfile\n\n"
+	    "\e[1;34mOptions\e[0m\n"
+	    "\t-o <path>          output binary file name "
+	    "(default: " DEFAULT_OUT ")\n"
+	    "\t-a, --alloc        dump allocation stats\n"
+	    "\t-O <level>         optimization level, one of: 0 1 2 3 s\n"
+	    "\t-p                 show generated AST\n"
+	    "\t-r, --root <path>  mocha root path (default: " NXG_ROOT ")\n"
+	    "\t-t                 show generated tokens\n"
+	    "\t-v, --version      show the compiler version\n"
+	    "\t-V                 be verbose, show ran shell commands\n"
+	    "\t-Xsanitize-alloc   sanitize the internal allocator\n"
+	    "\n\e[1;34mLint\e[0m\n"
+	    "\t-Wno-unused        unused variables\n"
+	    "\t-Wno-random        random stuff that don't fit into any other "
 	    "option\n"
-	    "  -Wno-empty-block empty blocks\n"
-	    "  -Wno-prefer-ref should pass a reference instead of a copy\n"
-	    "  -Wno-self-name  first method parameter should be named self\n"
-	    "\nLink:\n"
-	    "  --musl          use musl instead of glibc\n"
-	    "  --ldd <path>    dynamic linker to use (default: " DEFAULT_LD
+	    "\t-Wno-empty-block   empty blocks\n"
+	    "\t-Wno-prefer-ref    should pass a reference instead of a copy\n"
+	    "\t-Wno-self-name     first method parameter should be named self\n"
+	    "\n\e[1;34mLink\e[0m\n"
+	    "\t--musl             use musl instead of glibc\n"
+	    "\t--ldd <path>       dynamic linker to use (default: " DEFAULT_LD
 	    ")\n"
-	    "\nEmit:\n"
-	    "  -Eno-stack      disable stacktrace\n"
-	    "  -Ekeep-var-names keep variable names in LLVM IR\n"
-	    "\nRemember that these options may change, so scripts with them "
-	    "may not be ideal at this moment.\n",
+	    "\n\e[1;34mEmit\e[0m\n"
+	    "\t-Eno-stack         disable stacktrace\n"
+	    "\t-Ekeep-var-names   keep variable names in LLVM IR\n\n",
 	    stdout);
 	exit(0);
 }
