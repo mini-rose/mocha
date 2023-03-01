@@ -74,11 +74,22 @@ void pm_create_pkg(const char *name)
 	create_main_file(buf);
 }
 
-void pm_build(settings_t *settings)
+static void pkghomedir()
 {
+	char cwd[PATH_MAX];
+
 	while (!file_exists(".mocha")) {
 		chdir("..");
+		getcwd(cwd, PATH_MAX);
+
+		if (!strcmp(cwd, "/"))
+			error("cannot find package home directory.");
 	}
+}
+
+void pm_build(settings_t *settings)
+{
+	pkghomedir();
 
 	mkdir("build", S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
 
@@ -90,9 +101,7 @@ void pm_build(settings_t *settings)
 
 void pm_run(settings_t *settings)
 {
-	while (!file_exists(".mocha")) {
-		chdir("..");
-	}
+	pkghomedir();
 
 	mkdir("build", S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
 
