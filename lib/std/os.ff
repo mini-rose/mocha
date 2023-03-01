@@ -106,82 +106,82 @@ type os {
 type path {
 	/* Return true if the entry is a file */
 
-	isfile: fn (self: &path, path: &str) -> bool {
+	isfile: static fn (path: &str) -> bool {
 		ret __c_isfile(path)
 	}
 
-	isfile: fn (self: &path, path: str) -> bool {
+	isfile: static fn (path: str) -> bool {
 		ret __c_isfile(&path)
 	}
 
 	/* Return true if the entry is a directory */
 
-	isdir: fn (self: &path, path: &str) -> bool {
+	isdir: static fn (path: &str) -> bool {
 		ret __c_isdir(path)
 	}
 
-	isdir: fn (self: &path, path: str) -> bool {
+	isdir: static fn (path: str) -> bool {
 		ret __c_isdir(&path)
 	}
 
 	/* Test whether a path is a symbolic link */
 
-	islink: fn (self: &path, path: &str) -> bool {
+	islink: static fn (path: &str) -> bool {
 		ret __c_islink(path)
 	}
 
-	islink: fn (self: &path, path: str) -> bool {
+	islink: static fn (path: str) -> bool {
 		ret __c_islink(&path)
 	}
 
 	/* Test whether a path is absolute */
 
-	isabs: fn (self: &path, path: &str) -> bool {
+	isabs: static fn (path: &str) -> bool {
 		ret __c_isabs(path)
 	}
 
-	isabs: fn (self: &path, path: str) -> bool {
+	isabs: static fn (path: str) -> bool {
 		ret __c_isabs(&path)
 	}
 
 	/* Returns an absolute path */
 
-	abs: fn (self: &path, path: &str) -> &str {
+	abs: static fn (path: &str) -> &str {
 		ret __c_abspath(path)
 	}
 
-	abs: fn (self: &path, path: str) -> &str {
+	abs: static fn (path: str) -> &str {
 		ret __c_abspath(&path)
 	}
 
 	/* Returns the final component of a pathname */
 
-	basename: fn (self: &path, path: &str) -> &str {
+	basename: static fn (path: &str) -> &str {
 		ret __c_basename(path)
 	}
 
-	basename: fn (self: &path, path: str) -> &str {
+	basename: static fn (path: str) -> &str {
 		ret __c_basename(&path)
 	}
 
 	/* Returns the directory component of a pathname */
 
-	dirname: fn (self: &path, path: &str) -> &str {
+	dirname: static fn (path: &str) -> &str {
 		ret __c_dirname(path)
 	}
 
-	dirname: fn (self: &path, path: str) -> &str {
+	dirname: static fn (path: str) -> &str {
 		ret __c_dirname(&path)
 	}
 
 	/* Expand ~ and ~user constructions.
 	   If user or $HOME is unknown, do nothing. */
 
-	expanduser: fn (self: &path, path: &str) -> &str {
+	expanduser: static fn (path: &str) -> &str {
 		ret __c_expanduser(path)
 	}
 
-	expanduser: fn (self: &path, path: str) -> &str {
+	expanduser: static fn (path: str) -> &str {
 		ret __c_expanduser(&path)
 	}
 }

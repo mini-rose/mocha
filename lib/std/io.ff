@@ -171,21 +171,21 @@ type io {
 	 * @param stream: 0 for stdin, 1 for stdout, 2 for stderr
 	 * @param buf: string to write
 	 */
-	write: fn (self: &io, stream: i32, buf: &str) {
+	write: static fn (stream: i32, buf: &str) {
 		__c_write_stream(stream, buf.ptr, buf.len)
 	}
 
-	write: fn (self: &io, stream: i32, buf: str) {
+	write: static fn (stream: i32, buf: str) {
 		__c_write_stream(stream, buf.ptr, buf.len)
 	}
 
 	/* Flush stream */
-	flush: fn (self: &io, stream: i32) {
+	flush: static fn (stream: i32) {
 		__c_flush(stream);
 	}
 
 	/* Flush all streams  */
-	flush: fn (self: &io) {
+	flush: static fn {
 		__c_flush();
 	}
 }

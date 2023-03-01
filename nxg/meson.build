@@ -15,6 +15,7 @@ sources = [
   'src/cc/parser.c',
   'src/cc/parser/is.c',
   'src/cc/parser/value.c',
+  'src/cc/parser/use.c',
   'src/cc/parser/call.c',
   'src/cc/parser/dump.c',
   'src/cc/parser/fn.c',

@@ -1,6 +1,7 @@
 /* nxg/parser.c - parse a token list into an AST
    Copyright (c) 2023 mini-rose */
 
+#include "nxg/cc/use.h"
 #include <ctype.h>
 #include <limits.h>
 #include <nxg/cc/alloc.h>

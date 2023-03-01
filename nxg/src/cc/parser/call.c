@@ -2,6 +2,7 @@
    Copyright (c) 2023 mini-rose */
 
 #include "nxg/cc/type.h"
+#include "nxg/cc/use.h"
 
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>
@@ -157,28 +158,6 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 	return ERR_OK;
 }
 
-static inline char *maybe_missed_import(char *name)
-{
-	size_t i;
-
-	static char *std_io[] = {"open",         "print", "close",   "write",
-				 "write_stream", "read",  "readline"};
-
-	static char *std_os[] = {"execute", "exit",      "getenv", "chmod",
-				 "mkdir",   "touch",     "rename", "is_file",
-				 "is_dir",  "is_symlink"};
-
-	for (i = 0; i < LEN(std_io); i++)
-		if (!strcmp(std_io[i], name))
-			return slab_strdup(", did you mean to `use std.io`?");
-
-	for (i = 0; i < LEN(std_os); i++)
-		if (!strcmp(std_os[i], name))
-			return slab_strdup(", did you mean to `use std.os`?");
-
-	return NULL;
-}
-
 static bool possibly_convert_val(value_expr_t *value, type_t *into)
 {
 	/* Check if we can maybe convert a literal. */
@@ -245,6 +224,7 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 
 	fn_candidates_t *resolved;
 
+auto_imported:
 	if (data->object_name) {
 		var_decl_expr_t *var;
 		type_t *obj_type;
@@ -264,6 +244,15 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 
 			o_type = module_find_named_type(mod, data->object_name);
 			if (!o_type) {
+				char *type_name =
+				    strndup(o_name->value, o_name->len);
+
+				if (auto_import(settings, parent, mod,
+						type_name)) {
+					free(type_name);
+					goto auto_imported;
+				}
+
 				error_at(tokens->source, o_name->value,
 					 o_name->len,
 					 "use of an undeclared variable");
@@ -311,13 +300,11 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 
 	/* Bare call */
 	if (!resolved->n_candidates) {
-		/* Check if maybe the user missed an import */
-
-		char *fix = maybe_missed_import(data->name);
+		if (auto_import(settings, parent, mod, data->name))
+			goto auto_imported;
 
 		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
-			 "no function named `%s` found%s", data->name,
-			 fix ? fix : "");
+			 "no function named `%s` found", data->name);
 	}
 
 	bool try_next;
