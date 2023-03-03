@@ -26,7 +26,6 @@ typedef struct
 	bool global;
 	bool using_bs;
 	bool verbose;
-	bool dump_alloc;
 	bool pm_run;
 
 	/* Emit */
@@ -42,6 +41,7 @@ typedef struct
 
 	/* Extra */
 	bool x_sanitize_alloc;
+	bool x_dump_alloc;
 
 	char *opt;
 	char *output;

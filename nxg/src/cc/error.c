@@ -23,9 +23,9 @@ noreturn void error(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	fputs("\n\e[31merror\e[0m: ", stderr);
+	fputs("\e[31merror\e[0m: ", stderr);
 	vfprintf(stderr, format, ap);
-	fputs("\n\n", stderr);
+	fputs("\n", stderr);
 	va_end(ap);
 	exit(1);
 }

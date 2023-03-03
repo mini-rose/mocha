@@ -2,7 +2,7 @@
 #include <nxg/utils/utils.h>
 #include <string.h>
 
-bool auto_import(settings_t *settings, expr_t *parent, expr_t *mod, char *name)
+bool auto_import(settings_t *settings, expr_t *mod, char *name)
 {
 	size_t i;
 
@@ -12,13 +12,13 @@ bool auto_import(settings_t *settings, expr_t *parent, expr_t *mod, char *name)
 
 	for (i = 0; i < LEN(std_io); i++)
 		if (!strcmp(std_io[i], name)) {
-			parent = module_std_import(settings, mod, "std/io");
+			module_std_import(settings, mod, "std/io");
 			return true;
 		}
 
 	for (i = 0; i < LEN(std_os); i++)
 		if (!strcmp(std_os[i], name)) {
-			parent = module_std_import(settings, mod, "std/os");
+			module_std_import(settings, mod, "std/os");
 			return true;
 		}
 

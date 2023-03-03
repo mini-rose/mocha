@@ -246,8 +246,7 @@ auto_imported:
 				char *type_name =
 				    strndup(o_name->value, o_name->len);
 
-				if (auto_import(settings, parent, mod,
-						type_name)) {
+				if (auto_import(settings, mod, type_name)) {
 					free(type_name);
 					goto auto_imported;
 				}
@@ -299,7 +298,7 @@ auto_imported:
 
 	/* Bare call */
 	if (!resolved->n_candidates) {
-		if (auto_import(settings, parent, mod, data->name))
+		if (auto_import(settings, mod, data->name))
 			goto auto_imported;
 
 		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,

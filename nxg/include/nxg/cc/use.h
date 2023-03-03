@@ -2,4 +2,4 @@
 
 #include <nxg/cc/module.h>
 
-bool auto_import(settings_t *settings, expr_t *parent, expr_t *mod, char *name);
+bool auto_import(settings_t *settings, expr_t *mod, char *name);

@@ -19,7 +19,6 @@ static inline void help()
 
 static inline void full_help()
 {
-	puts("");
 	help();
 	fputs(
 	    "Compile, build and link mocha source code into an executable.\n\n"
@@ -31,7 +30,6 @@ static inline void full_help()
 	    "\e[1;34mOptions\e[0m\n"
 	    "\t-o <path>          output binary file name "
 	    "(default: " DEFAULT_OUT ")\n"
-	    "\t-a, --alloc        dump allocation stats\n"
 	    "\t-O <level>         optimization level, one of: 0 1 2 3 s\n"
 	    "\t-p                 show generated AST\n"
 	    "\t-r, --root <path>  mocha root path (default: " NXG_ROOT ")\n"
@@ -39,6 +37,7 @@ static inline void full_help()
 	    "\t-v, --version      show the compiler version\n"
 	    "\t-V                 be verbose, show ran shell commands\n"
 	    "\t-Xsanitize-alloc   sanitize the internal allocator\n"
+	    "\t-Xalloc            dump allocation stats\n"
 	    "\n\e[1;34mLint\e[0m\n"
 	    "\t-Wno-unused        unused variables\n"
 	    "\t-Wno-random        random stuff that don't fit into any other "
@@ -52,7 +51,7 @@ static inline void full_help()
 	    ")\n"
 	    "\n\e[1;34mEmit\e[0m\n"
 	    "\t-Eno-stack         disable stacktrace\n"
-	    "\t-Ekeep-var-names   keep variable names in LLVM IR\n\n",
+	    "\t-Ekeep-var-names   keep variable names in LLVM IR\n",
 	    stdout);
 	exit(0);
 }
@@ -64,17 +63,18 @@ static inline void version()
 	printf("root: %s\n", NXG_ROOT);
 	printf("lld: %s\n", DEFAULT_LD);
 
-	if (OPT_ALLOC_SLAB_INFO || OPT_DEBUG_INFO || OPT_ASAN)
+	if (OPT_ALLOC_SLAB_INFO || OPT_DEBUG_INFO || OPT_ASAN) {
 		printf("opt: ");
 
-	if (OPT_ALLOC_SLAB_INFO)
-		fputs("alloc-slab-info ", stdout);
-	if (OPT_DEBUG_INFO)
-		fputs("debug-info ", stdout);
-	if (OPT_ASAN)
-		fputs("asan ", stdout);
+		if (OPT_ALLOC_SLAB_INFO)
+			fputs("alloc-slab-info ", stdout);
+		if (OPT_DEBUG_INFO)
+			fputs("debug-info ", stdout);
+		if (OPT_ASAN)
+			fputs("asan ", stdout);
 
-	fputc('\n', stdout);
+		fputc('\n', stdout);
+	}
 	exit(0);
 }
 
@@ -90,7 +90,6 @@ static inline void default_settings(settings_t *settings)
 	settings->show_tokens = false;
 	settings->dyn_linker = DEFAULT_LD;
 	settings->verbose = false;
-	settings->dump_alloc = false;
 
 	/* Emit */
 	settings->emit_stacktrace = true;
@@ -105,6 +104,7 @@ static inline void default_settings(settings_t *settings)
 
 	/* Extra */
 	settings->x_sanitize_alloc = false;
+	settings->x_dump_alloc = false;
 
 	settings->opt = "0";
 }
@@ -125,9 +125,6 @@ void parse_opt(settings_t *settings, const char *option, char *arg)
 
 	if (!strncmp(option, "root", 4))
 		settings->sysroot = arg;
-
-	if (!strncmp(option, "alloc", 5))
-		settings->dump_alloc = true;
 }
 
 void parse_emit_opt(settings_t *settings, const char *option)
@@ -144,6 +141,8 @@ void parse_extra_opt(settings_t *settings, const char *option)
 {
 	if (!strcmp("sanitize-alloc", option))
 		settings->x_sanitize_alloc = true;
+	else if (!strcmp("alloc", option))
+		settings->x_dump_alloc = true;
 	else
 		warning("unknown extra option `%s`", option);
 }
@@ -168,7 +167,7 @@ static settings_t settings;
 
 static void exit_routines()
 {
-	if (settings.dump_alloc)
+	if (settings.x_dump_alloc)
 		alloc_dump_stats();
 	if (settings.x_sanitize_alloc)
 		slab_sanitize_global();
@@ -191,7 +190,7 @@ int main(int argc, char **argv)
 	    {"root", required_argument, 0, 0}, {"alloc", no_argument, 0, 0}};
 
 	while (1) {
-		c = getopt_long(argc, argv, "o:r:O:E:W:X:ahvptV", longopts,
+		c = getopt_long(argc, argv, "o:r:O:E:W:X:hvptV", longopts,
 				&optindx);
 
 		if (c == -1)
@@ -200,9 +199,6 @@ int main(int argc, char **argv)
 		switch (c) {
 		case 0:
 			parse_opt(&settings, longopts[optindx].name, optarg);
-			break;
-		case 'a':
-			settings.dump_alloc = true;
 			break;
 		case 'o':
 			settings.output = optarg;
