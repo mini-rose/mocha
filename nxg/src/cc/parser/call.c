@@ -287,9 +287,8 @@ auto_imported:
 		/* Method call has a different error */
 		if (!resolved->n_candidates) {
 			error_at(tokens->source, fn_name_tok->value,
-				 fn_name_tok->len,
-				 "%s has no method named `%s`",
-				 obj_type->v_object->name, data->name);
+				 fn_name_tok->len, "method not found in `%s`",
+				 obj_type->v_object->name);
 		}
 
 	} else {

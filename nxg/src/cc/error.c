@@ -75,7 +75,7 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 
 	if (fix) {
 		fprintf(stderr, "\t\e[92m");
-		indent(pos - start - 1);
+		indent((pos - start) - 1);
 		for (int i = 0; i < len; i++)
 			fputs("⌄", stderr);
 		fprintf(stderr, " \e[1;92m%s\e[0m\n", fix);
@@ -95,8 +95,8 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 	}
 
 	fprintf(stderr, "\n\t");
-	indent(pos - start - strlen(line_str));
-	fprintf(stderr, " %s", settings->title_color);
+	indent((pos - start) - 1);
+	fprintf(stderr, "%s", settings->title_color);
 
 	for (int i = 0; i < len; i++)
 		fputs("⌃", stderr);
@@ -151,9 +151,9 @@ void warning_at_with_fix(file_t *source, const char *pos, int len,
 			 const char *fix, const char *format, ...)
 {
 	err_settings_t settings = {.title = "warning",
-				   .title_color = "\e[35m",
+				   .title_color = "\e[33m",
 				   .highlight_color = "\e[1;36m",
-				   .message_color = "\e[1;36m"};
+				   .message_color = "\e[1;33m"};
 	va_list ap;
 	va_start(ap, format);
 	error_at_impl(source, &settings, pos, len, fix, format, ap);

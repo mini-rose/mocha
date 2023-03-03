@@ -1,0 +1,31 @@
+fn typeof(_: bool) -> str {
+	ret "bool"
+}
+
+fn typeof(_: i8) -> str {
+	ret "i8"
+}
+
+fn typeof(_: i16) -> str {
+	ret "i16"
+}
+
+fn typeof(_: i32) -> str {
+	ret "i32"
+}
+
+fn typeof(_: f32) -> str {
+	ret "f32"
+}
+
+fn typeof(_: f64) -> str {
+	ret "f64"
+}
+
+fn typeof(_: str) -> str {
+	ret "str"
+}
+
+fn typeof(_: &str) -> str {
+	ret "str"
+}
