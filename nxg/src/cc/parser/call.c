@@ -357,11 +357,11 @@ try_matching_types_again:
 	}
 
 	if (resolved->n_candidates == 1) {
-		fprintf(stderr, "\n\e[36minfo:\e[0m found one candidate which "
+		fprintf(stderr, "\e[36minfo:\e[0m found one candidate which "
 				"does not match:\n");
 	} else {
 		fprintf(stderr,
-			"\n\e[36minfo:\e[0m found "
+			"\e[36minfo:\e[0m found "
 			"\e[34m%d\e[0m potential "
 			"candidates:\n",
 			resolved->n_candidates);
@@ -456,10 +456,10 @@ try_matching_types_again:
 			 resolved->candidate[0]->object->name, data->name);
 
 		obj_name = before_tok(tokens, before_tok(tokens, obj_name));
-		error_at_with_fix(tokens->source, obj_name->value,
-				  fn_name_tok->value - obj_name->value
-				      + fn_name_tok->len,
-				  fix, "cannot call static method from object");
+		error_at_with_fix(
+		    tokens->source, obj_name->value,
+		    fn_name_tok->value - obj_name->value + fn_name_tok->len,
+		    fix, "cannot call static method from object instance");
 	} else {
 		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
 			 "could not find a matching overload");

@@ -325,7 +325,11 @@ static err_t parse_var_decl(expr_t *parent, expr_t *module, token_list *tokens,
 	var_decl_expr_t *data;
 	expr_t *node;
 
-	if (node_has_named_local(parent, tok->value, tok->len)) {
+	if ((data = node_resolve_local_touch(parent, tok->value, tok->len,
+					     false))) {
+		warning_at(tokens->source, data->decl_location->value,
+			   data->decl_location->len,
+			   "previously declared here");
 		error_at(tokens->source, tok->value, tok->len,
 			 "a variable named `%.*s` already has been "
 			 "declared in this scope",

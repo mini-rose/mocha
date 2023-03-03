@@ -74,11 +74,11 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 		settings->title_color, settings->title, source->path);
 
 	if (fix) {
-		fprintf(stderr, "\t\e[96m");
+		fprintf(stderr, "\t\e[92m");
 		indent(pos - start - 1);
 		for (int i = 0; i < len; i++)
 			fputs("⌄", stderr);
-		fprintf(stderr, " %s\e[0m\n", fix);
+		fprintf(stderr, " \e[1;92m%s\e[0m\n", fix);
 	}
 
 	fprintf(stderr, "%s\t", line_str);
@@ -96,7 +96,7 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 
 	fprintf(stderr, "\n\t");
 	indent(pos - start - strlen(line_str));
-	fprintf(stderr, "%s", settings->title_color);
+	fprintf(stderr, " %s", settings->title_color);
 
 	for (int i = 0; i < len; i++)
 		fputs("⌃", stderr);
