@@ -1,25 +1,18 @@
 /* nxg/parser.c - parse a token list into an AST
    Copyright (c) 2023 mini-rose */
 
-#include "nxg/cc/use.h"
 #include <ctype.h>
 #include <limits.h>
 #include <nxg/cc/alloc.h>
 #include <nxg/cc/module.h>
-#include <nxg/cc/parser.h>
-#include <nxg/cc/tokenize.h>
-#include <nxg/cc/type.h>
-#include <nxg/utils/error.h>
+#include <nxg/cc/use.h>
 #include <nxg/utils/utils.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static void parse_block(settings_t *settings, expr_t *module, fn_expr_t *fn,
 			expr_t *node, token_list *tokens, token *tok);
-static void parse_fn_params(expr_t *module, fn_expr_t *decl, token_list *tokens,
-			    token *tok);
 
 token *index_tok(token_list *list, int index)
 {
@@ -1348,7 +1341,6 @@ static void parse_type_decl(settings_t *settings, expr_t *module,
 
 	/* = or { */
 	if (tok->type == T_ASS) {
-
 		/* Type alias */
 		ty = module_add_type_decl(module);
 
@@ -1358,7 +1350,6 @@ static void parse_type_decl(settings_t *settings, expr_t *module,
 		ty->v_base = parse_type(module, tokens, tok);
 
 	} else if (tok->type == T_LBRACE) {
-
 		/* Object type */
 		ty = module_add_type_decl(module);
 		ty->kind = TY_OBJECT;
@@ -1367,7 +1358,6 @@ static void parse_type_decl(settings_t *settings, expr_t *module,
 
 		tok = next_tok(tokens);
 		parse_object_fields(settings, module, ty, tokens, tok);
-
 	} else {
 		error_at(tokens->source, tok->value, tok->len,
 			 "expected `=` for alias or `{` for structure type");

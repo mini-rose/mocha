@@ -1,3 +1,6 @@
+/* std.builtin.typeof - builtin typeof functions
+   Copyright (c) 2023 mini-rose */
+
 fn typeof(_: bool) -> str {
 	ret "bool"
 }

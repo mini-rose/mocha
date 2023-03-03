@@ -45,6 +45,8 @@ static const char *tok_str[] = {[T_DATATYPE] = "DATATYPE",
 				[T_RBRACE] = "RBRACE",
 				[T_LBRACKET] = "LBRACKET",
 				[T_RBRACKET] = "RBRACKET",
+				[T_LANGLE] = "LANGLE",
+				[T_RANGLE] = "RANGLE",
 				[T_DOT] = "DOT",
 				[T_MUL] = "MUL",
 				[T_SUB] = "SUB"};
@@ -336,6 +338,16 @@ token_list *tokens(file_t *source)
 				break;
 			case '.':
 				tok = token_new(last = T_DOT, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			case '<':
+				tok = token_new(last = T_LANGLE, p, 1);
+				token_list_append(list, tok);
+				p++;
+				break;
+			case '>':
+				tok = token_new(last = T_RANGLE, p, 1);
 				token_list_append(list, tok);
 				p++;
 				break;

@@ -23,6 +23,8 @@ typedef enum
 	T_RBRACE,   // }
 	T_LBRACKET, // [
 	T_RBRACKET, // ]
+	T_LANGLE,   // <
+	T_RANGLE,   // >
 	T_COMMA,    // ,
 	T_DOT,      // .
 	T_END,
