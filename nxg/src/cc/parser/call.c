@@ -356,20 +356,23 @@ try_matching_types_again:
 			continue;
 	}
 
-	if (resolved->n_candidates == 1)
-		fprintf(stderr, "\n\e[36minfo:\e[0m found potential "
-				"candidate\n");
-	else
+	if (resolved->n_candidates == 1) {
+		fprintf(stderr, "\n\e[36minfo:\e[0m found one candidate which "
+				"does not match:\n");
+	} else {
 		fprintf(stderr,
 			"\n\e[36minfo:\e[0m found "
 			"\e[34m%d\e[0m potential "
 			"candidates:\n",
 			resolved->n_candidates);
+	}
 
 	for (int i = 0; i < resolved->n_candidates; i++) {
 		char *sig = fn_str_signature(resolved->candidate[i], true);
-		fprintf(stderr, "%*s• %s\n", (int) strlen("INFO: "), " ", sig);
+		fprintf(stderr, "%*s• %s\n", (int) strlen("info: "), " ", sig);
 	}
+
+	fputc('\n', stdout);
 
 	int max_params, min_params;
 
@@ -437,8 +440,30 @@ try_matching_types_again:
 		}
 	}
 
-	error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
-		 "could not find a matching overload");
+	bool all_static = true;
+	for (int i = 0; i < resolved->n_candidates; i++) {
+		if (!resolved->candidate[i]->is_static) {
+			all_static = false;
+			break;
+		}
+	}
+
+	char fix[1024];
+	token *obj_name = fn_name_tok;
+
+	if (all_static && resolved->n_candidates) {
+		snprintf(fix, 1024, "%s.%s",
+			 resolved->candidate[0]->object->name, data->name);
+
+		obj_name = before_tok(tokens, before_tok(tokens, obj_name));
+		error_at_with_fix(tokens->source, obj_name->value,
+				  fn_name_tok->value - obj_name->value
+				      + fn_name_tok->len,
+				  fix, "cannot call static method from object");
+	} else {
+		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
+			 "could not find a matching overload");
+	}
 
 end:
 	/* Common case: print() takes both a string reference and a string copy

@@ -70,18 +70,15 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 		end++;
 
 	snprintf(line_str, 11, "%d", line);
-	fprintf(stderr, "\n%s%s\e[0m in \e[1;98m%s\e[0m:\n\n",
+	fprintf(stderr, "%s%s\e[0m in \e[1;98m%s\e[0m:\n\n",
 		settings->title_color, settings->title, source->path);
 
 	if (fix) {
 		fprintf(stderr, "\t\e[96m");
 		indent(pos - start - 1);
-		fprintf(stderr, "%s\e[0m\n", fix);
-		fprintf(stderr, "\t\e[96m");
-		indent(pos - start - 1);
 		for (int i = 0; i < len; i++)
 			fputs("⌄", stderr);
-		fprintf(stderr, "\e[0m\n");
+		fprintf(stderr, " %s\e[0m\n", fix);
 	}
 
 	fprintf(stderr, "%s\t", line_str);

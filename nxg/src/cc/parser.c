@@ -1445,8 +1445,13 @@ char *fn_str_signature(fn_expr_t *func, bool with_colors)
 	char *ty_str;
 	memset(sig, 0, 1024);
 
-	snprintf(sig, 1024, "%s%s%s(", with_colors ? "\e[94m" : "", func->name,
-		 with_colors ? "\e[0m" : "");
+	if (func->object)
+		snprintf(buf, 64, "%s.", func->object->name);
+	else
+		buf[0] = 0;
+
+	snprintf(sig, 1024, "%s%s%s%s(", with_colors ? "\e[94m" : "", buf,
+		 func->name, with_colors ? "\e[0m" : "");
 
 	for (int i = 0; i < func->n_params - 1; i++) {
 		ty_str = type_name(func->params[i]->type);
