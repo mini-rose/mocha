@@ -28,6 +28,10 @@ static inline void push_to_settings(file_t *f, settings_t *settings, char *key,
 		settings->output = slab_strndup(val, val_len);
 	} else if (!strncmp("sysroot", key, key_len)) {
 		settings->sysroot = slab_strndup(val, val_len);
+	} else if (!strncmp("project", key, key_len)) {
+		settings->pkgname = slab_strndup(val, val_len);
+	} else if (!strncmp("version", key, key_len)) {
+		settings->pkgver = slab_strndup(val, val_len);
 	} else {
 		error_at(f, key, key_len, "invalid key: '%.*s'", key_len, key);
 	}

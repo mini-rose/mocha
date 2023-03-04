@@ -1,6 +1,7 @@
 /* pkg/pm.c - package manager
    Copyright (c) 2023 mini-rose */
 
+#include "nxg/cc/alloc.h"
 #include <limits.h>
 #include <nxg/bs/buildfile.h>
 #include <nxg/nxg.h>
@@ -10,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 static inline bool dir_exists(const char *path)
@@ -32,7 +34,7 @@ static inline bool file_exists(const char *path)
 	return (S_ISREG(_stat.st_mode)) ? true : false;
 }
 
-void create_bs_file(const char *dirname)
+void create_bs_file(const char *dirname, const char *pkgname)
 {
 	FILE *fp;
 	char *bf = "source = 'src/main.ff'\n"
@@ -43,13 +45,15 @@ void create_bs_file(const char *dirname)
 
 	fp = fopen(bs_path, "w");
 	fputs(bf, fp);
+	fprintf(fp, "project = '%s'\n", pkgname);
+	fprintf(fp, "version = 'v0.1.0'\n");
 	fclose(fp);
 }
 
 void create_main_file(const char *srcdir)
 {
 	FILE *fp;
-	char *content = "use std.io\n\nfn main {\n\tprint('Hello world!')\n}";
+	char *content = "fn main {\n\tprint('Hello world!')\n}";
 	const char main_path[PATH_MAX];
 	memcpy((char *) main_path, srcdir, strlen(srcdir) + 1);
 	strcat((char *) main_path, "/main.ff");
@@ -70,8 +74,11 @@ void pm_create_pkg(const char *name)
 	mkdir(name, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
 	strcat(buf, "/src");
 	mkdir(buf, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
-	create_bs_file(name);
+
+	create_bs_file(name, name);
 	create_main_file(buf);
+
+	printf("\e[32mCreated\e[0m binary (application) `%s` package\n", name);
 }
 
 static void pkghomedir()
@@ -89,25 +96,37 @@ static void pkghomedir()
 
 void pm_build(settings_t *settings)
 {
+	struct timeval tv;
+
 	pkghomedir();
 
-	mkdir("build", S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
+	if (!dir_exists("build")) {
+		mkdir("build", S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
+	}
+
+	gettimeofday(&tv, NULL);
+	settings->pm = true;
+	settings->compile_start = (tv.tv_sec * 1000LL) + (tv.tv_usec / 1000LL);
 
 	if (!settings->using_bs) {
 		buildfile(settings);
 		settings->using_bs = true;
 	}
+
+	settings->opt = slab_strdup("0");
+
+	printf("\e[32mCompiling\e[0m %s %s\n", settings->pkgname,
+	       settings->pkgver);
 }
 
 void pm_run(settings_t *settings)
 {
+	struct timeval tv;
+
 	pkghomedir();
+	pm_build(settings);
 
-	mkdir("build", S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IROTH);
-
-	if (!settings->using_bs) {
-		buildfile(settings);
-		settings->using_bs = true;
-		settings->pm_run = true;
-	}
+	settings->pm_run = true;
+	gettimeofday(&tv, NULL);
+	settings->compile_start = (tv.tv_sec * 1000LL) + (tv.tv_usec / 1000LL);
 }

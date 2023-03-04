@@ -1,3 +1,4 @@
+#include <nxg/cc/module.h>
 #include <nxg/cc/use.h>
 #include <nxg/utils/utils.h>
 #include <string.h>

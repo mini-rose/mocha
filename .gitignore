@@ -10,3 +10,6 @@ a.out
 
 .coffee
 /nxg/*.ff
+.gitignore
+
+/nxg/install

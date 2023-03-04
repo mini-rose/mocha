@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 static void remove_extension(char *file)
@@ -102,7 +103,19 @@ static void build_and_link(settings_t *settings, const char *input_,
 
 	pclose(proc);
 
+	if (settings->pm) {
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		long long diff = ((tv.tv_sec * 1000LL) + (tv.tv_usec / 1000LL))
+			       - settings->compile_start;
+		double seconds = (double) diff / 1000.0;
+		printf("\e[32m Finished\e[0m dev [unoptimized + debuginfo] "
+		       "target(s) in %.2fs\n",
+		       seconds);
+	}
+
 	if (settings->pm_run) {
+		printf("\e[32m  Running\e[0m `%s`\n", settings->output);
 		snprintf(cmd, 1024, "./%s", settings->output);
 		system(cmd);
 	}

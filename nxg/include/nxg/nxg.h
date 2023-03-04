@@ -3,6 +3,7 @@
 
 #pragma once
 #include <stdbool.h>
+#include <time.h>
 
 #define NXG_MAJOR 0
 #define NXG_MINOR 9
@@ -26,7 +27,13 @@ typedef struct
 	bool global;
 	bool using_bs;
 	bool verbose;
+
+	/* Package manager */
+	bool pm;
 	bool pm_run;
+	const char *pkgname;
+	const char *pkgver;
+	long long compile_start;
 
 	/* Emit */
 	bool emit_stacktrace;

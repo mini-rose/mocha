@@ -118,7 +118,7 @@ type File {
 	}
 
 	/**
-	 * Read a line from the file_t.
+	 * Read a line from the file.
 	 */
 	readline: fn (self: &File) -> &str {
 		ret __c_readline(self.__fp)
@@ -166,7 +166,7 @@ type File {
 
 type io {
 	/**
-	 * Write a string into a stream, which is marked as a file_t descriptor.
+	 * Write a string into a stream.
 	 *
 	 * @param stream: 0 for stdin, 1 for stdout, 2 for stderr
 	 * @param buf: string to write

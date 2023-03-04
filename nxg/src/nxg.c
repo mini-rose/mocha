@@ -91,6 +91,10 @@ static inline void default_settings(settings_t *settings)
 	settings->dyn_linker = DEFAULT_LD;
 	settings->verbose = false;
 
+	/* Package manager */
+	settings->pm = false;
+	settings->pm_run = false;
+
 	/* Emit */
 	settings->emit_stacktrace = true;
 	settings->emit_varnames = false;
