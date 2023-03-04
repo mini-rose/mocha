@@ -26,6 +26,7 @@ static inline void full_help()
 	    "\tnew <name>         create new project\n"
 	    "\tbuild              build project\n"
 	    "\trun                build and run project\n"
+	    "\tclean              remove generated artifacts\n"
 	    "\t.                  use .mocha buildfile\n\n"
 	    "\e[1;34mOptions\e[0m\n"
 	    "\t-o <path>          output binary file name "
@@ -255,13 +256,14 @@ int main(int argc, char **argv)
 			exit(0);
 		}
 
-		if (!strncmp(argv[i], "build", 6)) {
+		if (!strncmp(argv[i], "build", 6))
 			pm_build(&settings);
-		}
 
-		if (!strncmp(argv[i], "run", 4)) {
+		if (!strncmp(argv[i], "run", 4))
 			pm_run(&settings);
-		}
+
+		if (!strncmp(argv[i], "clean", 4))
+			pm_clean(&settings);
 	}
 
 	if (settings.input == NULL) {

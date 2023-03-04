@@ -48,6 +48,15 @@ void create_bs_file(const char *dirname, const char *pkgname)
 	fprintf(fp, "project = '%s'\n", pkgname);
 	fprintf(fp, "version = 'v0.1.0'\n");
 	fclose(fp);
+
+	char cmd[1024];
+
+	snprintf(
+	    cmd, 1024,
+	    "cd %s && git init --quiet && echo '/build' > .gitignore && cd ..",
+	    pkgname);
+
+	system(cmd);
 }
 
 void create_main_file(const char *srcdir)
@@ -92,6 +101,18 @@ static void pkghomedir()
 		if (!strcmp(cwd, "/"))
 			error("cannot find package home directory.");
 	}
+}
+
+noreturn void pm_clean(settings_t *settings)
+{
+	buildfile(settings);
+
+	pkghomedir();
+	if (dir_exists("build")) {
+		remove(settings->output);
+		rmdir("build");
+	}
+	exit(0);
 }
 
 void pm_build(settings_t *settings)
