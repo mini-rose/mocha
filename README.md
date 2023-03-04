@@ -1,2 +1,0 @@
-# mocha
-Mocha package manager

@@ -1,0 +1,14 @@
+mocha
+=====
+
+Mocha package manager.
+
+Build
+-----
+   $ cd mocha
+   $ meson setup --buildtype=release build
+   $ meson compile -C build
+
+Installation
+------------
+  $ meson install -C build
