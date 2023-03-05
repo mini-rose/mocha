@@ -30,7 +30,9 @@ void project_init(settings_t *settings)
 
 	/* creating .mocha.cfg */
 	fp = fopen(".mocha.cfg", "w");
-	fprintf(fp, "project = '%s'\nversion = 'v0.1.0'\n",
+	fprintf(fp,
+		"project = '%s'\nversion = 'v0.1.0'\nsource = "
+		"'src/main.ff'\noutput = 'build/main'\n",
 		basename((char *) settings->root));
 	fclose(fp);
 
@@ -56,8 +58,13 @@ void project_new(settings_t *settings)
 
 void project_clean(settings_t *settings)
 {
-	rmrf(buildpath(settings->root, settings->outdir));
-	rmrf("/tmp/mcc");
+	chdir_root();
+
+	if (isdir(settings->outdir))
+		rmrf(settings->outdir);
+
+	if (isdir("/tmp/mcc"))
+		rmrf("/tmp/mcc");
 }
 
 void project_build(settings_t *settings)

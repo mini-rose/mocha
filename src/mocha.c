@@ -1,5 +1,6 @@
 #include <mocha/mocha.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static void version()
 {
@@ -22,6 +23,20 @@ static void help()
 	     "\t-V, --verbose      be verbose, show ran shell commands\n"
 	     "\t                   and provided options\n"
 	     "\t-q, --quiet        silents all unnecessery outputs\n");
+}
+
+static void destroy(settings_t *settings)
+{
+	if (settings->pkgname)
+		free((char *) settings->pkgname);
+	if (settings->pkgver)
+		free((char *) settings->pkgver);
+	if (settings->source)
+		free((char *) settings->source);
+	if (settings->output)
+		free((char *) settings->output);
+	if (settings->outdir)
+		free((char *) settings->outdir);
 }
 
 static void run_action(settings_t *settings)
@@ -49,6 +64,8 @@ static void run_action(settings_t *settings)
 		version();
 		break;
 	}
+
+	destroy(settings);
 }
 
 int main(int argc, char **argv)

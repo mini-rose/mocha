@@ -85,17 +85,14 @@ static int parse_action(int argc, char **argv, int index, settings_t *settings)
 
 static void argparse_verbose(settings_t *settings)
 {
-	printf("root: %s\n"
-	       "outdir: %s\n"
-	       "action: %s\n"
+	printf("action: %s\n"
 	       "build type: %s\n"
-	       "opt: %c\n"
 	       "verbose: %s\n"
 	       "quiet: %s\n",
 
-	       settings->root, settings->outdir, action_name(settings->action),
+	       action_name(settings->action),
 	       (settings->build_type == B_DEBUG) ? "debug" : "release",
-	       settings->opt, (settings->verbose) ? "true" : "false",
+	       (settings->verbose) ? "true" : "false",
 	       (settings->quiet) ? "true" : "false");
 }
 
