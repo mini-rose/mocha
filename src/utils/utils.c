@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <libgen.h>
 #include <linux/limits.h>
 #include <mocha/utils/error.h>
 #include <mocha/utils/utils.h>
@@ -101,15 +102,53 @@ void rmrf(const char *path)
 	rmdir(path);
 }
 
-char *input(const char *prompt)
+char *input(const char *prompt, ...)
 {
 	static char output[64];
+	va_list ap;
 	int c;
-	*output = '\0';
 
-	fputs(prompt, stdout);
+	*output = '\0';
+	va_start(ap, prompt);
+	vprintf(prompt, ap);
+	va_end(ap);
+
 	while ((c = getc(stdin)) != '\n')
 		strcat(output, chartostr(c));
 
+	if (*output == '\0')
+		return NULL;
+
 	return output;
+}
+
+bool isolder(const char *filepath, const char *other)
+{
+	struct stat _filepath, _other;
+
+	if (!isfile(filepath)) {
+		error("file `%s` does not exists", filepath);
+	}
+
+	if (!isfile(other)) {
+		error("file `%s` does not exists", other);
+	}
+
+	stat(filepath, &_filepath);
+	stat(other, &_filepath);
+
+	return _filepath.st_mtime < _other.st_mtime;
+}
+
+char *getroot(void)
+{
+	static char root[PATH_MAX] = {};
+
+	if (root[0])
+		return root;
+
+	chdir_root();
+	getcwd(root, PATH_MAX);
+
+	return root;
 }

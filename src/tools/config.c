@@ -33,19 +33,14 @@ static void parse_single_value(file_t *file, settings_t *settings, char *k, char
 	strncpy(value, v + 1, strlen(v) - 2);
 
 	if (!strcmp(k, "project"))
-		settings->pkgname = strdup(value);
+		settings->package_name = strdup(value);
 
 	else if (!strcmp(k, "version"))
-		settings->pkgver = strdup(value);
+		settings->package_version = strdup(value);
 
-	else if (!strcmp(k, "source"))
-		settings->source = strdup(value);
+	else if (!strcmp(k, "output"))
+		settings->out = strdup(value);
 
-	else if (!strcmp(k, "output")) {
-		settings->output = strdup(value);
-		settings->outdir =
-		    strdup(abspath(dirname((char *) settings->output)));
-	}
 	else
 		error_at(file, k, strlen(k), "unknown key");
 }
@@ -90,17 +85,6 @@ static const char *parse_option(file_t *file, settings_t *settings,
 	return nextline(p);
 }
 
-void cfgparse_verbose(settings_t *settings)
-{
-	printf("pkgname: %s\n"
-	       "pkgver: %s\n"
-	       "source: %s\n"
-	       "output: %s\n"
-	       "outdir: %s\n",
-	       settings->pkgname, settings->pkgver, settings->source,
-	       settings->output, settings->outdir);
-}
-
 void cfgparse(settings_t *settings)
 {
 	/* Skip for actions that does not need config */
@@ -135,7 +119,4 @@ void cfgparse(settings_t *settings)
 	}
 
 	file_destroy(f);
-
-	if (settings->verbose)
-		cfgparse_verbose(settings);
 }

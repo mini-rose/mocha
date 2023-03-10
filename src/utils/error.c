@@ -1,4 +1,5 @@
 #include <mocha/utils/error.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -117,4 +118,14 @@ void warning_at(file_t *source, const char *pos, int len, const char *format,
 	va_list ap;
 	va_start(ap, format);
 	error_at_impl(source, &settings, pos, len, format, ap);
+}
+
+void __debug(const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	printf("\e[33mDEBUG\e[0m: ");
+	vprintf(format, ap);
+	fputc('\n', stdout);
+	va_end(ap);
 }

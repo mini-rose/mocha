@@ -5,18 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static char *action_name(action_t action)
-{
-	static char *actions[] = {
-		[A_NEW] = "new", [A_RUN] = "run",
-		[A_INIT] = "init", [A_HELP] = "help",
-		[A_BUILD] = "build", [A_CLEAN] = "clean",
-		[A_VERSION] = "version"
-	};
-
-	return actions[action];
-}
-
 static void parse_option(int argc, char **argv, int index, settings_t *settings)
 {
 	char *option = argv[index];
@@ -31,9 +19,6 @@ static void parse_option(int argc, char **argv, int index, settings_t *settings)
 
 	else if (!strcmp(option, "--quiet") || !strcmp(option, "-q"))
 		settings->quiet = true;
-
-	else if (!strcmp(option, "-V") || !strcmp(option, "--verbose"))
-		settings->verbose = true;
 
 	else
 		error("unknown option `%s`", option);
@@ -52,28 +37,12 @@ static int parse_action(int argc, char **argv, int index, settings_t *settings)
 	else if (!strcmp(action, "init"))
 		settings->action = A_INIT;
 
-	else if (!strcmp(action, "build")) {
-		if (index + 1 < argc) {
-			if (!strcmp(argv[index + 1], "release"))
-				settings->build_type = B_RELEASE;
-			else if (!strcmp(argv[index + 1], "debug"))
-				return 1; /* debug is default one */
-			else
-				error("unknown build type `%s`, allowed only "
-				      "`debug` and `release`",
-				      argv[index + 1]);
-
-		}
-
-		settings->action = A_BUILD;
-	}
-
 	else if (!strcmp(action, "new")) {
-		if (index + 1 > argc)
+		if (index + 1 >= argc)
 			error("expected package name after 'new'");
 
 		settings->action = A_NEW;
-		settings->root = argv[index + 1];
+		settings->root = strdup(argv[index + 1]);
 		return 1;
 	}
 
@@ -81,19 +50,6 @@ static int parse_action(int argc, char **argv, int index, settings_t *settings)
 		error("unknown action `%s`", action);
 
 	return 0;
-}
-
-static void argparse_verbose(settings_t *settings)
-{
-	printf("action: %s\n"
-	       "build type: %s\n"
-	       "verbose: %s\n"
-	       "quiet: %s\n",
-
-	       action_name(settings->action),
-	       (settings->build_type == B_DEBUG) ? "debug" : "release",
-	       (settings->verbose) ? "true" : "false",
-	       (settings->quiet) ? "true" : "false");
 }
 
 void argparse(int argc, char **argv, settings_t *settings)
@@ -107,7 +63,4 @@ void argparse(int argc, char **argv, settings_t *settings)
 		else
 			i += parse_action(argc, argv, i, settings);
 	}
-
-	if (settings->verbose)
-		argparse_verbose(settings);
 }

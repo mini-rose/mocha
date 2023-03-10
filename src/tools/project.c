@@ -15,8 +15,16 @@
 
 void project_init(settings_t *settings)
 {
-	if (!settings->root)
-		settings->root = input("Project name: ");
+	char *name =
+	    input("package name: (%s) ", basename((char *) settings->root));
+
+	if (!name)
+		settings->package_name =
+		    strdup(basename((char *) settings->root));
+	else
+		settings->package_name = strdup(name);
+
+	char *version = input("Version: (v0.1.0) ");
 
 	/* mkdir ./src */
 	makedir("src");
@@ -24,21 +32,24 @@ void project_init(settings_t *settings)
 	/* creating ./src/main.ff */
 	chdir("src");
 	FILE *fp = fopen("main.ff", "w");
-	fprintf(fp, "fn main {\n\tprint('Hello world!')\n}\n");
+	fprintf(fp, "fn main {\n"
+		    "\tprint('Hello world!')\n"
+		    "}\n");
 	fclose(fp);
 	chdir("..");
 
 	/* creating .mocha.cfg */
 	fp = fopen(".mocha.cfg", "w");
 	fprintf(fp,
-		"project = '%s'\nversion = 'v0.1.0'\nsource = "
-		"'src/main.ff'\noutput = 'build/main'\n",
-		basename((char *) settings->root));
+		"project = '%s'\n"
+		"version = '%s'\n"
+		"output = 'build/main'\n",
+		settings->package_name, (version) ? version : "v0.1.0");
 	fclose(fp);
 
 	if (!settings->quiet)
 		printf("\033[32mCreated\033[0m `%s` package\n",
-		       basename((char *) settings->root));
+		       basename((char *) settings->package_name));
 }
 
 void project_new(settings_t *settings)
@@ -60,21 +71,9 @@ void project_clean(settings_t *settings)
 {
 	chdir_root();
 
-	if (isdir(settings->outdir))
-		rmrf(settings->outdir);
+	if (isdir(dirname((char *) settings->out)))
+		rmrf(settings->out);
 
 	if (isdir("/tmp/mcc"))
 		rmrf("/tmp/mcc");
-}
-
-void project_build(settings_t *settings)
-{
-	unused(settings);
-	chdir_root();
-}
-
-void project_run(settings_t *settings)
-{
-	unused(settings);
-	chdir_root();
 }

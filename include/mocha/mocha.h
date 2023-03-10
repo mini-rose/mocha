@@ -21,21 +21,20 @@ typedef enum
 } build_t;
 
 typedef struct {
+	/* Project root directory */
 	const char *root;
 
-	/* pkgconfig */
-	const char *pkgname;
-	const char *pkgver;
-	const char *source;
-	const char *output;
-	const char *outdir;
+	/* Project source directory */
+	const char *src;
 
+	/* Project build directory */
+	const char *out;
+
+	const char *package_name;
+	const char *package_version;
+
+	/* Workflow */
 	action_t action;
-	build_t build_type;
-
-	char opt;
-	char *options;
-	bool verbose;
 	bool quiet;
 } settings_t;
 
@@ -49,7 +48,6 @@ typedef struct {
 
 #define DEFAULT_SETTINGS                                                       \
  {                                                                             \
-  .build_type = B_DEBUG, .opt = '0', .verbose = false, .quiet = false,         \
-  .action = A_HELP, .options = NULL, .source = NULL, .pkgname = NULL,          \
-  .pkgver = NULL                                                               \
+  .root = NULL, .src = NULL, .out = NULL, .package_name = NULL,                \
+  .package_version = NULL, .action = A_HELP, .quiet = false                    \
  }

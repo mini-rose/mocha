@@ -32,7 +32,7 @@ c_args = [
 link_args = []
 
 if get_option('buildtype') == 'debug'
-  c_args += ['-O0', '-ggdb', '-fsanitize=address']
+  c_args += ['-O0', '-ggdb', '-fsanitize=address', '-DDEBUG']
   link_args += '-fsanitize=address'
 else
   c_args += '-O3'
