@@ -3,7 +3,7 @@
 
 #ifndef _TOOLS_H
 # error                                                                         \
-     "Never include <mocha/tools/argparse.h> directly; use <mocha/tools.h> instead"
+     "Never include <mocha/tools/args.h> directly; use <mocha/tools.h> instead"
 #endif
 
 # include <mocha/mocha.h>

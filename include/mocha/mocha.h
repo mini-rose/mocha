@@ -26,10 +26,12 @@ typedef struct {
 
 	/* Project source directory */
 	const char *src;
+	const char *src_main;
 
 	/* Project build directory */
 	const char *out;
 
+	/* Package information */
 	const char *package_name;
 	const char *package_version;
 
@@ -41,5 +43,5 @@ typedef struct {
 #define DEFAULT_SETTINGS                                                       \
  {                                                                             \
   .root = NULL, .src = NULL, .out = NULL, .package_name = NULL,                \
-  .package_version = NULL, .action = A_HELP, .quiet = false                    \
+  .package_version = NULL, .action = A_HELP, .quiet = false, .src_main = NULL  \
  }

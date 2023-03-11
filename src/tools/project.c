@@ -4,6 +4,7 @@
 /* @see: mocha/tools/project.h for more information */
 
 #include <libgen.h>
+#include <linux/limits.h>
 #include <mocha/mocha.h>
 #include <mocha/tools.h>
 #include <mocha/utils.h>
@@ -24,26 +25,31 @@ void project_init(settings_t *settings)
 		settings->package_name = strdup(name);
 
 	char *version = input("Version: (v0.1.0) ");
+	char output[PATH_MAX] = {};
+
+	snprintf(output, PATH_MAX, "%s.mo", settings->root);
 
 	/* mkdir ./src */
 	makedir("src");
 
 	/* creating ./src/main.ff */
 	chdir("src");
-	FILE *fp = fopen("main.ff", "w");
+	FILE *fp = fopen(output, "w");
 	fprintf(fp, "fn main {\n"
 		    "\tprint('Hello world!')\n"
 		    "}\n");
 	fclose(fp);
 	chdir("..");
 
-	/* creating .mocha.cfg */
-	fp = fopen(".mocha.cfg", "w");
+	/* creating mocha.cfg */
+	fp = fopen("mocha.cfg", "w");
 	fprintf(fp,
 		"project = '%s'\n"
 		"version = '%s'\n"
-		"output = 'build/main'\n",
-		settings->package_name, (version) ? version : "v0.1.0");
+		"source = 'src/%s'\n"
+		"output = 'build/%s'\n",
+		settings->package_name, (version) ? version : "v0.1.0", output,
+		output);
 	fclose(fp);
 
 	if (!settings->quiet)

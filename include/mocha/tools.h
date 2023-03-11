@@ -2,7 +2,7 @@
 
 #define _TOOLS_H
 
-#include <mocha/tools/argparse.h>
+#include <mocha/tools/args.h>
 #include <mocha/tools/config.h>
 #include <mocha/tools/project.h>
 

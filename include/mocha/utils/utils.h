@@ -52,7 +52,7 @@ void rmrf(const char *path);
 char *input(const char *prompt, ...);
 
 /*
-   Build path from strings
+   build path from strings
    @note: function return pointer to statically
 	  allocated memory which may be overwritten
 	  by subsequent calls and maximal path lenght is 4096 bytes
@@ -60,6 +60,6 @@ char *input(const char *prompt, ...);
 char *_buildpath(int n, ...);
 
 #define buildpath(...) _buildpath(_ARG_C(__VA_ARGS__), __VA_ARGS__)
-#define unused(var) (void) var
+#define unused(var)    (void) var
 #define len(arr)    (int) (sizeof arr / sizeof *arr)
 #define chartostr(c)   ((char[]){c, '\0'})

@@ -36,6 +36,9 @@ static void parse_single_value(file_t *file, settings_t *settings, char *k, char
 	else if (!strcmp(k, "version"))
 		settings->package_version = strdup(value);
 
+	else if (!strcmp(k, "source"))
+		settings->src_main = strdup(value);
+
 	else if (!strcmp(k, "output"))
 		settings->out = strdup(value);
 
@@ -100,7 +103,7 @@ void cfgparse(settings_t *settings)
 
 	chdir_root();
 
-	file_t *f= file_new(".mocha.cfg");
+	file_t *f = file_new("mocha.cfg");
 	const char *p = f->content;
 
 	while (*p) {

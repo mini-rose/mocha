@@ -120,6 +120,7 @@ void warning_at(file_t *source, const char *pos, int len, const char *format,
 	error_at_impl(source, &settings, pos, len, format, ap);
 }
 
+#ifdef DEBUG
 void __debug(const char *format, ...)
 {
 	va_list ap;
@@ -129,3 +130,4 @@ void __debug(const char *format, ...)
 	fputc('\n', stdout);
 	va_end(ap);
 }
+#endif

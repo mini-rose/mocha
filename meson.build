@@ -8,15 +8,10 @@ project(
 )
 
 sources = [
-  # Main
   'src/mocha.c',
-
-  # Tools
-  'src/tools/argparse.c',
+  'src/tools/args.c',
   'src/tools/project.c',
   'src/tools/config.c',
-
-  # Utils
   'src/utils/utils.c',
   'src/utils/error.c',
   'src/utils/file.c'

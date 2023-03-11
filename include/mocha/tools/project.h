@@ -11,8 +11,8 @@
 /*
     Legend:
        * root path - provided by user by `mocha new (path)`
-       * .mocha.cfg - @see: mocha/tools/config.h
-       * builddir - field (output) in .mocha.cfg that means
+       * mocha.cfg - @see: mocha/tools/config.h
+       * builddir - field (output) in mocha.cfg that means
 		    directory where `mcc` outputs binary file.
 */
 
@@ -20,7 +20,7 @@
     Creates project in root path with following file tree:
 	root
 	├ src/main.ff
-	└ .mocha.cfg
+	└ mocha.cfg
 */
 void project_new(settings_t *settings);
 
@@ -29,7 +29,7 @@ void project_new(settings_t *settings);
     with following file tree:
 	.
 	├ src/main.ff
-	└ .mocha.cfg
+	└ mocha.cfg
 */
 void project_init(settings_t *settings);
 

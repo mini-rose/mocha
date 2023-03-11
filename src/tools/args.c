@@ -51,6 +51,17 @@ static int parse_action(int argc, char **argv, int index, settings_t *settings)
 	return 0;
 }
 
+#ifdef DEBUG
+char *action_name(action_t action)
+{
+	static char *names[] = {
+	    [A_RUN] = "run", [A_CLEAN] = "clean", [A_INIT] = "init",
+	    [A_NEW] = "new", [A_HELP] = "help",   [A_VERSION] = "version"};
+
+	return names[action];
+}
+#endif
+
 void argparse(int argc, char **argv, settings_t *settings)
 {
 	/* Skip call argument */
@@ -62,4 +73,6 @@ void argparse(int argc, char **argv, settings_t *settings)
 		else
 			i += parse_action(argc, argv, i, settings);
 	}
+
+	debug("action: %s", action_name(settings->action));
 }

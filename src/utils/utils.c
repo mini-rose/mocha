@@ -45,7 +45,7 @@ void chdir_root(void)
 	char start[PATH_MAX];
 	getcwd(start, PATH_MAX);
 
-	while (!isfile(".mocha.cfg")) {
+	while (!isfile("mocha.cfg")) {
 		chdir("..");
 		getcwd(cwd, PATH_MAX);
 
@@ -144,8 +144,11 @@ char *getroot(void)
 	if (root[0])
 		return root;
 
+	char cwd[PATH_MAX];
+	getcwd(cwd, PATH_MAX);
 	chdir_root();
 	getcwd(root, PATH_MAX);
+	chdir(cwd);
 
 	return root;
 }

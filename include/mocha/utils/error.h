@@ -18,9 +18,8 @@ void warning(const char *format, ...);
 void warning_at(file_t *source, const char *pos, int len, const char *format,
 		...);
 
-void __debug(const char *format, ...);
-
 #ifdef DEBUG
+void __debug(const char *format, ...);
 # define debug(...) __debug(__VA_ARGS__)
 #else
 # define debug(...)
