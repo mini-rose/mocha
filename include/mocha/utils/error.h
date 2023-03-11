@@ -3,7 +3,11 @@
 
 #pragma once
 
-#include <mocha/utils/file.h>
+#ifndef _UTILS_H
+# error                                                                         \
+     "Never include <mocha/utils/error.h> directly; use <mocha/utils.h> instead"
+#endif
+
 #include <stdnoreturn.h>
 
 noreturn void error(const char *format, ...);

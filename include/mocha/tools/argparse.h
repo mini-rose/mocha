@@ -1,9 +1,12 @@
 /* tools/argparse.h
    Copyright (c) 2023 mini-rose */
 
-#pragma once
+#ifndef _TOOLS_H
+# error                                                                         \
+     "Never include <mocha/tools/argparse.h> directly; use <mocha/tools.h> instead"
+#endif
 
-#include <mocha/mocha.h>
+# include <mocha/mocha.h>
 
 /*
    Parses a command line arguments to settings_t.

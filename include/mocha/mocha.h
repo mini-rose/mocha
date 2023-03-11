@@ -38,14 +38,6 @@ typedef struct {
 	bool quiet;
 } settings_t;
 
-#include <mocha/tools/argparse.h>
-#include <mocha/tools/config.h>
-#include <mocha/tools/project.h>
-
-#define MOCHA_MAJOR 0
-#define MOCHA_MINOR 1
-#define MOCHA_TARGET "linux-x86_64"
-
 #define DEFAULT_SETTINGS                                                       \
  {                                                                             \
   .root = NULL, .src = NULL, .out = NULL, .package_name = NULL,                \

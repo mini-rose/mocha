@@ -1,11 +1,9 @@
-#include "mocha/mocha.h"
 #include <ctype.h>
 #include <libgen.h>
 #include <linux/limits.h>
-#include <mocha/tools/config.h>
-#include <mocha/utils/error.h>
-#include <mocha/utils/file.h>
-#include <mocha/utils/utils.h>
+#include <mocha/mocha.h>
+#include <mocha/tools.h>
+#include <mocha/utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

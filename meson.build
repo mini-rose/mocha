@@ -1,5 +1,5 @@
 project(
-  'mocha', 'c', version: '0.1.0',
+  'mocha', 'c', version: 'v0.1.1',
   default_options: [
     'prefix=/usr',
     'c_std=c2x',
@@ -26,7 +26,11 @@ includes = include_directories('include')
 bindir = get_option('prefix') / get_option('bindir')
 
 c_args = [
-  '-Wall', '-Wextra'
+  '-Wall', '-Wextra',
+  '-DMOCHA_MAJOR=' + '"0"',
+  '-DMOCHA_MINOR=' + '"1"',
+  '-DMOCHA_PATCH=' + '"1"',
+  '-DMOCHA_TARGET=' + '"x86_64-pc-linux-gnu"'
 ]
 
 link_args = []

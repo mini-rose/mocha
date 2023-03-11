@@ -1,8 +1,7 @@
 #include <dirent.h>
 #include <libgen.h>
 #include <linux/limits.h>
-#include <mocha/utils/error.h>
-#include <mocha/utils/utils.h>
+#include <mocha/utils.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -126,13 +125,11 @@ bool isolder(const char *filepath, const char *other)
 {
 	struct stat _filepath, _other;
 
-	if (!isfile(filepath)) {
+	if (!isfile(filepath))
 		error("file `%s` does not exists", filepath);
-	}
 
-	if (!isfile(other)) {
+	if (!isfile(other))
 		error("file `%s` does not exists", other);
-	}
 
 	stat(filepath, &_filepath);
 	stat(other, &_filepath);

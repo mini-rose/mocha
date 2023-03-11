@@ -1,7 +1,6 @@
-#include "mocha/mocha.h"
-#include <mocha/utils/utils.h>
-#include <mocha/tools/argparse.h>
-#include <mocha/utils/error.h>
+#include <mocha/mocha.h>
+#include <mocha/tools.h>
+#include <mocha/utils.h>
 #include <stdio.h>
 #include <string.h>
 

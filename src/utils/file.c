@@ -1,6 +1,4 @@
-#include <mocha/utils/error.h>
-#include <mocha/utils/file.h>
-#include <mocha/utils/utils.h>
+#include <mocha/utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

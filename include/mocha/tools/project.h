@@ -1,7 +1,10 @@
 /* tools/project.h - basic project actions
    Copyright (c) 2023 mini-rose */
 
-#pragma once
+#ifndef _TOOLS_H
+# error                                                                         \
+     "Never include <mocha/tools/project.h> directly; use <mocha/tools.h> instead"
+#endif
 
 #include <mocha/mocha.h>
 

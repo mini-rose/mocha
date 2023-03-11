@@ -3,6 +3,11 @@
 
 #pragma once
 
+#ifndef _UTILS_H
+# error                                                                         \
+     "Never include <mocha/utils/file.h> directly; use <mocha/utils.h> instead"
+#endif
+
 typedef struct {
 	const char *path;
 	const char *content;
