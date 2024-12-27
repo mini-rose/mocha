@@ -11,7 +11,7 @@ Options
 * ``source`` - source file
 * ``output`` - executable file name
 * ``flags`` - array of one character options for example: ['-p', '-t']
-* ``sysroot`` - mocha root path, like /usr/lib/mocha (see nxg -v for the default)
+* ``sysroot`` - mocha root path, like /usr/lib/mocha (see mv -v for the default)
 
 
 Example

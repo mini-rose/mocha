@@ -1,7 +1,7 @@
 mocha
 =====
 
-This is the main repository for the mocha project, and it contains the nxg
+This is the main repository for the mocha project, and it contains the mx
 compiler/build system, the mocha standard library along with documentation
 found in doc/.
 
@@ -24,10 +24,8 @@ fn add(a: i32, b: i32) -> i32 {
 Build
 -----
 
-- nxg
-   $ cd nxg
-   $ meson setup --buildtype=release build
-   $ meson compile -C build
+- mx
+   $ cd mx && make
 
 Documentation
 -------------

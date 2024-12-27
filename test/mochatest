@@ -81,7 +81,7 @@ def run_test(test_name: str) -> bool:
     path = test_name.replace('.', '/')
     settings = parse_test_info(test_name, path)
 
-    cmd = ['nxg', '-o../../__out__/test', 'test.ff']
+    cmd = ['mx', '-o../../__out__/test', 'test.ff']
     if settings.fields['flags']:
         cmd.extend(settings.fields['flags'].split())
 

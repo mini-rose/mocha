@@ -4,7 +4,7 @@ Function mangling
 
 Each function name gets mangled in order to support overloading and generic
 types, similar to what C++ or Rust does with their code. Mocha uses the
-``nxg_mangle`` function, which uses the Itanium C++ ABI for mangling symbols
+``mx_mangle`` function, which uses the Itanium C++ ABI for mangling symbols
 and type names (https://itanium-cxx-abi.github.io/cxx-abi/abi.html), but
 the difference is in the second character; instead of a 'Z' we use a 'M',
 so the main function will be mangled to ``_M4main`` instead of ``_M4main``.
