@@ -97,6 +97,7 @@ expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 
 	snprintf(path, 512, "%s/lib%s%s", settings->sysroot,
 		 *file == '/' ? "" : "/", file);
+
 	imported = module_import_impl(settings, module, path);
 
 	if (!imported)

@@ -1420,6 +1420,7 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 	}
 
 	/* Go back and parse the function contents */
+
 	for (int i = 0; i < fn_pos.n; i++) {
 		tokens->iter = fn_pos.pos[i]->tok_index;
 

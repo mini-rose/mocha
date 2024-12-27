@@ -5,10 +5,12 @@
 #include <stdbool.h>
 #include <time.h>
 
-#define NXG_MAJOR 0
-#define NXG_MINOR 9
+#define MX_MAJOR 0
+#define MX_MINOR 9
 
-#define NXG_TARGET "linux-x86_64"
+#if !defined MX_TARGET
+# define MX_TARGET "unknown"
+#endif
 
 #define DEFAULT_OUT  "a.out"
 #define DEFAULT_LD   "/lib/ld-linux-x86-64.so.2"
@@ -16,8 +18,8 @@
 
 #define LD_MUSL "/lib/ld-musl-x86_64.so.1"
 
-#if !defined NXG_ROOT
-# define NXG_ROOT DEFAULT_ROOT
+#if !defined MX_ROOT
+# define MX_ROOT DEFAULT_ROOT
 #endif
 
 typedef struct

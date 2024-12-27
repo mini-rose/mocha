@@ -11,6 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+static settings_t settings;
 
 static inline void help()
 {
@@ -33,7 +36,7 @@ static inline void full_help()
 	    "(default: " DEFAULT_OUT ")\n"
 	    "\t-O <level>         optimization level, one of: 0 1 2 3 s\n"
 	    "\t-p                 show generated AST\n"
-	    "\t-r, --root <path>  mocha root path (default: " NXG_ROOT ")\n"
+	    "\t-r, --root <path>  mocha root path (default: " MX_ROOT ")\n"
 	    "\t-t                 show generated tokens\n"
 	    "\t-v, --version      show the compiler version\n"
 	    "\t-V                 be verbose, show ran shell commands\n"
@@ -59,9 +62,9 @@ static inline void full_help()
 
 static inline void version()
 {
-	printf("mx %d.%d\n", NXG_MAJOR, NXG_MINOR);
-	printf("target: %s\n", NXG_TARGET);
-	printf("root: %s\n", NXG_ROOT);
+	printf("mx %d.%d\n", MX_MAJOR, MX_MINOR);
+	printf("target: %s\n", MX_TARGET);
+	printf("root: %s\n", settings.sysroot);
 	printf("lld: %s\n", DEFAULT_LD);
 
 	if (OPT_ALLOC_SLAB_INFO || OPT_DEBUG_INFO || OPT_ASAN) {
@@ -83,13 +86,26 @@ static inline void default_settings(settings_t *settings)
 {
 	/* Note: Allocating memory here will crash, as the slab alloc is not
 	   initialized yet. */
-	settings->sysroot = NXG_ROOT;
+	settings->sysroot = MX_ROOT;
+
+	if (access("/usr/lib/mocha", F_OK) == 0) {
+        settings->sysroot = "/usr/lib/mocha";
+	} else if (access("/usr/local/lib/mocha", F_OK) == 0) {
+        settings->sysroot = "/usr/local/lib/mocha";
+	} else {
+        error("could not find mocha root path, please specify it with -r");
+	}
+
 	settings->output = DEFAULT_OUT;
 	settings->global = false;
 	settings->input = NULL;
 	settings->using_bs = false;
 	settings->show_tokens = false;
 	settings->dyn_linker = DEFAULT_LD;
+
+	if (access(DEFAULT_LD, F_OK) == 0)
+        settings->dyn_linker = DEFAULT_LD;
+
 	settings->verbose = false;
 
 	/* Package manager */
@@ -112,6 +128,15 @@ static inline void default_settings(settings_t *settings)
 	settings->x_dump_alloc = false;
 
 	settings->opt = "0";
+}
+
+static inline void validate_settings(settings_t settings)
+{
+    if (settings.sysroot == NULL)
+        error("missing sysroot path");
+
+    if (access(settings.sysroot, F_OK) == -1)
+        error("sysroot path does not exist: %s, see help for more information", settings.sysroot);
 }
 
 void parse_opt(settings_t *settings, const char *option, char *arg)
@@ -167,8 +192,6 @@ void parse_warn_opt(settings_t *settings, const char *option)
 	else
 		warning("unknown warn option `%s`", option);
 }
-
-static settings_t settings;
 
 static void exit_routines()
 {
@@ -275,6 +298,9 @@ int main(int argc, char **argv)
 	int n = strlen(settings.sysroot);
 	if (settings.sysroot[n - 1] == '/')
 		settings.sysroot[n - 1] = 0;
+
+	// Check settings
+	validate_settings(settings);
 
 	compile(&settings);
 

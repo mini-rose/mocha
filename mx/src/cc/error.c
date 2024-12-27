@@ -95,11 +95,13 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 	}
 
 	fprintf(stderr, "\n\t");
-	indent((pos - start) - 1);
+	indent(pos - start);
 	fprintf(stderr, "%s", settings->title_color);
 
-	for (int i = 0; i < len; i++)
-		fputs("⌃", stderr);
+	fputs("⌃", stderr);
+
+	for (int i = 1; i < len; i++)
+    	fputs("~", stderr);
 
 	fprintf(stderr, " %s", settings->message_color);
 	vfprintf(stderr, format, ap);
@@ -114,7 +116,7 @@ noreturn void error_at(file_t *source, const char *pos, int len,
 	err_settings_t settings = {.title = "error",
 				   .title_color = "\033[91m",
 				   .highlight_color = "\033[1;91m",
-				   .message_color = "\033[1;91m"};
+				   .message_color = "\033[91m"};
 	va_list ap;
 	va_start(ap, format);
 

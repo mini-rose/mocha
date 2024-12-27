@@ -53,36 +53,35 @@ static void build_and_link(settings_t *settings, const char *input_,
 	remove_extension(input);
 
 	/* mod.ll -> mod.bc */
-	snprintf(cmd, 1024, "/usr/bin/opt -O%s %s > %s.bc", settings->opt,
+	snprintf(cmd, 1024, "opt -O%s %s > %s.bc", settings->opt,
 		 input_, input);
 	if (settings->verbose)
 		puts(cmd);
 	pclose(popen(cmd, "r"));
 
 	/* mod.bc -> mod.s */
-	snprintf(cmd, 1024, "/usr/bin/llc -o %s.s %s.bc", input, input);
+	snprintf(cmd, 1024, "llc -o %s.s %s.bc", input, input);
 	if (settings->verbose)
 		puts(cmd);
 	pclose(popen(cmd, "r"));
 
 	/* mod.s -> mod.o */
-	snprintf(cmd, 1024, "/usr/bin/as -o %s.o %s.s", input, input);
+	snprintf(cmd, 1024, "as -o %s.o %s.s", input, input);
 	if (settings->verbose)
 		puts(cmd);
 	pclose(popen(cmd, "r"));
 
 	/* mod.o -> output */
+	// TODO: add back linker option
 	snprintf(cmd, 1024,
-		 "/usr/bin/ld -o %s -dynamic-linker %s /lib/crt1.o "
-		 "/lib/crti.o %s.o ",
-		 output, settings->dyn_linker, input);
+		 "/usr/bin/clang -o %s %s.o ",
+		 output, input);
 
 	for (int i = 0; i < c_objects->n; i++) {
 		strcat(cmd, c_objects->objects[i]);
 		strcat(cmd, " ");
 	}
 
-	strcat(cmd, "/lib/crtn.o -lc 2>&1");
 	if (settings->verbose)
 		puts(cmd);
 	proc = popen(cmd, "r");
@@ -126,6 +125,8 @@ char *compile_c_object(settings_t *settings, char *file)
 	char *output = slab_alloc(512);
 	char cmd[512];
 	int len;
+
+	mkdir("/tmp/mx/C", 0777);
 
 	len = snprintf(output, 512, "/tmp/mx/C%s.o", file);
 	for (int i = 10; i < len; i++) {
@@ -182,7 +183,6 @@ void compile(settings_t *settings)
 
 	snprintf(module_path, 512, "/tmp/mx/%s.ll", module_name);
 	emit_module(settings, ast, module_path);
-
 	build_and_link(settings, module_path, settings->output,
 		       E_AS_MOD(ast->data)->c_objects);
 }
