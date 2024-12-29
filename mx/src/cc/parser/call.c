@@ -160,9 +160,8 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 static bool possibly_convert_val(value_expr_t *value, type_t *into)
 {
 	/* Check if we can maybe convert a literal. */
-	if (type_can_be_converted(value->return_type, into)) {
+	if (type_can_cast(value->return_type, into))
 		return convert_int_value(value, into);
-	}
 
 	return false;
 }
@@ -290,9 +289,18 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 			 "cannot find function in this scope");
 	}
 
+	int type_matching_tries;
 	bool try_next;
 
+	type_matching_tries = 0;
+
 try_matching_types_again:
+	type_matching_tries++;
+
+	if (type_matching_tries > 16) {
+		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
+			 "trying to convert arguments, failed 16 times");
+	}
 
 	/* Find the matching candidate */
 	for (int i = 0; i < resolved->n_candidates; i++) {
@@ -329,8 +337,14 @@ try_matching_types_again:
 		if (match->n_params != data->n_args)
 			continue;
 
-		/* Check for argument types */
+		/* Check if we can convert different types. */
+
 		for (int j = 0; j < match->n_params; j++) {
+			if (type_cmp(data->args[j]->return_type,
+				     match->params[j]->type)) {
+				continue;
+			}
+
 			if (possibly_convert_val(data->args[j],
 						 match->params[j]->type)) {
 				goto try_matching_types_again;
@@ -342,8 +356,9 @@ try_matching_types_again:
 	}
 
 	if (resolved->n_candidates == 1) {
-		fprintf(stderr, "\033[36minfo:\033[0m found one candidate which "
-				"does not match:\n");
+		fprintf(stderr,
+			"\033[36minfo:\033[0m found one candidate which "
+			"does not match:\n");
 	} else {
 		fprintf(stderr,
 			"\033[36minfo:\033[0m found "

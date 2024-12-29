@@ -8,10 +8,10 @@ PREFIX := /usr/local
 CC ?= cc
 
 # Compiler flags
-CFLAGS :=
+CFLAGS ?=
 
 # Linker flags
-LDFLAGS :=
+LDFLAGS ?=
 
 # Include directory
 CFLAGS += -Iinclude
@@ -43,7 +43,7 @@ endif
 
 mx: $(OBJ)
 	@echo "LD $@"
-	@$(CC) $(LDFLAGS) -o $@ $?
+	@$(CC) -fuse-ld=mold $(LDFLAGS) -o $@ $?
 
 $(OBJ): $(SRC)
 

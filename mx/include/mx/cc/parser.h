@@ -70,6 +70,7 @@ typedef enum
 	VE_EQ,     /* left == right */
 	VE_NEQ,    /* left != right */
 	VE_TUPLE,  /* tuple */
+	VE_CAST,   /* T as U */
 } value_expr_type;
 
 typedef struct
@@ -93,7 +94,11 @@ struct value_expr
 		value_expr_t *left;
 		tuple_expr_t *tuple;
 	};
-	value_expr_t *right;
+	union
+	{
+		value_expr_t *right;
+		value_expr_t *cast_value;
+	};
 };
 
 /* variable declaration */
@@ -165,11 +170,7 @@ struct literal_expr
 	type_t *type;
 	union
 	{
-		bool v_bool;
-		unsigned char v_i8;
-		short v_i16;
-		int v_i32;
-		long v_i64;
+		long v_int;
 		float v_f32;
 		double v_f64;
 		sized_string_t v_str;
@@ -196,7 +197,9 @@ void literal_default(literal_expr_t *literal);
 char *stringify_literal(literal_expr_t *literal);
 
 const char *value_expr_type_name(value_expr_type t);
+bool value_expr_is_twosided(value_expr_t *node);
 value_expr_type value_expr_type_from_op(token_list *tokens, token *op);
+value_expr_t *value_expr_cast(value_expr_t *value, type_t *cast_to);
 
 var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len);
 bool node_has_named_local(expr_t *node, const char *name, int len);
@@ -260,4 +263,4 @@ typedef struct
 highlight_t highlight_value(token_list *tokens, token *tok);
 
 #define TOK_IS(TOK, TYPE, VALUE)                                               \
- (((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))
+	(((TOK)->type == (TYPE)) && !strncmp((TOK)->value, VALUE, (TOK)->len))

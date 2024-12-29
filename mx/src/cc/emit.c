@@ -12,6 +12,7 @@
 #include <mx/cc/type.h>
 #include <mx/mx.h>
 #include <mx/utils/error.h>
+#include <mx/utils/utils.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -276,20 +277,30 @@ static LLVMValueRef gen_deref(LLVMBuilderRef builder, fn_context_t *context,
 	return LLVMBuildLoad2(builder, deref_to, local, "");
 }
 
+static LLVMTypeRef llvm_type_from_plain(plain_type kind)
+{
+	switch (kind) {
+	case PT_BOOL:
+		return LLVMIntType(1);
+	case PT_I8:
+		return LLVMIntType(8);
+	case PT_I16:
+		return LLVMIntType(16);
+	case PT_I32:
+		return LLVMIntType(32);
+	case PT_I64:
+	default:
+		return LLVMIntType(64);
+	}
+}
+
 static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 				      fn_context_t *context,
 				      literal_expr_t *lit)
 {
-	if (lit->type->v_plain == PT_I8)
-		return LLVMConstInt(LLVMInt8Type(), lit->v_i8, false);
-	if (lit->type->v_plain == PT_I16)
-		return LLVMConstInt(LLVMInt16Type(), lit->v_i16, false);
-	if (lit->type->v_plain == PT_I32)
-		return LLVMConstInt(LLVMInt32Type(), lit->v_i32, false);
-	if (lit->type->v_plain == PT_I64)
-		return LLVMConstInt(LLVMInt64Type(), lit->v_i64, false);
-	if (lit->type->v_plain == PT_BOOL)
-		return LLVMConstInt(LLVMInt1Type(), lit->v_bool, false);
+	if (lit->type->kind == TY_PLAIN)
+		return LLVMConstInt(llvm_type_from_plain(lit->type->v_plain),
+				    lit->v_int, false);
 
 	/* Return a str struct. */
 	if (is_str_type(lit->type)) {
@@ -399,6 +410,17 @@ static LLVMValueRef gen_const_array(LLVMBuilderRef builder,
 	return LLVMConstNamedStruct(ty, fields, 2);
 }
 
+static LLVMValueRef gen_cast(LLVMBuilderRef builder, fn_context_t *context,
+			     value_expr_t *value)
+{
+	LLVMValueRef value_to_cast;
+
+	value_to_cast = gen_new_value(builder, context, value->cast_value);
+	return LLVMBuildIntCast(builder, value_to_cast,
+				gen_type(context->llvm_mod, value->return_type),
+				"");
+}
+
 /**
  * Generate a new value in the block from the value expression given. It can be
  * a reference to a variable, a literal value, a call or two-hand-side
@@ -433,6 +455,8 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 		return gen_cmp(builder, context, value, LLVMIntNE);
 	case VE_TUPLE:
 		return gen_const_array(builder, context, value);
+	case VE_CAST:
+		return gen_cast(builder, context, value);
 	default:
 		if (!value->left || !value->right) {
 			error("emit: undefined value: two-side op with only "
@@ -459,6 +483,9 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 			error("emit: unknown operation: %s",
 			      value_expr_type_name(value->type));
 		}
+
+		if (!new)
+			error("emit: failed to build math operation");
 
 		return new;
 	}

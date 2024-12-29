@@ -32,8 +32,9 @@ const char *expr_typename(expr_type type)
 const char *value_expr_type_name(value_expr_type t)
 {
 	static const char *names[] = {
-	    "NULL", "REF",   "LIT",  "CALL", "ADD",    "SUB", "MUL", "DIV",
-	    "PTR",  "DEREF", "MREF", "MPTR", "MDEREF", "EQ",  "NEQ", "TUPLE"};
+	    "NULL",   "REF", "LIT", "CALL",  "ADD",  "SUB",
+	    "MUL",    "DIV", "PTR", "DEREF", "MREF", "MPTR",
+	    "MDEREF", "EQ",  "NEQ", "TUPLE", "CAST"};
 
 	if (t >= 0 && t < LEN(names))
 		return names[t];
@@ -186,6 +187,10 @@ void expr_print_value_expr(value_expr_t *val, int level)
 		       val->tuple->len);
 		for (int i = 0; i < val->tuple->len; i++)
 			expr_print_value_expr(val->tuple->values[i], level + 1);
+		break;
+	case VE_CAST:
+		printf("cast as %s:\n", type_name(val->return_type));
+		expr_print_value_expr(val->cast_value, level + 1);
 		break;
 	default:
 		error("dump: cannot dump VE_%s value expr",

@@ -343,13 +343,9 @@ int type_sizeof(type_t *ty)
 	}
 }
 
-bool type_can_be_converted(type_t *from, type_t *to)
+bool type_can_cast(type_t *from, type_t *to)
 {
-	if (from->kind != TY_PLAIN || to->kind != TY_PLAIN)
-		return false;
-
-	/* Plain types (integers) can always be converted. */
-	return true;
+	return from->kind == TY_PLAIN && to->kind == TY_PLAIN;
 }
 
 void type_object_add_field(object_type_t *o, char *name, type_t *ty)

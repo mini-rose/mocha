@@ -139,16 +139,17 @@ static void sanitizer_buffer_error(struct slab *allocator, const char *problem,
 
 	base = allocator->slabs[i_slab] + (allocator->block_size * i_pos);
 
-	printf(
-	    "alloc:   addressable range of \033[92m%d\033[0m bytes from %p to %p\n",
-	    allocator->block_size, base, base + allocator->block_size);
+	printf("alloc:   addressable range of \033[92m%d\033[0m bytes from %p "
+	       "to %p\n",
+	       allocator->block_size, base, base + allocator->block_size);
 
 	info = sanitizer_get_alloc_details(base);
 	if (!info) {
 		printf("alloc:   no alloc details, compile with "
 		       "`-DOPT_ALLOC_SLAB_INFO=1`\n");
 	} else {
-		printf("alloc:   allocated \033[92m%d\033[0m bytes \033[34min %s at "
+		printf("alloc:   allocated \033[92m%d\033[0m bytes \033[34min "
+		       "%s at "
 		       "%s:%d\033[0m\n",
 		       info->requested, info->func, info->file, info->line);
 	}
@@ -189,9 +190,9 @@ skip:
 	printf("alloc:\n");
 	printf("alloc:             addressable data\n");
 	printf("alloc:             v~~~~~~~\n");
-	printf(
-	    "alloc:   "
-	    "|\033[31mxxxxxxxx\033[0m|\033[32m--user--\033[0m|\033[31mxxxxxxxx\033[0m|\n");
+	printf("alloc:   "
+	       "|\033[31mxxxxxxxx\033[0m|\033[32m--user--\033[0m|\033["
+	       "31mxxxxxxxx\033[0m|\n");
 
 	if (!strcmp(problem, "buffer-underflow")) {
 		printf("alloc:         ~~^\n");

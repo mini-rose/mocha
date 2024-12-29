@@ -7,9 +7,6 @@
 #include <mx/cc/type.h>
 #include <mx/utils/error.h>
 #include <mx/utils/utils.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 static void parse_reference(value_expr_t *node, expr_t *context,
 			    token_list *tokens, token *tok)
@@ -240,7 +237,8 @@ err_t parse_rvalue(settings_t *settings, expr_t *context, expr_t *mod,
 
 static bool operator_predeces(value_expr_type self, value_expr_type other)
 {
-	// see more at: https://en.cppreference.com/w/cpp/language/operator_precedence
+	// see more at:
+	// https://en.cppreference.com/w/cpp/language/operator_precedence
 	struct precendence
 	{
 		value_expr_type op;
@@ -272,7 +270,7 @@ static bool operator_predeces(value_expr_type self, value_expr_type other)
 	return self_p.precedence < other_p.precedence;
 }
 
-static inline bool is_twoside_value(value_expr_t *node)
+bool value_expr_is_twosided(value_expr_t *node)
 {
 	return node->left && node->right;
 }
@@ -289,7 +287,7 @@ static void swap_evaluation_order(value_expr_t *node)
 	value_expr_t *left, *r_left, *r_right;
 	value_expr_type op, r_op;
 
-	if (!is_twoside_value(node))
+	if (!value_expr_is_twosided(node))
 		return;
 
 	left = node->left;
@@ -307,6 +305,18 @@ static void swap_evaluation_order(value_expr_t *node)
 
 	node->type = r_op;
 	node->right = r_right;
+}
+
+value_expr_t *value_expr_cast(value_expr_t *value, type_t *cast_to)
+{
+	value_expr_t *cast;
+
+	cast = slab_alloc(sizeof(value_expr_t));
+	cast->type = VE_CAST;
+	cast->return_type = type_copy(cast_to);
+	cast->cast_value = value;
+
+	return cast;
 }
 
 /* Parse a rvalue */
@@ -346,7 +356,7 @@ value_expr_t *parse_value_expr(settings_t *settings, expr_t *context,
 		 * -matically have a lower precendence.
 		 */
 
-		if (is_twoside_value(node->right)
+		if (value_expr_is_twosided(node->right)
 		    && operator_predeces(node->type, node->right->type)
 		    && !node->right->force_precendence) {
 			swap_evaluation_order(node);
@@ -355,16 +365,37 @@ value_expr_t *parse_value_expr(settings_t *settings, expr_t *context,
 		tok = index_tok(tokens, tokens->iter - 1);
 		if (!type_cmp(node->left->return_type,
 			      node->right->return_type)) {
-			error_at(tokens->source, start->value,
-				 tok->value - start->value,
-				 "left and right side of operation are not of "
-				 "the same types");
+
+			/* Before we shout at the user, try casting (of course
+			   try both sides, it may be easier to cast from left to
+			   right instead of right to left. */
+
+			// TODO: ensure casting to the larger type
+
+			if (type_can_cast(node->left->return_type,
+					  node->right->return_type)) {
+				node->left = value_expr_cast(
+				    node->left, node->right->return_type);
+
+			} else if (type_can_cast(node->right->return_type,
+						 node->left->return_type)) {
+				node->right = value_expr_cast(
+				    node->right, node->left->return_type);
+
+			} else {
+				error_at(tokens->source, start->value,
+					 tok->value - start->value,
+					 "left and right side of operation are "
+					 "not of "
+					 "the same types");
+			}
 		}
 
 		if (node->type == VE_EQ || node->type == VE_NEQ)
 			node->return_type = type_new_plain(PT_BOOL);
 		else
 			node->return_type = type_copy(node->left->return_type);
+
 		return node;
 	}
 

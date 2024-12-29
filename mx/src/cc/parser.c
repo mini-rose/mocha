@@ -160,8 +160,22 @@ static void parse_string_literal(sized_string_t *val, token *tok)
 	val->ptr = buf;
 }
 
+static int int_type_for_literal(long value)
+{
+	/* We could be granular, and check from i8 but this creates a very quiet
+	   killer: one would expect that running 200 + 200 would give 400, but
+       it would roll over on i8s, giving 144. This is of course not an error
+       and cannot be warned about. For safety reasons, we keep it an i32. */
+
+	if (value >= INT_MIN && value <= INT_MAX)
+		return PT_I32;
+	return PT_I64;
+}
+
 void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 {
+	int int_type;
+
 	node->type = VE_LIT;
 
 	/* string */
@@ -181,9 +195,10 @@ void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 		   if it fits later. */
 
 		if (is_integer(tok)) {
-			node->return_type = type_new_plain(PT_I64);
-			node->literal->type = type_new_plain(PT_I64);
-			node->literal->v_i64 = strtol(tmp, NULL, 10);
+			node->literal->v_int = strtol(tmp, NULL, 10);
+			int_type = int_type_for_literal(node->literal->v_int);
+			node->return_type = type_new_plain(int_type);
+			node->literal->type = type_new_plain(int_type);
 		} else if (is_float(tok)) {
 			node->return_type = type_new_plain(PT_F64);
 			node->literal->type = type_new_plain(PT_F64);
@@ -192,7 +207,6 @@ void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 			error_at(tokens->source, tok->value, tok->len,
 				 "cannot parse this number");
 		}
-
 		return;
 	}
 
@@ -200,7 +214,7 @@ void parse_literal(value_expr_t *node, token_list *tokens, token *tok)
 		node->literal = slab_alloc(sizeof(*node->literal));
 		node->return_type = type_new_plain(PT_BOOL);
 		node->literal->type = type_new_plain(PT_BOOL);
-		node->literal->v_bool = (tok->type == T_TRUE) ? true : false;
+		node->literal->v_int = (tok->type == T_TRUE) ? 1 : 0;
 		return;
 	}
 
@@ -357,63 +371,31 @@ static err_t parse_var_decl(expr_t *parent, expr_t *module, token_list *tokens,
 	return ERR_OK;
 }
 
-static long get_int_literal(value_expr_t *value)
-{
-	literal_expr_t *lit = value->literal;
-
-	/* We have to pull each value depending on the type as cast it into
-	   something bigger, because IIRC treating the padding of a union as a
-	   value is undefined behaviour. */
-
-	switch (value->return_type->v_plain) {
-	case PT_BOOL:
-		return lit->v_bool;
-	case PT_I8:
-		return lit->v_i8;
-	case PT_I16:
-		return lit->v_i16;
-	case PT_I32:
-		return lit->v_i32;
-	case PT_I64:
-		return lit->v_i64;
-	default:
-		return 0;
-	}
-}
-
 bool convert_int_value(value_expr_t *value, type_t *into_type)
 {
 	long val;
 
 	if (type_cmp(value->return_type, into_type))
 		return true;
-
 	if (value->type != VE_LIT)
-		return true;
+		return false;
 
-	val = get_int_literal(value);
+	val = value->literal->v_int;
+
+	/* Check if we can fit. */
 
 	switch (into_type->v_plain) {
-	case PT_BOOL:
-		value->literal->v_bool = val;
-		break;
 	case PT_I8:
 		if (val < CHAR_MIN || val > CHAR_MAX)
 			return false;
-		value->literal->v_i8 = val;
 		break;
 	case PT_I16:
 		if (val < SHRT_MIN || val > SHRT_MAX)
 			return false;
-		value->literal->v_i16 = val;
 		break;
 	case PT_I32:
 		if (val < INT_MIN || val > INT_MAX)
 			return false;
-		value->literal->v_i32 = val;
-		break;
-	case PT_I64:
-		value->literal->v_i64 = val;
 		break;
 	default:
 		break;
@@ -435,6 +417,7 @@ static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
 	token *name;
 	token *dot_tok = NULL;
 	token *member_tok = NULL;
+	token *eq_tok = NULL;
 	bool deref = false;
 	bool guess_type = false;
 	bool member_access = false;
@@ -478,6 +461,7 @@ static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
 	node->data = data;
 
 	tok = next_tok(tokens);
+	eq_tok = tok;
 
 	/* Assign to member */
 	if (tok->type == T_DOT) {
@@ -563,25 +547,41 @@ static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
 	}
 
 	if (!type_cmp(data->to->return_type, data->value->return_type)) {
-		if (data->to->return_type->kind == TY_POINTER) {
-			if (type_cmp(data->to->return_type->v_base,
-				     data->value->return_type)) {
-				char fix[128];
-				snprintf(fix, 128, "*%s", data->to->name);
-				error_at_with_fix(
-				    tokens->source, name->value, name->len, fix,
-				    "mismatched types in assignment: did you "
-				    "mean to dereference the pointer?");
+		if (data->to->return_type->kind == TY_POINTER
+		    && type_cmp(data->to->return_type->v_base,
+				data->value->return_type)) {
+			char fix[128];
+			snprintf(fix, 128, "*%s", data->to->name);
+			error_at_with_fix(
+			    tokens->source, name->value, name->len, fix,
+			    "mismatched types in assignment: did you "
+			    "mean to dereference the pointer?");
+		}
+
+		/* Try to cast the result of the operation. */
+
+		else if (value_expr_is_twosided(data->value)) {
+			if (!type_can_cast(data->value->return_type,
+					   data->to->return_type)) {
+				error_at(tokens->source, eq_tok->value,
+					 eq_tok->len,
+					 "cannot assign `%s` result to `%s`",
+					 type_name(data->value->return_type),
+					 type_name(data->to->return_type));
 			}
+
+			data->value =
+			    value_expr_cast(data->value, data->to->return_type);
 		}
 
 		/* If we have a literal and it can be converted, convert is
 		   automatically so we can assign values to i64 for example. */
-		if (data->value->type == VE_LIT
-		    && type_can_be_converted(data->value->return_type,
-					     data->to->return_type)) {
 
-			long previous_val = get_int_literal(data->value);
+		else if (data->value->type == VE_LIT
+			 && type_can_cast(data->value->return_type,
+					  data->to->return_type)) {
+
+			long previous_val = data->value->literal->v_int;
 			if (!convert_int_value(data->value,
 					       data->to->return_type)) {
 				error_at(tokens->source, tok->value, tok->len,
@@ -589,14 +589,12 @@ static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
 					 previous_val,
 					 type_name(data->to->return_type));
 			}
-
 		} else {
-			error_at(
-			    tokens->source, name->value, name->len,
-			    "mismatched types in assignment: left is `%s` and "
-			    "right is `%s`",
-			    type_name(data->to->return_type),
-			    type_name(data->value->return_type));
+			error_at(tokens->source, name->value, name->len,
+				 "mismatched types in assignment, assigning "
+				 "`%s` to `%s`",
+				 type_name(data->value->return_type),
+				 type_name(data->to->return_type));
 		}
 	}
 
@@ -1190,7 +1188,6 @@ static void parse_use(settings_t *settings, expr_t *module, token_list *tokens,
 {
 	tok = next_tok(tokens);
 
-
 	if (tok->type == T_IDENT || tok->type == T_STRING) {
 		parse_single_use(settings, module, tokens, tok);
 	} else if (tok->type == T_LBRACE) {
@@ -1261,7 +1258,7 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
 			else
 				tokens->iter--;
 
-			    if (!func->is_static) {
+			if (!func->is_static) {
 				/* If method is non-static, the first argument
 				   should be `self`. */
 
@@ -1460,8 +1457,8 @@ char *fn_str_signature(fn_expr_t *func, bool with_colors)
 
 	if (func->n_params > 0) {
 		ty_str = type_name(func->params[func->n_params - 1]->type);
-		snprintf(buf, 64, "%s%s%s", with_colors ? "\033[33m" : "", ty_str,
-			 with_colors ? "\033[0m" : "");
+		snprintf(buf, 64, "%s%s%s", with_colors ? "\033[33m" : "",
+			 ty_str, with_colors ? "\033[0m" : "");
 		strcat(sig, buf);
 	}
 
@@ -1480,23 +1477,61 @@ void literal_default(literal_expr_t *literal)
 	literal->type = t;
 }
 
+static char *stringify_string(const char *p, int len)
+{
+	size_t space;
+	size_t shown;
+	char *string;
+	size_t w;
+
+	space = len > 64 ? 128 : len * 2 + 2;
+	shown = len > 64 ? 64 : len;
+	w = 0;
+
+	string = slab_alloc(space);
+	string[w++] = '"';
+
+	for (size_t i = 0; i < shown; i++) {
+		switch (p[i]) {
+		case '\n':
+			string[w++] = '\\';
+			string[w++] = 'n';
+			break;
+		case '\r':
+			string[w++] = '\\';
+			string[w++] = 'r';
+			break;
+		case '\t':
+			string[w++] = '\\';
+			string[w++] = 't';
+			break;
+		case '"':
+			string[w++] = '\\';
+			string[w++] = '"';
+			break;
+		default:
+			string[w++] = p[i];
+		}
+	}
+
+	string[w++] = '"';
+	string[w] = 0;
+
+	return string;
+}
+
 char *stringify_literal(literal_expr_t *literal)
 {
 	if (is_str_type(literal->type))
-		return slab_strndup(literal->v_str.ptr, literal->v_str.len);
+		return stringify_string(literal->v_str.ptr, literal->v_str.len);
 
 	if (literal->type->kind != TY_PLAIN)
 		error("literal cannot be of non-plain type");
 
-	if (literal->type->v_plain == PT_I32) {
-		char *buf = slab_alloc(16);
-		snprintf(buf, 16, "%d", literal->v_i32);
-		return buf;
-	}
-
-	if (literal->type->v_plain == PT_I64) {
+	if (literal->type->v_plain >= PT_BOOL
+	    && literal->type->v_plain <= PT_I64) {
 		char *buf = slab_alloc(32);
-		snprintf(buf, 32, "%ld", literal->v_i64);
+		snprintf(buf, 32, "%ld", literal->v_int);
 		return buf;
 	}
 
