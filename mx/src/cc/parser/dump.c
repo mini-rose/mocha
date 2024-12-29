@@ -112,7 +112,8 @@ static const char *expr_info(expr_t *expr)
 			snprintf(tmp, 128, "%s", E_AS_CALL(expr->data)->name);
 		}
 
-		snprintf(info, 512, "\033[34m%s\033[0m \033[97mn_args=\033[0m%d", tmp,
+		snprintf(info, 512,
+			 "\033[34m%s\033[0m \033[97mn_args=\033[0m%d", tmp,
 			 E_AS_CALL(expr->data)->n_args);
 		break;
 	default:
@@ -213,7 +214,8 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 
 	if (mod->c_objects->n) {
 		indent(level);
-		printf("\033[95mObjects to link (%d):\033[0m\n", mod->c_objects->n);
+		printf("\033[95mObjects to link (%d):\033[0m\n",
+		       mod->c_objects->n);
 	}
 
 	for (int i = 0; i < mod->c_objects->n; i++) {
@@ -235,7 +237,8 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 
 	if (mod->n_decls) {
 		indent(level);
-		printf("\033[95mExtern declarations (%d):\033[0m\n", mod->n_decls);
+		printf("\033[95mExtern declarations (%d):\033[0m\n",
+		       mod->n_decls);
 	}
 
 	for (int i = 0; i < mod->n_decls; i++) {
@@ -264,7 +267,8 @@ static void expr_print_mod_expr(mod_expr_t *mod, int level)
 
 	if (mod->n_imported) {
 		indent(level);
-		printf("\033[95mImported modules (%d):\033[0m\n", mod->n_imported);
+		printf("\033[95mImported modules (%d):\033[0m\n",
+		       mod->n_imported);
 	}
 
 	for (int i = 0; i < mod->n_imported; i++)

@@ -12,6 +12,7 @@
 #include <mx/mx.h>
 #include <mx/utils/error.h>
 #include <mx/utils/file.h>
+#include <mx/utils/utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,7 +46,7 @@ char *make_modname(char *file)
 static void build_and_link(settings_t *settings, const char *input_,
 			   const char *output, c_objects_t *c_objects)
 {
-	char cmd[1024];
+	char cmd[4096];
 	char *input;
 	FILE *proc;
 
@@ -53,29 +54,22 @@ static void build_and_link(settings_t *settings, const char *input_,
 	remove_extension(input);
 
 	/* mod.ll -> mod.bc */
-	snprintf(cmd, 1024, "opt -O%s %s > %s.bc", settings->opt,
-		 input_, input);
+	snprintf(cmd, 4096, "opt -O%s %s > %s.bc", settings->opt, input_,
+		 input);
 	if (settings->verbose)
 		puts(cmd);
 	pclose(popen(cmd, "r"));
 
-	/* mod.bc -> mod.s */
-	snprintf(cmd, 1024, "llc -o %s.s %s.bc", input, input);
-	if (settings->verbose)
-		puts(cmd);
-	pclose(popen(cmd, "r"));
+	/* mod.bc -> output */
+	snprintf(cmd, 4096, "clang -o %s -Wno-override-module %s.bc ", output,
+		 input);
 
-	/* mod.s -> mod.o */
-	snprintf(cmd, 1024, "as -o %s.o %s.s", input, input);
-	if (settings->verbose)
-		puts(cmd);
-	pclose(popen(cmd, "r"));
+	if (settings->dyn_linker) {
+		sprintf(cmd + strlen(cmd), "-Xlinker '-dynamic-linker=%s' ",
+			settings->dyn_linker);
+	}
 
-	/* mod.o -> output */
-	// TODO: add back linker option
-	snprintf(cmd, 1024,
-		 "/usr/bin/clang -o %s %s.o ",
-		 output, input);
+	// TODO: make this safe for more arguments
 
 	for (int i = 0; i < c_objects->n; i++) {
 		strcat(cmd, c_objects->objects[i]);
@@ -145,9 +139,17 @@ char *compile_c_object(settings_t *settings, char *file)
 
 static void import_builtins(settings_t *settings, expr_t *module)
 {
-	module_std_import(settings, module, "std/builtin/stack");
-	module_std_import(settings, module, "std/builtin/cast");
-	module_std_import(settings, module, "std/builtin/string");
+	char *paths[] = {
+	    "std/builtin/stack",
+	    "std/builtin/cast",
+	    "std/builtin/string",
+	};
+
+	for (size_t i = 0; i < LEN(paths); i++) {
+		if (!module_std_import(settings, module, paths[i])) {
+			error("failed to import builtin %s", paths[i]);
+		}
+	}
 }
 
 void compile(settings_t *settings)
@@ -174,7 +176,8 @@ void compile(settings_t *settings)
 	E_AS_MOD(ast->data)->c_objects = slab_alloc(sizeof(c_objects_t));
 	E_AS_MOD(ast->data)->std_modules = slab_alloc(sizeof(std_modules_t));
 
-	import_builtins(settings, ast);
+	if (settings->f_builtins)
+		import_builtins(settings, ast);
 
 	ast = parse(NULL, ast, settings, list, module_name);
 

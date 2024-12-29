@@ -42,6 +42,7 @@ static inline void full_help()
 	    "\t-V                 be verbose, show ran shell commands\n"
 	    "\t-Xsanitize-alloc   sanitize the internal allocator\n"
 	    "\t-Xalloc            dump allocation stats\n"
+	    "\t-fno-builtins      don't include builtins\n"
 	    "\n\033[1;34mLint\033[0m\n"
 	    "\t-Wno-unused        unused variables\n"
 	    "\t-Wno-random        random stuff that don't fit into any other "
@@ -50,9 +51,7 @@ static inline void full_help()
 	    "\t-Wno-prefer-ref    should pass a reference instead of a copy\n"
 	    "\t-Wno-self-name     first method parameter should be named self\n"
 	    "\n\033[1;34mLink\033[0m\n"
-	    "\t--musl             use musl instead of glibc\n"
-	    "\t--ldd <path>       dynamic linker to use (default: " DEFAULT_LD
-	    ")\n"
+	    "\t--ldd <path>       dynamic linker to use\n"
 	    "\n\033[1;34mEmit\033[0m\n"
 	    "\t-Eno-stack         disable stacktrace\n"
 	    "\t-Ekeep-var-names   keep variable names in LLVM IR\n",
@@ -65,17 +64,14 @@ static inline void version()
 	printf("mx %d.%d\n", MX_MAJOR, MX_MINOR);
 	printf("target: %s\n", MX_TARGET);
 	printf("root: %s\n", settings.sysroot);
-	printf("lld: %s\n", DEFAULT_LD);
 
-	if (OPT_ALLOC_SLAB_INFO || OPT_DEBUG_INFO || OPT_ASAN) {
+	if (OPT_ALLOC_SLAB_INFO || OPT_DEBUG_INFO) {
 		printf("opt: ");
 
 		if (OPT_ALLOC_SLAB_INFO)
 			fputs("alloc-slab-info ", stdout);
 		if (OPT_DEBUG_INFO)
 			fputs("debug-info ", stdout);
-		if (OPT_ASAN)
-			fputs("asan ", stdout);
 
 		fputc('\n', stdout);
 	}
@@ -89,11 +85,12 @@ static inline void default_settings(settings_t *settings)
 	settings->sysroot = MX_ROOT;
 
 	if (access("/usr/lib/mocha", F_OK) == 0) {
-        settings->sysroot = "/usr/lib/mocha";
+		settings->sysroot = "/usr/lib/mocha";
 	} else if (access("/usr/local/lib/mocha", F_OK) == 0) {
-        settings->sysroot = "/usr/local/lib/mocha";
+		settings->sysroot = "/usr/local/lib/mocha";
 	} else {
-        error("could not find mocha root path, please specify it with -r");
+		error("could not find mocha root path, please specify it with "
+		      "-r");
 	}
 
 	settings->output = DEFAULT_OUT;
@@ -101,10 +98,7 @@ static inline void default_settings(settings_t *settings)
 	settings->input = NULL;
 	settings->using_bs = false;
 	settings->show_tokens = false;
-	settings->dyn_linker = DEFAULT_LD;
-
-	if (access(DEFAULT_LD, F_OK) == 0)
-        settings->dyn_linker = DEFAULT_LD;
+	settings->dyn_linker = NULL;
 
 	settings->verbose = false;
 
@@ -127,16 +121,29 @@ static inline void default_settings(settings_t *settings)
 	settings->x_sanitize_alloc = false;
 	settings->x_dump_alloc = false;
 
+	/* Features */
+	settings->f_builtins = true;
+
 	settings->opt = "0";
 }
 
 static inline void validate_settings(settings_t settings)
 {
-    if (settings.sysroot == NULL)
-        error("missing sysroot path");
+	if (settings.sysroot == NULL)
+		error("missing sysroot path");
 
-    if (access(settings.sysroot, F_OK) == -1)
-        error("sysroot path does not exist: %s, see help for more information", settings.sysroot);
+	if (access(settings.sysroot, F_OK) == -1) {
+		error("sysroot path does not exist: %s, see help for more "
+		      "information",
+		      settings.sysroot);
+	}
+
+	if (settings.dyn_linker && access(settings.dyn_linker, F_OK) == -1) {
+		error(
+		    "dynamic linker path does not exist: %s, see help for more "
+		    "information",
+		    settings.dyn_linker);
+	}
 }
 
 void parse_opt(settings_t *settings, const char *option, char *arg)
@@ -146,9 +153,6 @@ void parse_opt(settings_t *settings, const char *option, char *arg)
 
 	if (!strncmp(option, "version", 8))
 		version();
-
-	if (!strncmp(option, "musl", 4))
-		settings->dyn_linker = LD_MUSL;
 
 	if (!strncmp(option, "ldd", 3))
 		settings->dyn_linker = arg;
@@ -179,18 +183,44 @@ void parse_extra_opt(settings_t *settings, const char *option)
 
 void parse_warn_opt(settings_t *settings, const char *option)
 {
-	if (!strcmp("no-unused", option))
-		settings->warn_unused = false;
-	else if (!strcmp("no-random", option))
-		settings->warn_random = false;
-	else if (!strcmp("no-empty-block", option))
-		settings->warn_empty_block = false;
-	else if (!strcmp("no-prefer-ref", option))
-		settings->warn_prefer_ref = false;
-	else if (!strcmp("no-self-name", option))
-		settings->warn_self_name = false;
+	bool true_or_false;
+
+	true_or_false = true;
+
+	if (!strncmp(option, "no-", 3)) {
+		true_or_false = false;
+		option += 3;
+	}
+
+	if (!strcmp("unused", option))
+		settings->warn_unused = true_or_false;
+	else if (!strcmp("random", option))
+		settings->warn_random = true_or_false;
+	else if (!strcmp("empty-block", option))
+		settings->warn_empty_block = true_or_false;
+	else if (!strcmp("prefer-ref", option))
+		settings->warn_prefer_ref = true_or_false;
+	else if (!strcmp("self-name", option))
+		settings->warn_self_name = true_or_false;
 	else
 		warning("unknown warn option `%s`", option);
+}
+
+void parse_feature_opt(settings_t *settings, const char *option)
+{
+	bool true_or_false;
+
+	true_or_false = true;
+
+	if (!strncmp(option, "no-", 3)) {
+		true_or_false = false;
+		option += 3;
+	}
+
+	if (!strcmp("builtins", option))
+		settings->f_builtins = true_or_false;
+	else
+		warning("unknown feature option `%s`", option);
 }
 
 static void exit_routines()
@@ -212,13 +242,14 @@ int main(int argc, char **argv)
 	atexit(exit_routines);
 	default_settings(&settings);
 
-	static struct option longopts[] = {
-	    {"help", no_argument, 0, 0},       {"version", no_argument, 0, 0},
-	    {"musl", no_argument, 0, 0},       {"ldd", required_argument, 0, 0},
-	    {"root", required_argument, 0, 0}, {"alloc", no_argument, 0, 0}};
+	static struct option longopts[] = {{"help", no_argument, 0, 0},
+					   {"version", no_argument, 0, 0},
+					   {"ldd", required_argument, 0, 0},
+					   {"root", required_argument, 0, 0},
+					   {"alloc", no_argument, 0, 0}};
 
 	while (1) {
-		c = getopt_long(argc, argv, "o:r:O:E:W:X:hvptV", longopts,
+		c = getopt_long(argc, argv, "o:r:O:E:W:X:f:hvptV", longopts,
 				&optindx);
 
 		if (c == -1)
@@ -260,6 +291,9 @@ int main(int argc, char **argv)
 			break;
 		case 'W':
 			parse_warn_opt(&settings, optarg);
+			break;
+		case 'f':
+			parse_feature_opt(&settings, optarg);
 			break;
 		}
 	}

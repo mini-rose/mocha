@@ -13,10 +13,7 @@
 #endif
 
 #define DEFAULT_OUT  "a.out"
-#define DEFAULT_LD   "/lib/ld-linux-x86-64.so.2"
-#define DEFAULT_ROOT "/usr/lib/mocha"
-
-#define LD_MUSL "/lib/ld-musl-x86_64.so.1"
+#define DEFAULT_ROOT "/usr/local/lib/mocha"
 
 #if !defined MX_ROOT
 # define MX_ROOT DEFAULT_ROOT
@@ -51,6 +48,9 @@ typedef struct
 	/* Extra */
 	bool x_sanitize_alloc;
 	bool x_dump_alloc;
+
+	/* Features */
+	bool f_builtins;
 
 	char *opt;
 	char *output;

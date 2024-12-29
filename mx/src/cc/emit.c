@@ -1026,8 +1026,10 @@ void emit_stackpush(LLVMBuilderRef builder, LLVMModuleRef mod,
 
 	param_types[0] = LLVMPointerType(LLVMInt8Type(), 0);
 	param_types[1] = LLVMPointerType(LLVMInt8Type(), 0);
-	args[0] = LLVMBuildGlobalStringPtr(builder, symbol, "");
-	args[1] = LLVMBuildGlobalStringPtr(builder, file, "");
+	args[0] = LLVMBuildGlobalString(builder, symbol, "");
+	args[1] = LLVMBuildGlobalString(builder, file, "");
+
+	// TODO: do some string interning for stackpush calls
 
 	LLVMBuildCall2(
 	    builder, LLVMFunctionType(LLVMVoidType(), param_types, 2, false),
@@ -1149,7 +1151,8 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 	}
 
 	if (LLVMVerifyFunction(func, LLVMPrintMessageAction)) {
-		error("emit[llvm-ir]: something is wrong with the emitted `%s` function",
+		error("emit[llvm-ir]: something is wrong with the emitted `%s` "
+		      "function",
 		      name);
 	}
 

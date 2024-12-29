@@ -24,5 +24,5 @@ typedef struct
 {
 	i64 len;
 	i8 *ptr;
-    bool heap;
+	bool heap;
 } str;
