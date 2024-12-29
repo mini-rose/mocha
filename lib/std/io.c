@@ -1,149 +1,147 @@
 #include "mocha.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
 
-mo_null __c_printi(mo_i32 num)
-{
-	printf("%d\n", num);
+null __io__read__(i32 fd, str *buf, i64 count) {
+    if (buf->heap && buf->ptr) {
+        free(buf->ptr);
+        buf->ptr = NULL;
+        buf->len = 0;
+    }
+
+    buf->heap = true;  // Mark the buffer as heap-allocated
+
+    if (count == -1) {
+        size_t capacity = 64;
+        buf->ptr = malloc(capacity);
+        if (!buf->ptr) {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+        buf->len = 0;
+
+        char c;
+        ssize_t n;
+        while ((n = read(fd, &c, 1)) > 0) {
+            if (c == '\n' || c == '\r')
+                break;
+
+            if (buf->len + 1 >= capacity) {
+                capacity *= 2; // Double the capacity
+                char *new_ptr = realloc(buf->ptr, capacity);
+                if (!new_ptr) {
+                    perror("realloc");
+                    free(buf->ptr);
+                    exit(EXIT_FAILURE);
+                }
+                buf->ptr = new_ptr;
+            }
+
+            buf->ptr[buf->len++] = c;
+        }
+
+        if (n < 0) {
+            perror("read");
+            free(buf->ptr);
+            buf->ptr = NULL;
+            buf->len = 0;
+            exit(EXIT_FAILURE);
+        }
+
+        buf->ptr = realloc(buf->ptr, buf->len + 1); // Adjust to actual size
+        buf->ptr[buf->len] = '\0';
+    } else {
+        buf->ptr = malloc(count);
+        if (!buf->ptr) {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+        buf->len = read(fd, buf->ptr, count);
+
+        if (buf->len < 0) {
+            perror("read");
+            free(buf->ptr);
+            buf->ptr = NULL;
+            buf->len = 0;
+            exit(EXIT_FAILURE);
+        }
+    }
 }
 
-mo_null __c_printl(mo_i64 num)
+i64 __io__write__(i32 fd, str *buf, i64 count)
 {
-	printf("%ld\n", num);
+    return write(fd, buf->ptr, count);
 }
 
-mo_null __c_printa(mo_i8 num)
+str *__io__popen__(str *prog, str *mode)
 {
-	printf("%hhd\n", num);
-}
+    char _prog[prog->len];
+    memcpy(_prog, prog->ptr, prog->len);
+    _prog[prog->len] = 0;
 
-mo_null __c_printb(mo_bool b)
-{
-	puts((b) ? "true" : "false");
-}
+    char _mode[mode->len];
+    memcpy(_mode, mode->ptr, mode->len);
+    _mode[mode->len] = 0;
 
-mo_null __c_prints(mo_str *string)
-{
-	printf("%.*s\n", (int) string->len, string->ptr);
-}
+    FILE *pipe = popen(_prog, _mode);
 
-mo_null __c_write(mo_i8 *file, mo_i8 *buf, mo_i64 len)
-{
-	fwrite(buf, 1, len, (FILE *) file);
-}
+    if (pipe == NULL) {
+        perror("popen");
+        return NULL;
+    }
 
-mo_null __c_write_stream(mo_i32 stream, mo_i8 *buf, mo_i64 len)
-{
-	write(stream, buf, len);
-}
+    str *result = malloc(sizeof(str));
+    if (result == NULL) {
+        perror("malloc");
+        pclose(pipe);
+        return NULL;
+    }
 
-mo_i8 *__c_open(mo_str *_path, mo_str *_mode)
-{
-	char __path[_path->len];
-	char __mode[_mode->len];
-	memcpy(__path, _path->ptr, _path->len);
-	memcpy(__mode, _mode->ptr, _mode->len);
-	__path[_path->len] = '\0';
-	__mode[_mode->len] = '\0';
+    result->ptr = NULL;
+    result->len = 0;
+    result->heap = true;
 
-	FILE *fp = fopen(__path, __mode);
+    size_t capacity = 1024;
+    result->ptr = malloc(capacity);
 
-	return (mo_i8 *) fp;
-}
+    if (result->ptr == NULL) {
+        perror("malloc");
+        free(result);
+        pclose(pipe);
+        return NULL;
+    }
 
-mo_str *__c_read(mo_i8 *file, mo_i32 n_bytes)
-{
-	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
-	self->ptr = (mo_i8 *) malloc(sizeof(char) * n_bytes);
-	self->len = n_bytes;
-	fgets(self->ptr, sizeof(char) * n_bytes, (FILE *) file);
-	return self;
-}
+    size_t n;
+    while ((n = fread(result->ptr + result->len, 1, capacity - result->len, pipe)) > 0) {
+        result->len += n;
 
-mo_str *__c_readline(mo_i8 *file)
-{
-	int start_pos;
-	int n_bytes;
-	mo_str *self = (mo_str *) malloc(sizeof(mo_str));
+        if (result->len == capacity) {
+            capacity *= 2;
+            char *new_ptr = realloc(result->ptr, capacity);
+            if (!new_ptr) {
+                perror("realloc");
+                free(result->ptr);
+                free(result);
+                pclose(pipe);
+                return NULL;
+            }
+            result->ptr = new_ptr;
+        }
+    }
 
-	start_pos = ftell((FILE *) file);
-	n_bytes = 0;
+    if (ferror(pipe)) {
+        perror("fread");
+        free(result->ptr);
+        free(result);
+        pclose(pipe);
+        return NULL;
+    }
 
-	/* Find line length */
-	while (fgetc((FILE *) file) != '\n')
-		n_bytes++;
+    result->ptr[result->len] = '\0';
+    pclose(pipe);
 
-	fseek((FILE *) file, start_pos, SEEK_SET);
-	self->ptr = (mo_i8 *) malloc(sizeof(char) * n_bytes);
-	self->len = n_bytes;
-
-	for (int i = 0; i < n_bytes; i++)
-		self->ptr[i] = fgetc((FILE *) file);
-
-	/* Skip new line */
-	fgetc((FILE *) file);
-
-	return self;
-}
-
-mo_null __c_close(mo_i8 *file)
-{
-	if (file == NULL)
-		return;
-
-	fclose((FILE *) file);
-	file = NULL;
-}
-
-mo_null __c_rewind(mo_i8 *file)
-{
-	rewind((FILE *) file);
-}
-
-mo_i64 __c_tell(mo_i8 *file)
-{
-	return ftell((FILE *) file);
-}
-
-mo_null __c_seek_set(mo_i8 *file, mo_i64 offset)
-{
-	fseek((FILE *) file, offset, SEEK_SET);
-}
-
-mo_null __c_seek_cur(mo_i8 *file, mo_i64 offset)
-{
-	fseek((FILE *) file, offset, SEEK_CUR);
-}
-
-mo_null __c_seek_end(mo_i8 *file, mo_i64 offset)
-{
-	fseek((FILE *) file, offset, SEEK_END);
-}
-
-mo_null _M9__c_flushPa(mo_i8 *file)
-{
-	fflush((FILE *) file);
-}
-
-mo_null _M9__c_flushv()
-{
-	fflush(NULL);
-}
-
-mo_null _M9__c_flushi(mo_i32 *stream)
-{
-	switch (*stream) {
-	case 0:
-		fflush(stdin);
-		break;
-	case 1:
-		fflush(stdout);
-		break;
-	case 2:
-		fflush(stderr);
-		break;
-	}
+    return result;
 }

@@ -145,9 +145,9 @@ char *compile_c_object(settings_t *settings, char *file)
 
 static void import_builtins(settings_t *settings, expr_t *module)
 {
-	module_std_import(settings, module, "std/builtin/stacktrace");
+	module_std_import(settings, module, "std/builtin/stack");
+	module_std_import(settings, module, "std/builtin/cast");
 	module_std_import(settings, module, "std/builtin/string");
-	module_std_import(settings, module, "std/builtin/typeof");
 }
 
 void compile(settings_t *settings)

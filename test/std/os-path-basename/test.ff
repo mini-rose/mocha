@@ -1,6 +1,0 @@
-use std.io
-use std.os
-
-fn main {
-	print(path.basename("/usr/lib/mocha"))
-}

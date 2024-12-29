@@ -1,7 +1,0 @@
-use std.io
-
-fn main {
-	x: i64 = 12
-
-	print(x)
-}

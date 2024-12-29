@@ -1,11 +1,13 @@
-/* std.builtin.stacktrace - tools for tracking the callstack
-   Copyright (c) 2023 mini-rose */
+/* std.builtin.stack - tools for tracking the callstack
+   Copyright (c) 2023-2024 mini-rose */
 
 #include "../mocha.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MOCHA_STACKLIMIT 4096
 
 struct stackentry
 {

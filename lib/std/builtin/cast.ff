@@ -1,0 +1,9 @@
+/* std.builtin.cast - casting functions
+   Copyright (c) 2023-2024 mini-rose */
+
+__builtin_decl_mangled("str", &str, i8)
+__builtin_decl_mangled("str", &str, i32)
+__builtin_decl_mangled("str", &str, i64)
+__builtin_decl_mangled("str", &str, f32)
+__builtin_decl_mangled("str", &str, f64)
+__builtin_decl_mangled("str", &str, bool)

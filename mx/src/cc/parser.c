@@ -149,6 +149,9 @@ static void parse_string_literal(sized_string_t *val, token *tok)
 		} else if (!strncmp(&tok->value[i], "\\033", 4)) {
 			buf[j++] = '\033';
 			i += 3;
+		} else if (!strncmp(&tok->value[i], "\\e", 2)) {
+			buf[j++] = '\033';
+			i += 1;
 		} else {
 			buf[j++] = tok->value[i];
 		}
@@ -1425,6 +1428,7 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 		tokens->iter = fn_pos.pos[i]->tok_index;
 
 		expr_t *func = expr_add_child(module);
+
 		parse_fn_body(settings, module, func, fn_pos.pos[i]->decl,
 			      tokens);
 	}

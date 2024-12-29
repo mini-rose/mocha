@@ -1,24 +1,10 @@
 /* std.builtin.string - builtin string calls library
-   Copyright (c) 2023 mini-rose */
-
-/*
- * Calls to these functions are emitted by the compiler for basic string
- * operations. For user-side string manipulation, see std.string instead.
- */
+   Copyright (c) 2023-2024 mini-rose */
 
 __builtin_decl_mangled("copy", null, &str, &str)
 __builtin_decl_mangled("drop", null, &str)
-__builtin_decl_mangled("cmp", bool, &str, &str)
 __builtin_decl_mangled("len", i64, &str)
 
-fn len(__s: str) -> i64 {
-	ret len(&__s)
+fn len(s: str) -> i64 {
+	ret len(&s);
 }
-
-/* Type to string cast */
-__builtin_decl_mangled("str", &str, i8)
-__builtin_decl_mangled("str", &str, i32)
-__builtin_decl_mangled("str", &str, i64)
-__builtin_decl_mangled("str", &str, f32)
-__builtin_decl_mangled("str", &str, f64)
-__builtin_decl_mangled("str", &str, bool)

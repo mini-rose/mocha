@@ -4,51 +4,25 @@
 #pragma once
 
 #include <stdbool.h>
-
-typedef enum
-{
-	MOCHA_I8,
-	MOCHA_U8,
-	MOCHA_I16,
-	MOCHA_U16,
-	MOCHA_I32,
-	MOCHA_U32,
-	MOCHA_I64,
-	MOCHA_U64,
-	MOCHA_STR,
-	MOCHA_NULL,
-	MOCHA_BOOL
-} mo_type;
+#include <string.h>
 
 /* Mocha types */
-typedef bool mo_i1;
-typedef char mo_i8;
-typedef unsigned char mo_u8;
-typedef short mo_i16;
-typedef unsigned short mo_u16;
-typedef int mo_i32;
-typedef unsigned int mo_u32;
-typedef long mo_i64;
-typedef float mo_f32;
-typedef double mo_f64;
-typedef unsigned long mo_u64;
-typedef void mo_null;
-typedef bool mo_bool;
-
-#define MOCHA_STR_ALLOC 1
+typedef bool i1;
+typedef char i8;
+typedef unsigned char u8;
+typedef short i16;
+typedef unsigned short u16;
+typedef int i32;
+typedef unsigned int u32;
+typedef long i64;
+typedef float f32;
+typedef double f64;
+typedef unsigned long u64;
+typedef void null;
 
 typedef struct
 {
-	mo_i64 len;
-	mo_i8 *ptr;
-	mo_i32 flags;
-} mo_str;
-
-typedef struct
-{
-	mo_i8 *values;
-	mo_i64 len;
-} mo_array;
-
-/* Max functions on the callstack. */
-#define MOCHA_STACKLIMIT 2048
+	i64 len;
+	i8 *ptr;
+    bool heap;
+} str;

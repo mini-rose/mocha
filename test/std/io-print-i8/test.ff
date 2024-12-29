@@ -1,6 +1,0 @@
-use std.io
-
-fn main {
-	x: i8 = 127
-	print(x)
-}
