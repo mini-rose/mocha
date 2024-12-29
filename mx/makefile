@@ -14,10 +14,10 @@ CFLAGS :=
 LDFLAGS :=
 
 # Include directory
-CPPFLAGS += -Iinclude
+CFLAGS += -Iinclude
 
 # MacOS llvm
-CPPFLAGS += $(shell llvm-config --cflags)
+CFLAGS += $(shell llvm-config --cflags)
 LDFLAGS += $(shell llvm-config --ldflags) -lLLVM
 
 # Error/Warning messages
@@ -36,9 +36,9 @@ OBJ := $(SRC:.c=.o)
 OUTDIR := build
 
 ifeq ($(shell uname),Darwin)
-CPPFLAGS += -DMX_TARGET=\"darwin-aarch64\"
+CFLAGS += -DMX_TARGET=\"darwin-aarch64\"
 else ifeq ($(shell uname),Linux)
-CPPFLAGS += -DMX_TARGET=\"linux-x86_64\"
+CFLAGS += -DMX_TARGET=\"linux-x86_64\"
 endif
 
 mx: $(OBJ)
@@ -49,13 +49,16 @@ $(OBJ): $(SRC)
 
 %.o: %.c
 	@echo "CC $(shell basename $<)"
-	@$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) $(CFLAGS) -c $< -o $@
 
 install:
 	cp -f mx $(PREFIX)/bin
 
 $(OUTDIR):
 	mkdir -p $@
+
+compile_flags.txt:
+	echo $(CFLAGS) | tr ' ' '\n' > $@
 
 clean:
 	@rm -f mx

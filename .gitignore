@@ -9,7 +9,9 @@ a.out
 *.html
 
 .coffee
-/nxg/*.ff
+/mx/*.ff
 .gitignore
 
-/nxg/install
+/mx/install
+/mx/mx
+/mx/compile_flags.txt
