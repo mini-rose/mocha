@@ -1,7 +1,7 @@
 use std.io
 
 fn takes_i32(a: i32) {
-	print(a)
+	io.write(str(a))
 }
 
 fn main {

@@ -2,9 +2,12 @@ use std.io
 
 fn main {
 	x = 5 + 5 * 2 * (2 + 2 * 2)
-	print(x)
+	io.write(str(x))
+    io.write('\n')
 	y = 5 + 5 * 1 + ((6 * 7) + 1 * 55)
-	print(y)
+	io.write(str(y))
+    io.write('\n')
 	z = 5 + 5 * 5 * 5 * 5 + 2 * 2 * 2
-	print(z)
+	io.write(str(z))
+    io.write('\n')
 }

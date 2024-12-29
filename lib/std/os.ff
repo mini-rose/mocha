@@ -4,11 +4,12 @@
  * Use type.func() instead.
  */
 
+use std.io
 
 __builtin_decl("__os__sleep__", null, u32)
 
 type os {
-	sleep: static fn (s: u32) {
+	sleep: static fn (s: i32) {
 		io.write(str(s))
 	}
 }

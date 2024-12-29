@@ -1,11 +1,11 @@
 use std.io
 
 fn f(string: str) {
-	print(&string)
+	io.write(&string)
 }
 
 fn f(num: i32) {
-	print(num)
+	io.write(str(num))
 }
 
 fn main {

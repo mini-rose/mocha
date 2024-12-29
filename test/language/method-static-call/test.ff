@@ -2,7 +2,7 @@ use std.io
 
 type Container {
 	method: static fn {
-		print('called method')
+		io.write('called method\n')
 	}
 }
 

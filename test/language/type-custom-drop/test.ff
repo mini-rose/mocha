@@ -6,7 +6,7 @@ type Container {
 }
 
 fn drop(self: &Container) {
-	print('dropped Container')
+	io.write('dropped Container\n')
 	drop(&self.field1)
 }
 

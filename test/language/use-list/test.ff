@@ -1,9 +1,10 @@
 use {
-	std.os
+	// std.os // use this
 	std.io
 }
 
 fn main {
-	o: os 		// something from os
-	print(1) 	// something from io
+    // TODO: run something from std.os that is not os.sleep()
+    i: i64 = 1
+	io.write(str(i)) 	// something from io
 }

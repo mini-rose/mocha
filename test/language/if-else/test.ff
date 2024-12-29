@@ -2,14 +2,14 @@ use std.io
 
 fn main {
 	(true) ? {
-		print('correct')
+		io.write('correct\n')
 	} : {
-		print('wrong')
+		io.write('wrong\n')
 	}
 
 	(1 == 4) ? {
-		print('wrong')
+		io.write('wrong\n')
 	} : {
-		print('correct')
+		io.write('correct\n')
 	}
 }
