@@ -145,3 +145,8 @@ str *__io__popen__(str *prog, str *mode)
 
     return result;
 }
+
+null __io__flush__(i32 fd)
+{
+    fsync(fd);
+}

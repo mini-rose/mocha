@@ -5,7 +5,6 @@
 #include <limits.h>
 #include <mx/cc/alloc.h>
 #include <mx/cc/module.h>
-#include <mx/cc/use.h>
 #include <mx/utils/utils.h>
 #include <stdio.h>
 #include <stdlib.h>

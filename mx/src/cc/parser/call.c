@@ -2,7 +2,6 @@
    Copyright (c) 2023 mini-rose */
 
 #include "mx/cc/type.h"
-#include "mx/cc/use.h"
 
 #include <mx/cc/alloc.h>
 #include <mx/cc/module.h>
@@ -223,7 +222,6 @@ err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
 
 	fn_candidates_t *resolved;
 
-auto_imported:
 	if (data->object_name) {
 		var_decl_expr_t *var;
 		type_t *obj_type;
@@ -240,17 +238,8 @@ auto_imported:
 		if (!var) {
 			/* Maybe we want to call a static method? Try getting
 			   the type here. */
-
 			o_type = module_find_named_type(mod, data->object_name);
 			if (!o_type) {
-				char *type_name =
-				    strndup(o_name->value, o_name->len);
-
-				if (auto_import(settings, mod, type_name)) {
-					free(type_name);
-					goto auto_imported;
-				}
-
 				error_at(tokens->source, o_name->value,
 					 o_name->len,
 					 "not found in this scope");
@@ -297,9 +286,6 @@ auto_imported:
 
 	/* Bare call */
 	if (!resolved->n_candidates) {
-		if (auto_import(settings, mod, data->name))
-			goto auto_imported;
-
 		error_at(tokens->source, fn_name_tok->value, fn_name_tok->len,
 			 "cannot find function in this scope");
 	}

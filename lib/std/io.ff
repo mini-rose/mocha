@@ -1,6 +1,7 @@
 __builtin_decl("__io__read__", null, i32, &str, i64)
 __builtin_decl("__io__write__", i64, i32, &str, i64)
 __builtin_decl("__io__popen__", &str, &str, &str)
+__builtin_decl("__io__flush__", null, i32)
 
 type io {
 	write: static fn (buf: &str) -> i64 {
@@ -37,6 +38,10 @@ type io {
 
 	read: static fn (fd: i32, buf: &str, count: i64) {
 		__io__read__(fd, buf, count)
+	}
+
+	flush: static fn (fd: i32) {
+		__io__flush__(fd)
 	}
 
 	popen: static fn (prog: str) -> &str {
