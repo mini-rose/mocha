@@ -52,7 +52,6 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 	const char *end = pos;
 	const char *ptr = pos;
 	const char *content = source->content;
-	char line_str[11];
 	int line = 1;
 
 	for (const char *p = content; p < pos; p++)
@@ -69,19 +68,22 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 	while (*end && *end != '\n')
 		end++;
 
-	snprintf(line_str, 11, "%d", line);
 	fprintf(stderr, "%s%s\033[0m in \033[1;98m%s\033[0m:\n\n",
 		settings->title_color, settings->title, source->path);
 
 	if (fix) {
-		fprintf(stderr, "\t\033[92m");
-		indent((pos - start) - 1);
+		fprintf(stderr, "     |\033[92m");
+		indent(pos - start);
+		fprintf(stderr, "\033[1;92m%s\033[0m\n     |", fix);
+		indent(pos - start);
 		for (int i = 0; i < len; i++)
-			fputs("⌄", stderr);
-		fprintf(stderr, " \033[1;92m%s\033[0m\n", fix);
+			fputc('v', stderr);
+		fputc('\n', stderr);
+	} else {
+		fprintf(stderr, "     |\n");
 	}
 
-	fprintf(stderr, "%s\t", line_str);
+	fprintf(stderr, "% 4d |", line);
 
 	ptr = start;
 	while (ptr != end) {
@@ -90,18 +92,23 @@ static void error_at_impl(file_t *source, err_settings_t *settings,
 			continue;
 		}
 
+		if (ptr == pos)
+			fprintf(stderr, "%s", settings->highlight_color);
+		if (ptr == pos + len)
+			fprintf(stderr, "\033[1;0m");
+
 		fputc(*ptr, stderr);
 		ptr++;
 	}
 
-	fprintf(stderr, "\n\t");
+	fprintf(stderr, "\n     |");
 	indent(pos - start);
 	fprintf(stderr, "%s", settings->title_color);
 
 	fputs("⌃", stderr);
 
 	for (int i = 1; i < len; i++)
-    	fputs("~", stderr);
+		fputs("~", stderr);
 
 	fprintf(stderr, " %s", settings->message_color);
 	vfprintf(stderr, format, ap);

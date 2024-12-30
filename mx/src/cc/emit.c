@@ -137,7 +137,7 @@ LLVMTypeRef gen_type(LLVMModuleRef mod, type_t *ty)
 		return LLVMPointerType(gen_type(mod, ty->v_base), 0);
 	if (ty->kind == TY_ARRAY)
 		return gen_array_type(mod, ty);
-	if (is_str_type(ty))
+	if (type_is_string(ty))
 		return gen_str_type(mod);
 	if (ty->kind == TY_OBJECT)
 		return gen_object_type(mod, ty);
@@ -303,7 +303,7 @@ static LLVMValueRef gen_literal_value(LLVMBuilderRef builder,
 				    lit->v_int, false);
 
 	/* Return a str struct. */
-	if (is_str_type(lit->type)) {
+	if (type_is_string(lit->type)) {
 		LLVMValueRef values[3];
 
 		values[0] =
@@ -413,12 +413,34 @@ static LLVMValueRef gen_const_array(LLVMBuilderRef builder,
 static LLVMValueRef gen_cast(LLVMBuilderRef builder, fn_context_t *context,
 			     value_expr_t *value)
 {
+	typedef LLVMValueRef (*llvm_cast_func)(LLVMBuilderRef, LLVMValueRef,
+					       LLVMTypeRef, const char *);
+
 	LLVMValueRef value_to_cast;
+	llvm_cast_func casting_func;
 
 	value_to_cast = gen_new_value(builder, context, value->cast_value);
-	return LLVMBuildIntCast(builder, value_to_cast,
-				gen_type(context->llvm_mod, value->return_type),
-				"");
+
+	if (type_is_integer(value->return_type)
+	    && type_is_integer(value->cast_value->return_type)) {
+		casting_func = LLVMBuildIntCast;
+	}
+
+	if (value->return_type->kind == TY_POINTER) {
+		if (type_is_integer(value->cast_value->return_type))
+			casting_func = LLVMBuildIntToPtr;
+		if (value->cast_value->return_type->kind == TY_POINTER)
+			casting_func = LLVMBuildPointerCast;
+	}
+
+	if (!casting_func)
+		error("emit: cannot select casting_func for %s -> %s",
+		      type_name(value->cast_value->return_type),
+		      type_name(value->return_type));
+
+	return casting_func(builder, value_to_cast,
+			    gen_type(context->llvm_mod, value->return_type),
+			    "");
 }
 
 /**

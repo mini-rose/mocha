@@ -187,8 +187,6 @@ struct literal_expr
 #define E_AS_COND(DATAPTR)  ((condition_expr_t *) DATAPTR)
 #define E_AS_BLOCK(DATAPTR) ((block_expr_t *) DATAPTR)
 
-expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
-	      token_list *list, const char *module_id);
 void expr_print(expr_t *expr);
 void expr_print_value_expr(value_expr_t *val, int level);
 const char *expr_typename(expr_type type);
@@ -199,7 +197,9 @@ char *stringify_literal(literal_expr_t *literal);
 const char *value_expr_type_name(value_expr_type t);
 bool value_expr_is_twosided(value_expr_t *node);
 value_expr_type value_expr_type_from_op(token_list *tokens, token *op);
-value_expr_t *value_expr_cast(value_expr_t *value, type_t *cast_to);
+value_expr_t *__warn_unused value_cast(value_expr_t *value, type_t *into_type,
+				       bool error_on_failure,
+				       token_list *tokens, token *tok);
 
 var_decl_expr_t *node_resolve_local(expr_t *node, const char *name, int len);
 bool node_has_named_local(expr_t *node, const char *name, int len);
@@ -226,7 +226,8 @@ bool is_pointer_to(token_list *tokens, token *tok);
 bool is_rvalue(token_list *tokens, token *tok);
 bool is_operator(token *tok);
 bool is_comparison(token_list *tokens, token *tok);
-bool is_builtin_function(token *name);
+bool is_builtin_decl(token *name);
+bool is_builtin_value(token *name);
 bool is_integer(token *tok);
 bool is_float(token *tok);
 bool is_var_assign(token_list *tokens, token *tok);
@@ -235,10 +236,17 @@ int call_token_len(token_list *tokens, token *tok);
 int rvalue_token_len(token_list *tokens, token *tok);
 int type_token_len(token_list *tokens, token *tok);
 
-err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
+expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
+	      token_list *list, const char *module_id);
+err_t parse_builtin_decl(expr_t *parent, expr_t *mod, token_list *tokens,
 			 token *tok);
-err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
-			call_expr_t *data, token_list *tokens, token *tok);
+
+err_t parse_inline_call_node(settings_t *settings, expr_t *parent, expr_t *mod,
+			     expr_t *node, char *object_name,
+			     token_list *tokens, token *tok);
+err_t parse_inline_call_value(settings_t *settings, expr_t *parent, expr_t *mod,
+			      value_expr_t *value, char *object_name,
+			      token_list *tokens, token *tok);
 
 value_expr_t *parse_value_expr(settings_t *settings, expr_t *context,
 			       expr_t *mod, value_expr_t *node,
@@ -251,8 +259,6 @@ void parse_member_call(settings_t *settings, expr_t *parent, expr_t *mod,
 type_t *parse_type(expr_t *context, token_list *tokens, token *tok);
 void parse_literal(value_expr_t *node, token_list *tokens, token *tok);
 expr_t *expr_add_child(expr_t *parent);
-
-bool convert_int_value(value_expr_t *value, type_t *into_type);
 
 typedef struct
 {

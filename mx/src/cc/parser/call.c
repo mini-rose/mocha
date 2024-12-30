@@ -38,10 +38,22 @@ static void call_popfront_arg(call_expr_t *call)
 		call_push_arg(call, old_args[i + 1]);
 }
 
-bool is_builtin_function(token *name)
+bool is_builtin_decl(token *name)
 {
 	static const char *builtins[] = {"__builtin_decl",
 					 "__builtin_decl_mangled"};
+
+	for (size_t i = 0; i < LEN(builtins); i++) {
+		if (!strncmp(builtins[i], name->value, name->len))
+			return true;
+	}
+
+	return false;
+}
+
+bool is_builtin_value(token *name)
+{
+	static const char *builtins[] = {"__builtin_sizeof"};
 
 	for (size_t i = 0; i < LEN(builtins); i++) {
 		if (!strncmp(builtins[i], name->value, name->len))
@@ -86,7 +98,7 @@ static void add_arg_token(arg_tokens_t *tokens, token *tok)
 	tokens->tokens[tokens->n_tokens++] = tok;
 }
 
-err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
+err_t parse_builtin_decl(expr_t *parent, expr_t *mod, token_list *tokens,
 			 token *tok)
 {
 	/* Built-in calls are not always function calls, they may be
@@ -149,6 +161,7 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 		collect_builtin_decl_arguments(decl, tokens);
 
 		return ERR_WAS_BUILTIN;
+
 	} else {
 		error_at(tokens->source, tok->value, tok->len,
 			 "this builtin call is not yet implemented");
@@ -157,28 +170,81 @@ err_t parse_builtin_call(expr_t *parent, expr_t *mod, token_list *tokens,
 	return ERR_OK;
 }
 
-static bool possibly_convert_val(value_expr_t *value, type_t *into)
+err_t parse_builtin_value(expr_t *mod, value_expr_t *result, token_list *tokens,
+			  token *tok)
 {
-	/* Check if we can maybe convert a literal. */
-	if (type_can_cast(value->return_type, into))
-		return convert_int_value(value, into);
+	int type_size;
 
-	return false;
+	/* Parse the builtin function that returns a value. */
+
+	if (!strncmp(tok->value, "__builtin_sizeof", tok->len)) {
+		tok = next_tok(tokens);
+		tok = next_tok(tokens);
+
+		if (!is_type(tokens, tok)) {
+			error_at(tokens->source, tok->value, tok->len,
+				 "sizeof requires a type");
+		}
+
+		type_size = type_sizeof(parse_type(mod, tokens, tok));
+		result->type = VE_LIT;
+		result->literal = slab_alloc(sizeof(literal_expr_t));
+		result->literal->type = type_new_plain(PT_I64);
+		result->literal->v_int = type_size;
+		result->return_type = result->literal->type;
+
+		tok = next_tok(tokens);
+		if (tok->type != T_RPAREN) {
+			error_at_with_fix(
+			    tokens->source, tok->value, tok->len, ")",
+			    "sizeof only takes a single argument");
+		}
+	}
+
+	return ERR_OK;
 }
 
-err_t parse_inline_call(settings_t *settings, expr_t *parent, expr_t *mod,
-			call_expr_t *data, token_list *tokens, token *tok)
+static err_t parse_inline_call_impl(settings_t *settings, expr_t *parent,
+				    expr_t *mod, expr_t *node,
+				    value_expr_t *value, char *object_name,
+				    token_list *tokens, token *tok)
 {
 	arg_tokens_t arg_tokens = {0};
 	token *fn_name_tok;
 	value_expr_t *self_arg = NULL;
 	bool static_method = false;
 	value_expr_t *arg;
+	call_expr_t *data;
 
-	if (is_builtin_function(tok))
-		return parse_builtin_call(parent, mod, tokens, tok);
+	if (is_builtin_decl(tok))
+		return parse_builtin_decl(parent, mod, tokens, tok);
+
+	if (node) {
+		node->type = E_CALL;
+		node->data = slab_alloc(sizeof(call_expr_t));
+		data = node->data;
+	}
+
+	if (value) {
+		value->type = VE_CALL;
+		value->call = slab_alloc(sizeof(call_expr_t));
+		data = value->call;
+	}
+
+	if (is_builtin_value(tok)) {
+		/* If we're not in value-mode, we cannot expect any builtin
+		   functions that resolve to values, like __builtin_sizeof. */
+		if (node) {
+			error_at(tokens->source, tok->value, tok->len,
+				 "this builtin returns a value, which cannot "
+				 "be used here");
+		}
+
+		return parse_builtin_value(mod, value, tokens, tok);
+	}
 
 	data->name = slab_strndup(tok->value, tok->len);
+	data->object_name = object_name;
 	fn_name_tok = tok;
 
 	tok = next_tok(tokens);
@@ -330,6 +396,7 @@ try_matching_types_again:
 
 	/* We cannot find any matching overloads, so maybe we can find a literal
 	   that can be converted to match the type. */
+
 	for (int i = 0; i < resolved->n_candidates; i++) {
 		fn_expr_t *match = resolved->candidate[i];
 		try_next = false;
@@ -345,8 +412,18 @@ try_matching_types_again:
 				continue;
 			}
 
-			if (possibly_convert_val(data->args[j],
-						 match->params[j]->type)) {
+			/* If we only have one candidate, treat the failure to
+			   cast as an error. */
+
+			bool error_on_cast_failure =
+			    resolved->n_candidates ? true : false;
+
+			if (type_can_cast(data->args[j]->return_type,
+					  match->params[j]->type)
+			    && (data->args[j] = value_cast(
+				    data->args[j], match->params[j]->type,
+				    error_on_cast_failure, tokens,
+				    arg_tokens.tokens[j]))) {
 				goto try_matching_types_again;
 			}
 		}
@@ -474,7 +551,7 @@ end:
 		if (data->n_args == 0)
 			goto skip_ref_warn;
 
-		if (!is_str_type(data->args[0]->return_type))
+		if (!type_is_string(data->args[0]->return_type))
 			goto skip_ref_warn;
 
 		if (data->args[0]->type == VE_LIT)
@@ -489,8 +566,27 @@ end:
 		    "unnecessary copy, you should pass a reference here");
 	}
 
+	if (value)
+		value->return_type = type_copy(data->func->return_type);
+
 skip_ref_warn:
 	return ERR_OK;
+}
+
+err_t parse_inline_call_value(settings_t *settings, expr_t *parent, expr_t *mod,
+			      value_expr_t *value, char *object_name,
+			      token_list *tokens, token *tok)
+{
+	return parse_inline_call_impl(settings, parent, mod, NULL, value,
+				      object_name, tokens, tok);
+}
+
+err_t parse_inline_call_node(settings_t *settings, expr_t *parent, expr_t *mod,
+			     expr_t *node, char *object_name,
+			     token_list *tokens, token *tok)
+{
+	return parse_inline_call_impl(settings, parent, mod, node, NULL,
+				      object_name, tokens, tok);
 }
 
 /**
@@ -500,19 +596,9 @@ void parse_call(settings_t *settings, expr_t *parent, expr_t *mod,
 		token_list *tokens, token *tok)
 {
 	expr_t *node;
-	call_expr_t *data;
-
-	data = slab_alloc(sizeof(*data));
 
 	node = expr_add_child(parent);
-	node->type = E_CALL;
-	node->data = data;
-
-	if (parse_inline_call(settings, parent, mod, data, tokens, tok)
-	    == ERR_WAS_BUILTIN) {
-		memset(node, 0, sizeof(*node));
-		node->type = E_SKIP;
-	}
+	parse_inline_call_node(settings, parent, mod, node, NULL, tokens, tok);
 }
 
 /**
@@ -522,27 +608,26 @@ void parse_member_call(settings_t *settings, expr_t *parent, expr_t *mod,
 		       token_list *tokens, token *tok)
 {
 	expr_t *node;
-	call_expr_t *data;
-
-	data = slab_alloc(sizeof(*data));
+	token *object_name_tok;
+	char *object_name;
 
 	node = expr_add_child(parent);
-	node->type = E_CALL;
-	node->data = data;
 
 	if (tok->type != T_IDENT) {
 		error_at(tokens->source, tok->value, tok->len,
 			 "expected object name");
 	}
 
-	data->object_name = slab_strndup(tok->value, tok->len);
-
+	object_name_tok = tok;
 	tok = next_tok(tokens); /* . */
 	tok = next_tok(tokens); /* method ident */
 
-	if (parse_inline_call(settings, parent, mod, data, tokens, tok)
-	    == ERR_WAS_BUILTIN) {
-		memset(node, 0, sizeof(*node));
-		node->type = E_SKIP;
+	object_name =
+	    slab_strndup(object_name_tok->value, object_name_tok->len);
+	parse_inline_call_node(settings, parent, mod, node, object_name, tokens,
+			       tok);
+
+	if (node->type == E_CALL) {
+		E_AS_CALL(node->data)->object_name = object_name;
 	}
 }

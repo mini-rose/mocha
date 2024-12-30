@@ -10,7 +10,8 @@ typedef enum
 {
 	ERR_OK,
 	ERR_SYNTAX,
-	ERR_WAS_BUILTIN
+	ERR_WAS_BUILTIN,
+	ERR_WAS_VALUE
 } err_t;
 
 void warning(const char *format, ...);

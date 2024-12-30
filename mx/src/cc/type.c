@@ -9,7 +9,6 @@
 #include <mx/utils/utils.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 static char *plain_types[] = {
@@ -19,7 +18,7 @@ static char *plain_types[] = {
     [PT_U32] = "u32",   [PT_U64] = "u64",   [PT_U128] = "u128",
     [PT_F32] = "f32",   [PT_F64] = "f64"};
 
-bool is_plain_type(const char *str)
+bool is_plain_type_from_str(const char *str)
 {
 	for (size_t i = 0; i < LEN(plain_types); i++)
 		if (!strcmp(str, plain_types[i]))
@@ -28,9 +27,26 @@ bool is_plain_type(const char *str)
 	return false;
 }
 
-bool is_str_type(type_t *ty)
+bool type_is_integer(type_t *ty)
+{
+	return ty->kind == TY_PLAIN && ty->v_plain >= PT_BOOL
+	    && ty->v_plain <= PT_U128;
+}
+
+bool type_is_float(type_t *ty)
+{
+	return ty->kind == TY_PLAIN
+	    && (ty->v_plain == PT_F32 || ty->v_plain == PT_F64);
+}
+
+bool type_is_string(type_t *ty)
 {
 	return ty->kind == TY_OBJECT && !strcmp(ty->v_object->name, "str");
+}
+
+bool type_is_nullptr(type_t *ty)
+{
+	return ty->kind == TY_POINTER && ty->v_base->kind == TY_NULL;
 }
 
 const char *plain_type_name(plain_type t)
@@ -289,7 +305,7 @@ char *type_name(type_t *ty)
 	} else if (ty->kind == TY_ARRAY) {
 		tmp = type_name(ty->v_base);
 		snprintf(name, 512, "%s[]", tmp);
-	} else if (is_str_type(ty)) {
+	} else if (type_is_string(ty)) {
 		snprintf(name, 512, "str");
 	} else if (ty->kind == TY_OBJECT) {
 		snprintf(name, 512, "%s", ty->v_object->name);
@@ -343,9 +359,24 @@ int type_sizeof(type_t *ty)
 	}
 }
 
-bool type_can_cast(type_t *from, type_t *to)
+bool type_can_cast(type_t *from_type, type_t *into_type)
 {
-	return from->kind == TY_PLAIN && to->kind == TY_PLAIN;
+	if (type_cmp(from_type, into_type))
+		return true;
+
+	/* int -> int */
+	if (type_is_integer(from_type) && type_is_integer(into_type))
+		return true;
+
+	/* int -> &any */
+	if (type_is_integer(from_type) && into_type->kind == TY_POINTER)
+		return true;
+
+	/* &null -> &any */
+	if (type_is_nullptr(from_type) && into_type->kind == TY_POINTER)
+		return true;
+
+	return false;
 }
 
 void type_object_add_field(object_type_t *o, char *name, type_t *ty)

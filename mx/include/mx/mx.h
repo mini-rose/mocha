@@ -3,7 +3,6 @@
 
 #pragma once
 #include <stdbool.h>
-#include <time.h>
 
 #define MX_MAJOR 0
 #define MX_MINOR 9
@@ -17,6 +16,10 @@
 
 #if !defined MX_ROOT
 # define MX_ROOT DEFAULT_ROOT
+#endif
+
+#if !defined __warn_unused
+# define __warn_unused __attribute__((warn_unused_result))
 #endif
 
 typedef struct

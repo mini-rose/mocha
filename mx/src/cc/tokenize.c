@@ -255,7 +255,7 @@ token_list *tokens(file_t *source)
 				token_list_append(list, tok);
 				p += 6;
 				continue;
-			} else if (is_plain_type(str)) {
+			} else if (is_plain_type_from_str(str)) {
 				tok = token_new(last = T_DATATYPE, p, q - p);
 			} else
 				tok = token_new(last = T_IDENT, p, q - p);
@@ -389,7 +389,6 @@ token_list *tokens(file_t *source)
 			p++;
 			continue;
 		}
-
 
 		p++;
 	}

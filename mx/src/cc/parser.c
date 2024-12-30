@@ -300,8 +300,8 @@ array_part:
 		tok = next_tok(tokens);
 		tok = next_tok(tokens);
 		if (tok->type != T_RBRACKET) {
-			error_at(tokens->source, tok->value, tok->len,
-				 "expected closing bracket `]`");
+			error_at_with_fix(tokens->source, tok->value, tok->len,
+					  "]", "expected closing bracket `]`");
 		}
 
 		return array_ty;
@@ -369,41 +369,6 @@ static err_t parse_var_decl(expr_t *parent, expr_t *module, token_list *tokens,
 		block_add_local_var(parent->data, data);
 
 	return ERR_OK;
-}
-
-bool convert_int_value(value_expr_t *value, type_t *into_type)
-{
-	long val;
-
-	if (type_cmp(value->return_type, into_type))
-		return true;
-	if (value->type != VE_LIT)
-		return false;
-
-	val = value->literal->v_int;
-
-	/* Check if we can fit. */
-
-	switch (into_type->v_plain) {
-	case PT_I8:
-		if (val < CHAR_MIN || val > CHAR_MAX)
-			return false;
-		break;
-	case PT_I16:
-		if (val < SHRT_MIN || val > SHRT_MAX)
-			return false;
-		break;
-	case PT_I32:
-		if (val < INT_MIN || val > INT_MAX)
-			return false;
-		break;
-	default:
-		break;
-	}
-
-	value->return_type = type_copy(into_type);
-	value->literal->type = type_copy(into_type);
-	return true;
 }
 
 /**
@@ -558,6 +523,15 @@ static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
 			    "mean to dereference the pointer?");
 		}
 
+		/* Casting to pointer from null pointer. */
+
+		if (data->to->return_type->kind == TY_POINTER
+		    && type_is_nullptr(data->value->return_type)) {
+			data->value =
+			    value_cast(data->value, data->to->return_type, true,
+				       tokens, tok);
+		}
+
 		/* Try to cast the result of the operation. */
 
 		else if (value_expr_is_twosided(data->value)) {
@@ -571,7 +545,8 @@ static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
 			}
 
 			data->value =
-			    value_expr_cast(data->value, data->to->return_type);
+			    value_cast(data->value, data->to->return_type, true,
+				       tokens, tok);
 		}
 
 		/* If we have a literal and it can be converted, convert is
@@ -580,15 +555,9 @@ static err_t parse_assign(settings_t *settings, expr_t *parent, expr_t *mod,
 		else if (data->value->type == VE_LIT
 			 && type_can_cast(data->value->return_type,
 					  data->to->return_type)) {
-
-			long previous_val = data->value->literal->v_int;
-			if (!convert_int_value(data->value,
-					       data->to->return_type)) {
-				error_at(tokens->source, tok->value, tok->len,
-					 "cannot fit %ld into an %s",
-					 previous_val,
-					 type_name(data->to->return_type));
-			}
+			data->value =
+			    value_cast(data->value, data->to->return_type, true,
+				       tokens, tok);
 		} else {
 			error_at(tokens->source, name->value, name->len,
 				 "mismatched types in assignment, assigning "
@@ -646,7 +615,18 @@ static err_t parse_return(settings_t *settings, expr_t *parent, expr_t *mod,
 	data = parse_value_expr(settings, parent, mod, data, tokens, tok);
 	node->data = data;
 
-	if (!type_cmp(data->return_type, E_AS_FN(parent->data)->return_type)) {
+	return_type = E_AS_FN(parent->data)->return_type;
+
+	if (!type_cmp(data->return_type, return_type)) {
+
+		/* The types do not match, try casting. */
+
+		if (type_can_cast(data->return_type, return_type)) {
+			node->data = value_cast(node->data, return_type, true,
+						tokens, tok);
+			return ERR_OK;
+		}
+
 		error_at(tokens->source, tok->value, tok->len,
 			 "mismatched return type: expression returns "
 			 "%s, while "
@@ -1407,8 +1387,8 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 			parse_use(settings, module, tokens, current);
 		} else if (TOK_IS(current, T_KEYWORD, "type")) {
 			parse_type_decl(settings, module, tokens, current);
-		} else if (is_builtin_function(current)) {
-			parse_builtin_call(module, module, tokens, current);
+		} else if (is_builtin_decl(current)) {
+			parse_builtin_decl(module, module, tokens, current);
 		} else {
 			error_at(
 			    tokens->source, current->value, current->len,
@@ -1522,7 +1502,7 @@ static char *stringify_string(const char *p, int len)
 
 char *stringify_literal(literal_expr_t *literal)
 {
-	if (is_str_type(literal->type))
+	if (type_is_string(literal->type))
 		return stringify_string(literal->v_str.ptr, literal->v_str.len);
 
 	if (literal->type->kind != TY_PLAIN)

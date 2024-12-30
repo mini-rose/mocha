@@ -8,10 +8,10 @@ PREFIX := /usr/local
 CC ?= cc
 
 # Compiler flags
-CFLAGS ?=
+CFLAGS ?= -fsanitize=address -ggdb
 
 # Linker flags
-LDFLAGS ?=
+LDFLAGS ?= -fsanitize=address
 
 # Include directory
 CFLAGS += -Iinclude

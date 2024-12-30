@@ -189,7 +189,9 @@ void expr_print_value_expr(value_expr_t *val, int level)
 			expr_print_value_expr(val->tuple->values[i], level + 1);
 		break;
 	case VE_CAST:
-		printf("cast as %s:\n", type_name(val->return_type));
+		printf("cast %s -> %s:\n",
+		       type_name(val->cast_value->return_type),
+		       type_name(val->return_type));
 		expr_print_value_expr(val->cast_value, level + 1);
 		break;
 	default:

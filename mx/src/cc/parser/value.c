@@ -1,6 +1,7 @@
 /* parser/value.c - parse rvalues & lvalues
    Copyright (c) 2023 mini-rose */
 
+#include <limits.h>
 #include <mx/cc/alloc.h>
 #include <mx/cc/parser.h>
 #include <mx/cc/tokenize.h>
@@ -136,6 +137,7 @@ static void parse_tuple(settings_t *settings, expr_t *context, expr_t *mod,
 err_t parse_rvalue(settings_t *settings, expr_t *context, expr_t *mod,
 		   value_expr_t *node, token_list *tokens, token *tok)
 {
+	char *object_name;
 	type_t *temp_type;
 
 	/* '(' rvalue ')' */
@@ -163,26 +165,23 @@ err_t parse_rvalue(settings_t *settings, expr_t *context, expr_t *mod,
 
 	/* call */
 	if (is_call(tokens, tok)) {
-		node->type = VE_CALL;
-		node->call = slab_alloc(sizeof(*node->call));
-		parse_inline_call(settings, context, mod, node->call, tokens,
-				  tok);
-		node->return_type = type_copy(node->call->func->return_type);
+		parse_inline_call_value(settings, context, mod, node, NULL,
+					tokens, tok);
 		return ERR_OK;
 	}
 
 	/* member call */
 	if (is_member_call(tokens, tok)) {
-		node->type = VE_CALL;
-		node->call = slab_alloc(sizeof(*node->call));
-
-		node->call->object_name = slab_strndup(tok->value, tok->len);
+		object_name = slab_strndup(tok->value, tok->len);
 		tok = next_tok(tokens);
 		tok = next_tok(tokens);
 
-		parse_inline_call(settings, context, mod, node->call, tokens,
-				  tok);
-		node->return_type = type_copy(node->call->func->return_type);
+		parse_inline_call_value(settings, context, mod, node,
+					object_name, tokens, tok);
+
+		if (node->type == VE_CALL) {
+			node->call->object_name = object_name;
+		}
 
 		return ERR_OK;
 	}
@@ -307,18 +306,6 @@ static void swap_evaluation_order(value_expr_t *node)
 	node->right = r_right;
 }
 
-value_expr_t *value_expr_cast(value_expr_t *value, type_t *cast_to)
-{
-	value_expr_t *cast;
-
-	cast = slab_alloc(sizeof(value_expr_t));
-	cast->type = VE_CAST;
-	cast->return_type = type_copy(cast_to);
-	cast->cast_value = value;
-
-	return cast;
-}
-
 /* Parse a rvalue */
 value_expr_t *parse_value_expr(settings_t *settings, expr_t *context,
 			       expr_t *mod, value_expr_t *node,
@@ -374,13 +361,15 @@ value_expr_t *parse_value_expr(settings_t *settings, expr_t *context,
 
 			if (type_can_cast(node->left->return_type,
 					  node->right->return_type)) {
-				node->left = value_expr_cast(
-				    node->left, node->right->return_type);
+				node->left = value_cast(
+				    node->left, node->right->return_type, true,
+				    tokens, start);
 
 			} else if (type_can_cast(node->right->return_type,
 						 node->left->return_type)) {
-				node->right = value_expr_cast(
-				    node->right, node->left->return_type);
+				node->right = value_cast(
+				    node->right, node->right->return_type, true,
+				    tokens, start);
 
 			} else {
 				error_at(tokens->source, start->value,
@@ -447,4 +436,104 @@ highlight_t highlight_value(token_list *tokens, token *tok)
 	}
 
 	return hi;
+}
+
+static value_expr_t *value_expr_wrap_cast(value_expr_t *value, type_t *cast_to)
+{
+	value_expr_t *cast;
+
+	if (!type_can_cast(value->return_type, cast_to)) {
+		error("compiler issue: tried to forcefully cast %s -> %s",
+		      type_name(value->return_type), type_name(cast_to));
+	}
+
+	cast = slab_alloc(sizeof(value_expr_t));
+	cast->type = VE_CAST;
+	cast->return_type = type_copy(cast_to);
+	cast->cast_value = value;
+
+	return cast;
+}
+
+value_expr_t *value_cast(value_expr_t *value, type_t *into_type,
+			 bool error_on_failure, token_list *tokens, token *tok)
+{
+	const char *msg;
+	highlight_t hi;
+	long val;
+
+	msg = "";
+
+	/* If its the same type, don't cast. */
+
+	if (type_cmp(value->return_type, into_type))
+		return value;
+
+	/* Literal integers to other integers. */
+
+	if (value->type == VE_LIT && type_is_integer(value->literal->type)
+	    && type_is_integer(into_type)) {
+		val = value->literal->v_int;
+
+		/* Check if we can fit. */
+
+		switch (into_type->v_plain) {
+		case PT_I8:
+			if (val < CHAR_MIN || val > CHAR_MAX)
+				goto cannot_cast;
+			break;
+		case PT_I16:
+			if (val < SHRT_MIN || val > SHRT_MAX)
+				goto cannot_cast;
+			break;
+		case PT_I32:
+			if (val < INT_MIN || val > INT_MAX)
+				goto cannot_cast;
+			break;
+		case PT_I64:
+			break;
+		default:
+			goto cannot_cast;
+		}
+
+		value->return_type = type_copy(into_type);
+		value->literal->type = type_copy(into_type);
+		return value;
+	}
+
+	/* Math operations */
+
+	if (value_expr_is_twosided(value)
+	    && type_can_cast(value->return_type, into_type)) {
+		return value_expr_wrap_cast(value, into_type);
+	}
+
+	/* Null pointer to any other pointer */
+
+	if (type_is_nullptr(value->return_type)
+	    && into_type->kind == TY_POINTER) {
+		return value_expr_wrap_cast(value, into_type);
+	}
+
+	/* Integer to any pointer */
+
+	if (type_is_integer(value->return_type)
+	    && into_type->kind == TY_POINTER) {
+		return value_expr_wrap_cast(value, into_type);
+	}
+
+cannot_cast:
+	if (error_on_failure) {
+		if (value->type == VE_CALL)
+			msg = "the result ";
+		if (value->type == VE_LIT)
+			msg = "the literal ";
+
+		hi = highlight_value(tokens, tok);
+		error_at(tokens->source, hi.value, hi.len,
+			 "unable to cast %s`%s` to `%s`", msg,
+			 type_name(value->return_type), type_name(into_type));
+	}
+
+	return NULL;
 }

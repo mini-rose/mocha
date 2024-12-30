@@ -67,8 +67,12 @@ struct type
 	};
 };
 
-bool is_plain_type(const char *str);
-bool is_str_type(type_t *ty);
+bool is_plain_type_from_str(const char *str);
+
+bool type_is_integer(type_t *ty);
+bool type_is_float(type_t *ty);
+bool type_is_string(type_t *ty);
+bool type_is_nullptr(type_t *ty);
 
 const char *plain_type_example_varname(plain_type t);
 const char *plain_type_name(plain_type t);
@@ -86,7 +90,7 @@ char *type_name(type_t *ty);
 const char *type_example_varname(type_t *ty);
 int type_sizeof(type_t *t);
 
-bool type_can_cast(type_t *from, type_t *to);
+bool type_can_cast(type_t *from_type, type_t *into_type);
 
 void type_object_add_field(object_type_t *o, char *name, type_t *ty);
 type_t *type_object_field_type(object_type_t *o, char *name);
