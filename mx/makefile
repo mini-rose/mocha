@@ -43,7 +43,7 @@ endif
 
 mx: $(OBJ)
 	@echo "LD $@"
-	@$(CC) -fuse-ld=mold $(LDFLAGS) -o $@ $?
+	@$(CC) $(LDFLAGS) -o $@ $?
 
 $(OBJ): $(SRC)
 

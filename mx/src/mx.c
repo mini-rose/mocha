@@ -88,9 +88,6 @@ static inline void default_settings(settings_t *settings)
 		settings->sysroot = "/usr/lib/mocha";
 	} else if (access("/usr/local/lib/mocha", F_OK) == 0) {
 		settings->sysroot = "/usr/local/lib/mocha";
-	} else {
-		error("could not find mocha root path, please specify it with "
-		      "-r");
 	}
 
 	settings->output = DEFAULT_OUT;

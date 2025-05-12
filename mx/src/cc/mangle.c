@@ -38,11 +38,11 @@ char *mx_mangle_type(type_t *ty, char *buf)
 		buf[0] = 'P';
 		mx_mangle_type(ty->v_base, &buf[1]);
 	} else if (ty->kind == TY_ARRAY) {
-		sprintf(buf, "A_");
+		snprintf(buf, MANGLE_BUF_SIZ, "A_");
 		mx_mangle_type(ty->v_base, &buf[2]);
 	} else if (ty->kind == TY_OBJECT) {
 		/* parse this as the fully qualified name of the type */
-		sprintf(buf, "%zu%s", strlen(ty->v_object->name),
+		snprintf(buf, MANGLE_BUF_SIZ, "%zu%s", strlen(ty->v_object->name),
 			ty->v_object->name);
 	} else {
 		error("cannot mangle %s type", type_name(ty));

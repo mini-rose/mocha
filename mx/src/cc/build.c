@@ -65,7 +65,7 @@ static void build_and_link(settings_t *settings, const char *input_,
 		 input);
 
 	if (settings->dyn_linker) {
-		sprintf(cmd + strlen(cmd), "-Xlinker '-dynamic-linker=%s' ",
+		snprintf(cmd + strlen(cmd), sizeof(cmd) - strlen(cmd), "-Xlinker '-dynamic-linker=%s' ",
 			settings->dyn_linker);
 	}
 
