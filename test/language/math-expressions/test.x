@@ -1,4 +1,4 @@
-use std.io
+import std.io
 
 fn main() {
     a: i32 = 10 + 5 // Addition

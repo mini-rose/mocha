@@ -10,9 +10,11 @@
 #include <string.h>
 
 static char *keywords[] = {
-    [K_FUNCTION] = "fn", [K_FOR] = "for",    [K_WHILE] = "while",
-    [K_AND] = "and",     [K_OR] = "or",      [K_NOT] = "not",
-    [K_RETURN] = "ret",  [K_IMPORT] = "use", [K_TYPE] = "type"};
+    [K_FUNCTION] = "fn",   [K_FOR] = "for",       [K_WHILE] = "while",
+    [K_AND] = "and",       [K_OR] = "or",         [K_NOT] = "not",
+    [K_RETURN] = "return", [K_IMPORT] = "import", [K_TYPE] = "struct",
+    [K_IF] = "if",         [K_ELSE] = "else",
+};
 
 bool is_keyword(const char *str)
 {

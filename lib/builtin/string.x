@@ -6,5 +6,5 @@ __builtin_decl_mangled("drop", null, &str)
 __builtin_decl_mangled("len", i64, &str)
 
 fn len(s: str) -> i64 {
-	ret len(&s);
+	return len(&s)
 }

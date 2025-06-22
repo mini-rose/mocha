@@ -20,7 +20,7 @@ the language, we should put it into the `language` group::
 Once we've created a directory in the proper group, we'll need some code to run
 and a result file to compare against. Create a ``test.x`` file::
 
-        use std.io
+        import std.io
 
         fn main {
                 i = 2 + 2

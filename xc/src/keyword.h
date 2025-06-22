@@ -27,6 +27,10 @@ typedef enum
 
 	// Type decl keyword
 	K_TYPE = 8,
+
+	// If-else keywords
+	K_IF = 9,
+	K_ELSE = 10,
 } keyword_t;
 
 bool is_keyword(const char *);

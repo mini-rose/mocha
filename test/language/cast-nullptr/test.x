@@ -1,4 +1,4 @@
-use std.io
+import std.io
 
 __builtin_decl("malloc", &null, i64)
 

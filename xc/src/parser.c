@@ -586,6 +586,8 @@ static err_t parse_return(settings_t *settings, expr_t *parent, expr_t *mod,
 
 	node->type = E_RETURN;
 	node->data = data;
+	node->child = NULL;
+	node->next = NULL;
 
 	return_type = type_new_null();
 	if (parent->type == E_FUNCTION) {
@@ -1016,11 +1018,8 @@ static void parse_block(settings_t *settings, expr_t *module, fn_expr_t *fn,
 		else if (tok->type == T_LPAREN)
 			parse_condition(settings, node, module, fn, tokens,
 					tok);
-		else if (TOK_IS(tok, T_KEYWORD, "ret"))
+		else if (TOK_IS(tok, T_KEYWORD, "return"))
 			parse_return(settings, node, module, tokens, tok);
-		else if (TOK_IS(tok, T_IDENT, "return"))
-			error_at_with_fix(tokens->source, tok->value, tok->len,
-					  "ret", "did you mean `ret`?");
 		else
 			error_at(tokens->source, tok->value, tok->len,
 				 "unparsable");
@@ -1202,7 +1201,8 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
 		tok = next_tok(tokens);
 		if (!TOK_IS(tok, T_PUNCT, ":")) {
 			error_at(tokens->source, tok->value, tok->len,
-				 "expected colon seperating the name and type");
+				 "expected colon seperating the name "
+				 "and type");
 		}
 
 		tok = next_tok(tokens);
@@ -1220,8 +1220,10 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
 					error_at_with_fix(
 					    tokens->source, tok->value,
 					    tok->len, "fn",
-					    "expected `fn` keyword after "
-					    "static method declaration");
+					    "expected `fn` keyword "
+					    "after "
+					    "static method "
+					    "declaration");
 				}
 
 				func->is_static = true;
@@ -1240,8 +1242,8 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
 				tokens->iter--;
 
 			if (!func->is_static) {
-				/* If method is non-static, the first argument
-				   should be `self`. */
+				/* If method is non-static, the first
+				   argument should be `self`. */
 
 				bool self_correct_type = type_cmp(
 				    func->params[0]->type, type_pointer_of(ty));
@@ -1253,9 +1255,11 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
 					error_at_with_fix(
 					    tokens->source, tok->value,
 					    tok->len, fix,
-					    "the first parameter of a method "
+					    "the first parameter of a "
+					    "method "
 					    "must take "
-					    "a reference to this object");
+					    "a reference to this "
+					    "object");
 				}
 
 				if (settings->warn_self_name
@@ -1304,8 +1308,8 @@ static void parse_object_fields(settings_t *settings, expr_t *module,
  * type ::= "type" ident = ident
  *      ::= "type" ident { [ident ident newline]... }
  */
-static void parse_type_decl(settings_t *settings, expr_t *module,
-			    token_list *tokens, token *tok)
+static void parse_struct_decl(settings_t *settings, expr_t *module,
+			      token_list *tokens, token *tok)
 {
 	type_t *ty;
 	token *name;
@@ -1372,7 +1376,8 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 
 		if (TOK_IS(current, T_KEYWORD, "fn")) {
 
-			/* parse only the fn declaration, leave the rest */
+			/* parse only the fn declaration, leave the rest
+			 */
 			fn_pos_t *pos = acquire_fn_pos(&fn_pos);
 			pos->decl = module_add_local_decl(module);
 			parse_fn_decl(module, pos->decl, tokens, current);
@@ -1384,17 +1389,17 @@ expr_t *parse(expr_t *parent, expr_t *module, settings_t *settings,
 
 		} else if (current->type == T_NEWLINE) {
 			continue;
-		} else if (TOK_IS(current, T_KEYWORD, "use")) {
+		} else if (TOK_IS(current, T_KEYWORD, "import")) {
 			parse_use(settings, module, tokens, current);
-		} else if (TOK_IS(current, T_KEYWORD, "type")) {
-			parse_type_decl(settings, module, tokens, current);
+		} else if (TOK_IS(current, T_KEYWORD, "struct")) {
+			parse_struct_decl(settings, module, tokens, current);
 		} else if (is_builtin_decl(current)) {
 			parse_builtin_decl(module, module, tokens, current);
 		} else {
-			error_at(
-			    tokens->source, current->value, current->len,
-			    "only functions and imports are allowed at the "
-			    "top-level");
+			error_at(tokens->source, current->value, current->len,
+				 "only functions and imports are "
+				 "allowed at the "
+				 "top-level");
 			goto err;
 		}
 	}

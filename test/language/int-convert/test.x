@@ -1,4 +1,4 @@
-use std.io
+import std.io
 
 fn takes_i32(a: i32) {
 	io.write(str(a))

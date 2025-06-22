@@ -4,26 +4,26 @@ Grammar
 The Mocha language grammar is represented using a mix of EBNF and regular
 expressions. Syntax parsers can be built using this specification::
 
-        module ::= use-expr
+        module ::= import-expr
                ::= function-decl
                ::= type-decl
                ::= type-alias
                ::= builtin-call
 
-        use-expr ::= 'use' use-block
-                 ::= 'use' use-path
+        import-expr ::= 'import' import-block
+                 ::= 'import' import-path
 
-        use-block ::= '{' (use-path)+ '}'
-        use-path ::= string
+        import-block ::= '{' (use-path)+ '}'
+        import-path ::= string
                  ::= symbol ('.' symbol)*
 
         function-decl ::= 'fn' symbol [function-params] ['->' type] block
         function-params ::= '(' [function-param (',' function-param)*] ')'
         function-param ::= symbol ':' type
 
-        type-decl ::= 'type' symbol '{' (type-field)* '}'
-        type-field ::= symbol ':' (type | type-method)
-        type-method ::= ['static'] 'fn' [function-params] ['->' type] block
+        struct-decl ::= 'struct' symbol '{' (type-field)* '}'
+        struct-field ::= symbol ':' (type | type-method)
+        struct-method ::= ['static'] 'fn' [function-params] ['->' type] block
 
         type-alias ::= 'type' symbol '=' type
 
@@ -37,12 +37,12 @@ expressions. Syntax parsers can be built using this specification::
                   ::= condition
                   ::= call
                   ::= member-call
-                  ::= ret
+                  ::= return
 
         var-decl ::= symbol ':' type ['=' rvalue]
         var-assign ::= lvalue '=' rvalue
         call ::= symbol '(' [rvalue (',' rvalue)*] ')'
-        ret ::= 'ret' rvalue
+        return ::= 'return' rvalue
 
         condition ::= '(' rvalue ')' '?' (block | rvalue) [':' (block | rvalue)]
         block ::= '{' (statement)* '}'

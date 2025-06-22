@@ -1,4 +1,4 @@
-use std.io
+import std.io
 
 fn main {
     y: i64 = 1

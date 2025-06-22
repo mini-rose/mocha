@@ -1,4 +1,4 @@
-type Container {
+struct Container {
 	field1: str
 	field2: i32
 }

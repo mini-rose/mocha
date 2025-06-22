@@ -1,4 +1,4 @@
-use {
+import {
 	// std.os // use this
 	std.io
 }

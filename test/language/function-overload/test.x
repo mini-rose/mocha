@@ -1,4 +1,4 @@
-use std.io
+import std.io
 
 fn f(string: str) {
 	io.write(&string)

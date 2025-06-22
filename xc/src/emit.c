@@ -1161,7 +1161,7 @@ void emit_function_body(settings_t *settings, LLVMModuleRef mod, expr_t *module,
 	if (data->return_type->kind != TY_NULL) {
 		context.ret_value =
 		    LLVMBuildAlloca(builder, gen_type(mod, data->return_type),
-				    settings->emit_varnames ? "ret" : "");
+				    settings->emit_varnames ? "return" : "");
 	}
 
 	/* args -> start */

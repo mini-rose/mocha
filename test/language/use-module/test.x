@@ -1,3 +1,3 @@
-use "module"
+import "module"
 
 fn main {}

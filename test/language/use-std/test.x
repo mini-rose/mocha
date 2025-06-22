@@ -1,3 +1,3 @@
-use std.io
+import std.io
 
 fn main {}

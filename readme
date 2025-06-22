@@ -17,7 +17,7 @@ fn add(a: i32, b: i32) -> i32 {
        ⌃
        32-bit integer argument
 
-    ret a + b
+    return a + b
 }
 
 

@@ -2,7 +2,7 @@ Writing modules
 ===============
 
 Modules are simply Mocha source code files which are imported by the compiler
-if the user requests so using the ``use`` keyword. Note that some modules are
+if the user requests so using the ``import`` keyword. Note that some modules are
 automatically imported by the compiler to support with code generation. Here
 is a simple "hello world" style example:
 
@@ -14,7 +14,7 @@ Start by creating a hello.x file, where we will implement a function::
 
 In the main module, named here "main.x" add a use statement::
 
-        use "hello"
+        import "hello"
 
         fn main {
                 hello()
@@ -67,7 +67,7 @@ these modules::
 
         // main.x
 
-        use "add"
+        import "add"
 
         fn main {
                 print(add(4, 5))
@@ -95,7 +95,7 @@ Here is an example::
 
         // mod.x
 
-        type User {
+        struct User {
                 name: str
                 id: i32
         }

@@ -1,4 +1,4 @@
-use std.io
+import std.io
 
 fn main {
 	x = 5 + 5 * 2 * (2 + 2 * 2)

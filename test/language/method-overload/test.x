@@ -1,6 +1,6 @@
-use std.io
+import std.io
 
-type T {
+struct T {
 	f: fn (self: &T, string: str) {
 		io.write(&string)
 	}

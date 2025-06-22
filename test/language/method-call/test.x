@@ -1,6 +1,6 @@
-use std.io
+import std.io
 
-type Container {
+struct Container {
 	method: fn (self: &Container) {
 		io.write('called method\n')
 	}

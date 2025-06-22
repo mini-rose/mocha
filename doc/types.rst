@@ -66,7 +66,7 @@ Similar to other programming languages, Mocha offers an structured type, which
 is basically the same as the C struct. You can create an object type using the
 ``type`` keyword::
 
-        type User {
+        struct User {
                 name: str
                 id: i32
         }
@@ -75,7 +75,7 @@ This type has two fields, a name and id, which can both be accessed by anyone,
 as there isn't any notion of private/protected fields. In LLVM IR, this would be
 represented as::
 
-        %User = type { %str, i32 }
+        %User = struct { %str, i32 }
 
 Structures have special semantic rules emitted by the compiler. For example,
 passing a raw object to a function (not a reference to it) will generate a copy
@@ -91,7 +91,7 @@ a drop function, because they don't allocate any memory.
 
 Apart from typed fields, object can also have methods::
 
-        type User {
+        struct User {
                 name: str
                 id: i32
 

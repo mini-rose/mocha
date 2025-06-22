@@ -1,0 +1,18 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+    {
+        "name": "Debug Node.js",
+        "mode": "debug",
+        "adapter": "CodeLLDB",
+        "label": "Debug Node.js",
+        "type": "node",
+        "request": "launch",
+        "program": "xc/xc",
+        "args": ["--sysroot=.", "test/language/if-else/test.x"],
+        "console": "integratedTerminal",
+        "internalConsoleOptions": "neverOpen"
+    }
+]

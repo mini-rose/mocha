@@ -79,7 +79,7 @@ def run_test(test_name: str, out_dir: str) -> tuple[bool, Union[bytes, None]]:
     path = test_name.replace(".", "/")
     settings = parse_test_info(test_name, path)
 
-    cmd = [os.path.abspath("xc/xc"), "--sysroot=" + os.path.abspath("lib"), "-o" + os.path.join(out_dir, "test"), "test.x"]
+    cmd = [os.path.abspath("xc/xc"), "--sysroot=" + os.path.abspath("."), "-o" + os.path.join(out_dir, "test"), "test.x"]
     if settings.fields["flags"]:
         cmd.extend(settings.fields["flags"].split())
 

@@ -1,6 +1,6 @@
-use std.io
+import std.io
 
-type Container {
+struct Container {
 	field1: str
 	field2: i32
 }

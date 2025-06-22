@@ -1,7 +1,7 @@
-use std.io
+import std.io
 
 fn returns_pointer() -> &i32 {
-    ret 7
+    return 7
 }
 
 fn main {

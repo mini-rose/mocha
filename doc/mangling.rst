@@ -33,7 +33,7 @@ add<u128>(...) would become ``_M3addoo``.
 Type methods get mangled with a prefix, showing the full path of the function.
 For example::
 
-        type User {
+        struct User {
                 print: fn (self: &User) { ... }
         }
 

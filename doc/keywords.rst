@@ -2,8 +2,8 @@ Keywords
 ========
 
 * ``fn`` declare a function
-* ``ret`` return a value from a function
-* ``use`` include/import another module
+* ``return`` return a value from a function
+* ``import`` include/import another module
 * ``while``
 * ``for``
 

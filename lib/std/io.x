@@ -3,29 +3,29 @@ __builtin_decl("__io__write__", i64, i32, &str, i64)
 __builtin_decl("__io__popen__", &str, &str, &str)
 __builtin_decl("__io__flush__", null, i32)
 
-type io {
+struct io {
 	write: static fn (buf: &str) -> i64 {
-		ret __io__write__(1, buf, len(buf))
+		return __io__write__(1, buf, len(buf))
 	}
 
 	write: static fn (fd: i32, buf: &str) -> i64 {
-		ret __io__write__(fd, buf, len(buf))
+		return __io__write__(fd, buf, len(buf))
 	}
 
 	write: static fn (fd: i32, buf: &str, count: i64) -> i64 {
-		ret __io__write__(fd, buf, count)
+		return __io__write__(fd, buf, count)
 	}
 
 	write: static fn (buf: str) -> i64 {
-		ret __io__write__(1, &buf, len(buf))
+		return __io__write__(1, &buf, len(buf))
 	}
 
 	write: static fn (fd: i32, buf: str) -> i64 {
-		ret __io__write__(fd, &buf, len(buf))
+		return __io__write__(fd, &buf, len(buf))
 	}
 
 	write: static fn (fd: i32, buf: str, count: i64) -> i64 {
-		ret __io__write__(fd, &buf, count)
+		return __io__write__(fd, &buf, count)
 	}
 
 	read: static fn (buf: &str) {
@@ -46,6 +46,6 @@ type io {
 
 	popen: static fn (prog: str) -> &str {
 		mode: str = "r"
-		ret __io__popen__(&prog, &mode)
+		return __io__popen__(&prog, &mode)
 	}
 }
