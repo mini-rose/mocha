@@ -1,0 +1,145 @@
+#!/usr/bin/python3
+# Script for running & checking all tests.
+# Copyright (c) 2023 mini-rose
+
+import subprocess
+import shutil
+import os
+
+TEST_GROUPS = ["language"]
+
+
+def collect_tests() -> list:
+    tests = []
+
+    for group in TEST_GROUPS:
+        dirs = os.listdir(group)
+        for dir in dirs:
+            if not os.path.isdir(group + "/" + dir):
+                continue
+            tests.append(group + "." + dir)
+
+    return sorted(tests)
+
+
+class TestSettings:
+    """Contains the test settings for a single test case. Provides default
+    options for a test."""
+
+    __name: str
+    fields: dict
+
+    def __init__(self, name: str):
+        self.__name = name
+        self.fields = {"fails": False, "flags": ""}
+
+    @staticmethod
+    def parse_value(value: str):
+        if value == "true":
+            return True
+        if value == "false":
+            return False
+        else:
+            return value
+
+    def set_value(self, line: str):
+        """Set a value of the settings. Takes a `key=value` line."""
+        v = line.split("=", 1)
+        if len(v) < 2:
+            print(f"Invalid setting in {self.__name}: {line}")
+            return
+
+        k, v = v
+        if k in self.fields:
+            self.fields[k] = self.parse_value(v)
+        else:
+            print(f"Unknown setting in {self.__name}: `{k}`")
+
+
+def parse_test_info(test_name: str, path: str) -> TestSettings:
+    settings = TestSettings(test_name)
+    path = path + "/test.info"
+
+    if not os.path.exists(path):
+        return settings
+    with open(path) as f:
+        lines = f.readlines()
+
+    for line in lines:
+        line = line.strip()
+        if line.startswith("#"):
+            continue
+        settings.set_value(line)
+
+    return settings
+
+
+def run_test(test_name: str) -> bool:
+    path = test_name.replace(".", "/")
+    settings = parse_test_info(test_name, path)
+
+    cmd = ["xc", "-o../../__out__/test", "test.ff"]
+    if settings.fields["flags"]:
+        cmd.extend(settings.fields["flags"].split())
+
+    res = subprocess.run(cmd, cwd=path, capture_output=True)
+    if len(res.stderr):
+        # if the test should fail, make it pass.
+        if settings.fields["fails"]:
+            return True
+        print(str(res.stderr, "utf8"))
+        return False
+
+    if settings.fields["fails"] and not len(res.stderr):
+        return False
+
+    # If it compiles, run it.
+    res = subprocess.run(["__out__/test"], capture_output=True)
+    if os.path.exists(path + "/test.result"):
+        with open(path + "/test.result", "rb") as f:
+            should_be = f.read()
+
+        if should_be != res.stdout:
+            print("\nOutput does not match, should be:")
+            print("\033[92m" + str(should_be, "utf8") + "\033[0m")
+            print("And is:")
+            print("\033[91m" + str(res.stdout, "utf8") + "\033[0m")
+            return False
+
+        return True
+
+    return True
+
+
+def main():
+    tests = collect_tests()
+    passed = 0
+
+    print(f"Running {len(tests)} tests:")
+
+    if not os.path.exists("__out__"):
+        os.mkdir("__out__")
+
+    try:
+        for test in tests:
+            print("  \033[97mrunning\033[0m", test, end=" ")
+            if run_test(test):
+                print("\033[92mOK\033[0m")
+                passed += 1
+            else:
+                print("\033[91mFAIL\033[0m")
+    except KeyboardInterrupt:
+        print()
+
+    if len(tests) == passed:
+        print("\033[92m", end="")
+    else:
+        print("\033[91m", end="")
+
+    print(f"Passed [{passed}/{len(tests)}] tests\033[0m")
+
+    if os.path.exists("__out__"):
+        shutil.rmtree("__out__")
+
+
+main()

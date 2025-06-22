@@ -1,7 +1,7 @@
-mx compiler
+xc compiler
 ===========
 
-This document contains some topics about the details in mx that are not
+This document contains some topics about the details in xc that are not
 immediately understandable when looking at the code, or some design choices
 that wouldn't be useful otherwise.
 
@@ -10,9 +10,9 @@ Memory allocation
 -----------------
 
 An important topic for any C program is memory allocations, which has become
-a headache in mx using basic malloc() and free() calls. This is why the slab
+a headache in xc using basic malloc() and free() calls. This is why the slab
 allocator was created, to have easy access to heap memory without the need to
-worry about free'ing it. The slab allocators used in mx do not allow for
+worry about free'ing it. The slab allocators used in xc do not allow for
 free'ing memory, only acquiring. This means that once ``slab_deinit_global()``
 has been called, all memory acquired by the slabs is free'd at once, removing
 any worry about memory leaks.

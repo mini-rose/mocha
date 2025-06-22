@@ -1,7 +1,7 @@
 Allocator API
 =============
 
-MX uses a set of custom allocators to make programming easier for the compiler
+XC uses a set of custom allocators to make programming easier for the compiler
 developer.
 
 

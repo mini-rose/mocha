@@ -1,7 +1,7 @@
 mocha
 =====
 
-This is the main repository for the mocha project, and it contains the mx
+This is the main repository for the mocha project, and it contains the xc
 compiler/build system, the mocha standard library along with documentation
 found in doc/.
 
@@ -24,8 +24,8 @@ fn add(a: i32, b: i32) -> i32 {
 Build
 -----
 
-- mx
-   $ cd mx && make
+- xc
+   $ cd xc && make
 
 Documentation
 -------------

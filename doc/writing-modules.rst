@@ -20,7 +20,7 @@ In the main module, named here "main.ff" add a use statement::
                 hello()
         }
 
-After we compile this program by just calling ``mx main.ff``, we can see that
+After we compile this program by just calling ``xc main.ff``, we can see that
 the compiler automatically sorts out all imports and additional modules.
 
 
@@ -79,7 +79,7 @@ with a similar name but ending with .c is present, and builds an object from it
 if that's the case (it will drop the object into the same directory, just with
 a .o file ending). Now, just build this test with::
 
-        $ mx main.ff && ./a.out
+        $ xc main.ff && ./a.out
 
 and the compiler will do the rest.
 
