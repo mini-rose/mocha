@@ -1,10 +1,10 @@
 xc:
-	${MAKE} -C xc
+	@${MAKE} -C xc
 
 test: xc
-	./test/xtest
+	@./test/xtest
 
 clean:
-	${MAKE} -C xc clean
+	@${MAKE} -C xc clean
 
 .PHONY: xc test clean

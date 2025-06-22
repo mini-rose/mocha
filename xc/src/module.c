@@ -7,7 +7,6 @@
 #include "parser.h"
 #include "tokenize.h"
 #include "type.h"
-#include "utils/error.h"
 #include "utils/file.h"
 #include "xc.h"
 

@@ -282,10 +282,16 @@ bool is_rvalue(token_list *tokens, token *tok)
 	return false;
 }
 
+/*
+ * operator ::= == | != | = | + | += | -> | -- | ++ | -= | / | % | /= |
+ */
 bool is_operator(token *tok)
 {
-	/* TODO: make this better and safer */
-	return (tok->type >= T_EQ && tok->type <= T_SUB) || tok->type == T_MOD;
+	return tok->type == T_EQ || tok->type == T_NEQ || tok->type == T_ASS
+	    || tok->type == T_ADD || tok->type == T_ADDA || tok->type == T_ARROW
+	    || tok->type == T_DEC || tok->type == T_INC || tok->type == T_SUBA
+	    || tok->type == T_DIV || tok->type == T_MOD || tok->type == T_DIVA
+	    || tok->type == T_MODA || tok->type == T_MUL || tok->type == T_SUB;
 }
 
 /*

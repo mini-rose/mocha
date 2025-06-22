@@ -112,7 +112,7 @@ def run_test(test_name: str, out_dir: str) -> tuple[bool, Union[bytes, None]]:
     return True, None
 
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 def run_test_with_unique_binary(test_name: str, out_dir: str) -> tuple[str, bool, Union[bytes, None]]:
     """Run a single test with a unique binary name."""
