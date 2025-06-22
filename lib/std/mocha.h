@@ -1,4 +1,4 @@
-/* mocha.h - header for bridging between C and Mocha.
+/* x.h - header for bridging between C and Mocha.
    Copyright (c) 2023 mini-rose */
 
 #pragma once

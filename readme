@@ -1,8 +1,8 @@
-mocha
+x
 =====
 
-This is the main repository for the mocha project, and it contains the xc
-compiler/build system, the mocha standard library along with documentation
+This is the main repository for the x project, and it contains the xc
+compiler/build system, the x standard library along with documentation
 found in doc/.
 
 

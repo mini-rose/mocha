@@ -1,4 +1,4 @@
-/* parser.h - mocha tokens to AST parser
+/* parser.h - x tokens to AST parser
    Copyright (c) 2023 mini-rose */
 
 #pragma once

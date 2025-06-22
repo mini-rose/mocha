@@ -1,8 +1,8 @@
-#include "../mocha.h"
+#include "../x.h"
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 null _M4dropP3str(str *self)
 {
@@ -14,10 +14,10 @@ null _M4dropP3str(str *self)
 
 null _M4copyP3strP3str(str *self, str *from)
 {
-    if (!self->heap)
-        _M4dropP3str(self);
+	if (!self->heap)
+		_M4dropP3str(self);
 
-    self->heap = true;
+	self->heap = true;
 	self->len = from->len;
 	self->ptr = (char *) malloc(self->len);
 

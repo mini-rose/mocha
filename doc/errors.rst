@@ -44,4 +44,4 @@ This is a list of all error IDs:
         understand and assemble.
 
 * ``[no-main]``
-        Missing mocha main() function.
+        Missing x main() function.

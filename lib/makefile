@@ -1,10 +1,10 @@
 PREFIX ?= /usr/local/lib
 
 install:
-	mkdir -p $(PREFIX)/mocha/lib
-	cp -r std $(PREFIX)/mocha/lib
+	mkdir -p $(PREFIX)/x/lib
+	cp -r std $(PREFIX)/x/lib
 
 uninstall:
-	rm -rf $(PREFIX)/mocha
+	rm -rf $(PREFIX)/x
 
 .PHONY: install uninstall

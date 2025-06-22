@@ -1,4 +1,4 @@
-/* xc.h - mocha compiler
+/* xc.h - x compiler
    Copyright (c) 2023 mini-rose */
 
 #pragma once
@@ -12,7 +12,7 @@
 #endif
 
 #define DEFAULT_OUT  "a.out"
-#define DEFAULT_ROOT "/usr/local/lib/mocha"
+#define DEFAULT_ROOT "/usr/local/lib/x"
 
 #if !defined XC_ROOT
 # define XC_ROOT DEFAULT_ROOT
@@ -51,7 +51,7 @@ typedef struct
 	char *opt;
 	char *output;
 	char *input;
-	char *sysroot; /* /usr/lib/mocha */
+	char *sysroot; /* /usr/lib/x */
 	char *dyn_linker;
 } settings_t;
 

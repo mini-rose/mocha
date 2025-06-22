@@ -79,9 +79,9 @@ std.builtin.stacktrace
 Used by the compiler to emit stack information in the prologues and epilogues
 of functions. These are not emitted if ``-Eno-stack`` is passed.
 
-* ``__mocha_stackpush(func: &i8, file_t: &i8) -> null #nomangle``
+* ``__x_stackpush(func: &i8, file_t: &i8) -> null #nomangle``
         Emitted at the start of a function.
 
-* ``__mocha_stackpop() -> null #nomangle``
+* ``__x_stackpop() -> null #nomangle``
         Emitted at the end of the function, just before the final ret
         instruction.

@@ -1,4 +1,4 @@
-/* xc - mocha compiler, build system & package manager
+/* xc - x compiler, build system & package manager
    Copyright (c) 2023 mini-rose */
 
 #include "xc.h"
@@ -72,10 +72,10 @@ static inline void default_settings(settings_t *settings)
 	   initialized yet. */
 	settings->sysroot = XC_ROOT;
 
-	if (access("/usr/lib/mocha", F_OK) == 0) {
-		settings->sysroot = "/usr/lib/mocha";
-	} else if (access("/usr/local/lib/mocha", F_OK) == 0) {
-		settings->sysroot = "/usr/local/lib/mocha";
+	if (access("/usr/lib/x", F_OK) == 0) {
+		settings->sysroot = "/usr/lib/x";
+	} else if (access("/usr/local/lib/x", F_OK) == 0) {
+		settings->sysroot = "/usr/local/lib/x";
 	}
 
 	settings->output = DEFAULT_OUT;
