@@ -27,8 +27,7 @@ static inline void full_help()
 	      "  -O <lvl>            opt: 0 1 2 3 s\n"
 	      "  -p                  print AST\n"
 	      "  -t                  print tokens\n"
-	      "  -r <path>           sysroot (default: " XC_ROOT ")\n"
-	      "  --root <path>       sysroot\n"
+	      "  --sysroot <path>    sysroot\n"
 	      "  --ldd <path>        dynamic linker\n"
 	      "  -v                  version\n"
 	      "  --version           version\n"
@@ -71,12 +70,6 @@ static inline void default_settings(settings_t *settings)
 	/* Note: Allocating memory here will crash, as the slab alloc is not
 	   initialized yet. */
 	settings->sysroot = XC_ROOT;
-
-	if (access("/usr/lib/x", F_OK) == 0) {
-		settings->sysroot = "/usr/lib/x";
-	} else if (access("/usr/local/lib/x", F_OK) == 0) {
-		settings->sysroot = "/usr/local/lib/x";
-	}
 
 	settings->output = DEFAULT_OUT;
 	settings->global = false;
@@ -138,7 +131,7 @@ void parse_opt(settings_t *settings, const char *option, char *arg)
 	if (!strncmp(option, "ldd", 3))
 		settings->dyn_linker = arg;
 
-	if (!strncmp(option, "root", 4))
+	if (!strncmp(option, "sysroot", 7))
 		settings->sysroot = arg;
 }
 
@@ -217,8 +210,8 @@ int main(int argc, char **argv)
 {
 	int c, optindx = 0;
 
-	/* Important note: do NOT allocate any memory between here and the call
-	   to slab_init_global(), as it will just crash. */
+	/* Important note: do NOT allocate any memory between here and
+	   the call to slab_init_global(), as it will just crash. */
 
 	atexit(exit_routines);
 	default_settings(&settings);
@@ -226,7 +219,7 @@ int main(int argc, char **argv)
 	static struct option longopts[] = {{"help", no_argument, 0, 0},
 					   {"version", no_argument, 0, 0},
 					   {"ldd", required_argument, 0, 0},
-					   {"root", required_argument, 0, 0},
+					   {"sysroot", required_argument, 0, 0},
 					   {"alloc", no_argument, 0, 0}};
 
 	while (1) {
@@ -281,18 +274,18 @@ int main(int argc, char **argv)
 
 	slab_init_global(settings.x_sanitize_alloc);
 
-	if (settings.input == NULL) {
-		if (optind >= argc)
-			error("missing source file name");
-		settings.input = slab_strdup(argv[optind]);
-	}
-
 	int n = strlen(settings.sysroot);
 	if (settings.sysroot[n - 1] == '/')
 		settings.sysroot[n - 1] = 0;
 
 	// Check settings
 	validate_settings(settings);
+
+	if (settings.input == NULL) {
+		if (optind >= argc)
+			error("missing source file name");
+		settings.input = slab_strdup(argv[optind]);
+	}
 
 	compile(&settings);
 
