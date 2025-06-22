@@ -1,5 +1,5 @@
 /* std.builtin.cast - casting functions
-   Copyright (c) 2023-2024 mini-rose */
+   Copyright (c) 2024-2025 mini-rose */
 
 __builtin_decl_mangled("str", &str, i8)
 __builtin_decl_mangled("str", &str, i32)

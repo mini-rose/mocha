@@ -1,7 +1,5 @@
 /* std.builtin.stack - tools for tracking the callstack
-   Copyright (c) 2023-2024 mini-rose */
-
-#include "../x.h"
+   Copyright (c) 2024-2025 mini-rose */
 
 #include <stdio.h>
 #include <stdlib.h>

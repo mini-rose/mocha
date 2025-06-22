@@ -63,6 +63,7 @@ typedef enum
 	VE_SUB,    /* left - right */
 	VE_MUL,    /* left * right */
 	VE_DIV,    /* left / right */
+	VE_MOD,    /* left % right */
 	VE_PTR,    /* &name */
 	VE_DEREF,  /* *name */
 	VE_MREF,   /* name.member */

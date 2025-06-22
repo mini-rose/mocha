@@ -285,7 +285,7 @@ bool is_rvalue(token_list *tokens, token *tok)
 bool is_operator(token *tok)
 {
 	/* TODO: make this better and safer */
-	return tok->type >= T_EQ && tok->type <= T_SUB;
+	return (tok->type >= T_EQ && tok->type <= T_SUB) || tok->type == T_MOD;
 }
 
 /*

@@ -9,7 +9,6 @@
 #include "parser.h"
 #include "type.h"
 #include "utils/error.h"
-#include "utils/utils.h"
 #include "xc.h"
 
 #include <llvm-c/Analysis.h>
@@ -502,6 +501,12 @@ static LLVMValueRef gen_new_value(LLVMBuilderRef builder, fn_context_t *context,
 			break;
 		case VE_MUL:
 			new = LLVMBuildMul(builder, left, right, "");
+			break;
+		case VE_DIV:
+			new = LLVMBuildSDiv(builder, left, right, "");
+			break;
+		case VE_MOD:
+			new = LLVMBuildSRem(builder, left, right, "");
 			break;
 		default:
 			error("emit: unknown operation: %s",

@@ -1532,7 +1532,8 @@ value_expr_type value_expr_type_from_op(token_list *tokens, token *op)
 		token_t token;
 		value_expr_type type;
 	} ops[] = {{T_ADD, VE_ADD}, {T_SUB, VE_SUB}, {T_MUL, VE_MUL},
-		   {T_DIV, VE_DIV}, {T_EQ, VE_EQ},   {T_NEQ, VE_NEQ}};
+		   {T_DIV, VE_DIV}, {T_MOD, VE_MOD}, {T_EQ, VE_EQ},
+		   {T_NEQ, VE_NEQ}};
 
 	for (size_t i = 0; i < LEN(ops); i++) {
 		if (op->type == ops[i].token)

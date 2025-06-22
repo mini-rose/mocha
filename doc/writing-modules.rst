@@ -6,13 +6,13 @@ if the user requests so using the ``use`` keyword. Note that some modules are
 automatically imported by the compiler to support with code generation. Here
 is a simple "hello world" style example:
 
-Start by creating a hello.ff file, where we will implement a function::
+Start by creating a hello.x file, where we will implement a function::
 
         fn hello {
                 print("hello")
         }
 
-In the main module, named here "main.ff" add a use statement::
+In the main module, named here "main.x" add a use statement::
 
         use "hello"
 
@@ -20,7 +20,7 @@ In the main module, named here "main.ff" add a use statement::
                 hello()
         }
 
-After we compile this program by just calling ``xc main.ff``, we can see that
+After we compile this program by just calling ``xc main.x``, we can see that
 the compiler automatically sorts out all imports and additional modules.
 
 
@@ -34,7 +34,7 @@ add function implemented in C.
 First, tell the compiler that an add functions exists, which returns an i32
 and takes 2 arguments, both being plain i32::
 
-        // add.ff
+        // add.x
 
         __builtin_decl_mangled("add", i32, i32, i32)
 
@@ -45,11 +45,11 @@ You can now create a C file, which will implement the add functions we just
 declared. There are a couple of requirements to having the compiler notice
 a C source file:
 
-  * The C file should have the same base name as the .ff module
-  * It should be placed in the same directory as the .ff module
+  * The C file should have the same base name as the .x module
+  * It should be placed in the same directory as the .x module
 
 This means that if we want to implement the add function, we have to create
-an add.c file in the same directory as the add.ff module source file, so it
+an add.c file in the same directory as the add.x module source file, so it
 can get recognized as an additional dependency for the compiler::
 
         // add.c
@@ -62,10 +62,10 @@ can get recognized as an additional dependency for the compiler::
                 return a + b;
         }
 
-Now, to test our module out create a main.ff file in the same directory as
+Now, to test our module out create a main.x file in the same directory as
 these modules::
 
-        // main.ff
+        // main.x
 
         use "add"
 
@@ -73,13 +73,13 @@ these modules::
                 print(add(4, 5))
         }
 
-The compiler will now look for a file named add.ff in the local directory, and
+The compiler will now look for a file named add.x in the local directory, and
 then import it if it finds something. Then, it quickly checks if a source file
 with a similar name but ending with .c is present, and builds an object from it
 if that's the case (it will drop the object into the same directory, just with
 a .o file ending). Now, just build this test with::
 
-        $ xc main.ff && ./a.out
+        $ xc main.x && ./a.out
 
 and the compiler will do the rest.
 
@@ -93,7 +93,7 @@ in Mocha, which just copies the value and passes it on by reference to C code.
 
 Here is an example::
 
-        // mod.ff
+        // mod.x
 
         type User {
                 name: str

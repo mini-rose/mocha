@@ -167,6 +167,7 @@ void expr_print_value_expr(value_expr_t *val, int level)
 	case VE_SUB:
 	case VE_MUL:
 	case VE_DIV:
+	case VE_MOD:
 		printf("op: %s\n", value_expr_type_name(val->type));
 		if (val->left)
 			expr_print_value_expr(val->left, level + 1);

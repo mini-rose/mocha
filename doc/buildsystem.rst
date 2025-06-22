@@ -19,7 +19,7 @@ Example
 
 Here is an example .x file::
 
-        source = 'main.ff'
+        source = 'main.x'
         output = 'main'
         sysroot = '../'
         flags = [ '-p', '-Eno-stack', '-O3' ]

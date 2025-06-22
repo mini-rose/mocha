@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 # Script for running & checking all tests.
+from typing import Union
 # Copyright (c) 2023 mini-rose
 
 import subprocess
 import shutil
 import os
 
-TEST_GROUPS = ["language"]
+TEST_GROUPS = ["test/language"]
 
 
 def collect_tests() -> list:
@@ -36,7 +37,7 @@ class TestSettings:
     @staticmethod
     def parse_value(value: str):
         if value == "true":
-            return True
+            return True, None
         if value == "false":
             return False
         else:
@@ -74,11 +75,11 @@ def parse_test_info(test_name: str, path: str) -> TestSettings:
     return settings
 
 
-def run_test(test_name: str) -> bool:
+def run_test(test_name: str, out_dir: str) -> tuple[bool, Union[bytes, None]]:
     path = test_name.replace(".", "/")
     settings = parse_test_info(test_name, path)
 
-    cmd = ["xc", "-o../../__out__/test", "test.ff"]
+    cmd = [os.path.abspath("xc/xc"), "--sysroot=" + os.path.abspath("lib"), "-o" + os.path.join(out_dir, "test"), "test.x"]
     if settings.fields["flags"]:
         cmd.extend(settings.fields["flags"].split())
 
@@ -86,15 +87,15 @@ def run_test(test_name: str) -> bool:
     if len(res.stderr):
         # if the test should fail, make it pass.
         if settings.fields["fails"]:
-            return True
-        print(str(res.stderr, "utf8"))
-        return False
+            return True, None
+        return False, res.stderr
+        return False, res.stderr
 
     if settings.fields["fails"] and not len(res.stderr):
-        return False
+        return False, None
 
     # If it compiles, run it.
-    res = subprocess.run(["__out__/test"], capture_output=True)
+    res = subprocess.run([f"{out_dir}/test"], capture_output=True)
     if os.path.exists(path + "/test.result"):
         with open(path + "/test.result", "rb") as f:
             should_be = f.read()
@@ -104,42 +105,53 @@ def run_test(test_name: str) -> bool:
             print("\033[92m" + str(should_be, "utf8") + "\033[0m")
             print("And is:")
             print("\033[91m" + str(res.stdout, "utf8") + "\033[0m")
-            return False
+            return False, None
 
-        return True
+        return True, None
 
-    return True
+    return True, None
 
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def run_test_with_unique_binary(test_name: str, out_dir: str) -> tuple[str, bool, Union[bytes, None]]:
+    """Run a single test with a unique binary name."""
+    binary_name = os.path.join(out_dir, f"test_{test_name.replace('.', '_')}")
+    success, stderr = run_test(test_name, binary_name)
+    return test_name, success, stderr
 
 def main():
     tests = collect_tests()
     passed = 0
 
-    print(f"Running {len(tests)} tests:")
-
-    if not os.path.exists("__out__"):
-        os.mkdir("__out__")
+    out_dir = os.path.abspath("./test/__out__")
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
 
     try:
-        for test in tests:
-            print("  \033[97mrunning\033[0m", test, end=" ")
-            if run_test(test):
-                print("\033[92mOK\033[0m")
+        for i, test in enumerate(tests):
+            print(f"[{i + 1}/{len(tests)}] {test}", end="", flush=True)
+            success, stderr = run_test(test, out_dir)
+            if success:
                 passed += 1
+                print("\033[2K\r", end="")
             else:
-                print("\033[91mFAIL\033[0m")
+                print(f"\033[2K\r[{i + 1}/{len(tests)}] \033[91m{test}\033[0m")
+                if stderr:
+                    print(f"  {str(stderr, 'utf8').strip()}")
     except KeyboardInterrupt:
-        print()
+        print("\nTests interrupted.")
 
+    percent = (passed / len(tests)) * 100 if tests else 0
     if len(tests) == passed:
         print("\033[92m", end="")
     else:
         print("\033[91m", end="")
 
-    print(f"Passed [{passed}/{len(tests)}] tests\033[0m")
+    print(f"Passed {passed}/{len(tests)} ({percent:.2f}%) tests\033[0m")
 
-    if os.path.exists("__out__"):
-        shutil.rmtree("__out__")
+    if os.path.exists(out_dir):
+        shutil.rmtree(out_dir)
 
 
 main()

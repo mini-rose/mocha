@@ -53,7 +53,7 @@ expr_t *module_import_impl(settings_t *settings, expr_t *module_expr,
 		working_dir = slab_strdup(".");
 	}
 
-	snprintf(pathbuf, 512, "%s.ff", file);
+	snprintf(pathbuf, 512, "%s.x", file);
 
 	fil = file_new_null(pathbuf);
 	if (!fil)
@@ -97,7 +97,7 @@ expr_t *module_std_import(settings_t *settings, expr_t *module, char *file)
 	expr_t *imported;
 	int n;
 
-	snprintf(path, 512, "%s/lib%s%s", settings->sysroot,
+	snprintf(path, 512, "%s/%s%s", settings->sysroot,
 		 *file == '/' ? "" : "/", file);
 
 	imported = module_import_impl(settings, module, path);

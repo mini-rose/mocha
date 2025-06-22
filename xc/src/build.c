@@ -125,9 +125,9 @@ char *compile_c_object(settings_t *settings, char *file)
 static void import_builtins(settings_t *settings, expr_t *module)
 {
 	char *paths[] = {
-	    "std/builtin/stack",
-	    "std/builtin/cast",
-	    "std/builtin/string",
+	    "builtin/stack",
+	    "builtin/cast",
+	    "builtin/string",
 	};
 
 	for (size_t i = 0; i < LEN(paths); i++) {

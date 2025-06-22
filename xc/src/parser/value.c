@@ -246,9 +246,9 @@ static bool operator_predeces(value_expr_type self, value_expr_type other)
 	};
 
 	/* The lower the number is, the "more important" the operation is. */
-	static const struct precendence opp[] = {{VE_MUL, 5}, {VE_DIV, 5},
-						 {VE_ADD, 6}, {VE_SUB, 6},
-						 {VE_EQ, 10}, {VE_NEQ, 10}};
+	static const struct precendence opp[] = {
+	    {VE_MUL, 5}, {VE_DIV, 5}, {VE_MOD, 5}, {VE_ADD, 6},
+	    {VE_SUB, 6}, {VE_EQ, 10}, {VE_NEQ, 10}};
 
 	struct precendence self_p = {VE_NULL, 100};
 	struct precendence other_p = {VE_NULL, 100};
